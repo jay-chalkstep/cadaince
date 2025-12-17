@@ -111,5 +111,5 @@ apps/web/
 - Swift/SwiftUI implementation
 
 ### Sprint 6: Intelligence
-- Morning briefing generation with Claude
-- Pre-meeting synthesis
+- [x] Morning briefing generation with Claude
+- [x] Pre-meeting synthesis (integrated into briefings)

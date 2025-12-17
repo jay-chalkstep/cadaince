@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.71.2",
     "@clerk/nextjs": "^6.36.3",
     "@deepgram/sdk": "^4.11.2",
     "@mux/mux-node": "^12.8.1",
