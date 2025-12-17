@@ -1,0 +1,18 @@
+export default function MeetingsPage() {
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">Meetings</h1>
+        <div className="flex gap-2">
+          {/* Schedule button will go here */}
+        </div>
+      </div>
+
+      <div className="rounded-lg border p-6">
+        <p className="text-muted-foreground">
+          L10 meetings will be displayed here.
+        </p>
+      </div>
+    </div>
+  );
+}
