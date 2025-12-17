@@ -88,12 +88,12 @@ apps/web/
 - [x] Seed database with Choice Digital users/pillars
 
 ### Sprint 2: EOS Core
-- Metrics CRUD API routes
-- Scorecard page with table view
-- Rocks CRUD API routes
-- Rocks page with status cards
-- Issues CRUD API routes
-- To-Dos CRUD API routes
+- [x] Metrics CRUD API routes
+- [x] Scorecard page with table view
+- [x] Rocks CRUD API routes
+- [x] Rocks page with status cards
+- [x] Issues CRUD API routes and page
+- [x] To-Dos CRUD API routes and page
 
 ### Sprint 3: Updates
 - Updates CRUD API routes
