@@ -65,6 +65,19 @@ export function VideoRecorder({
     };
   }, []);
 
+  // Attach stream to video element when both are available
+  useEffect(() => {
+    if (
+      (state === "previewing" || state === "recording") &&
+      streamRef.current &&
+      videoPreviewRef.current &&
+      videoPreviewRef.current.srcObject !== streamRef.current
+    ) {
+      videoPreviewRef.current.srcObject = streamRef.current;
+      videoPreviewRef.current.play().catch(console.error);
+    }
+  }, [state]);
+
   const stopStream = useCallback(() => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
