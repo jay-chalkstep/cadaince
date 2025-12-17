@@ -96,9 +96,10 @@ apps/web/
 - [x] To-Dos CRUD API routes and page
 
 ### Sprint 3: Updates
-- Updates CRUD API routes
-- Video upload with Mux
-- Transcription with Deepgram
+- [x] Updates CRUD API routes
+- [x] Updates page with feed view
+- [x] Video upload with Mux
+- [x] Transcription with Deepgram
 
 ### Sprint 4: Alerts & Private Notes
 - Alert system
