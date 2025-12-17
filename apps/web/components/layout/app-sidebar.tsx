@@ -10,6 +10,7 @@ import {
   FileText,
   Home,
   MessageSquare,
+  MessageSquareLock,
   Settings,
   Users,
 } from "lucide-react";
@@ -39,6 +40,8 @@ const mainNavItems = [
 ];
 
 const secondaryNavItems = [
+  { title: "Alerts", href: "/alerts", icon: Bell },
+  { title: "Private Notes", href: "/notes", icon: MessageSquareLock },
   { title: "Meetings", href: "/meetings", icon: Calendar },
 ];
 

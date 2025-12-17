@@ -102,8 +102,10 @@ apps/web/
 - [x] Transcription with Deepgram
 
 ### Sprint 4: Alerts & Private Notes
-- Alert system
-- Private notes for sensitive communication
+- [x] Alerts CRUD API with acknowledgment system
+- [x] Alerts page with type icons and acknowledgment tracking
+- [x] Private Notes CRUD API with status workflow
+- [x] Private Notes page (sent/received views)
 
 ### Sprint 5: iOS App
 - Swift/SwiftUI implementation
