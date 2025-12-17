@@ -69,6 +69,15 @@ apps/web/
 - UI: verify in browser after each component
 - Document any manual testing done in commit message if relevant
 
+## Vercel Deployment - IMPORTANT
+
+**DO NOT create a vercel.json file at the repository root.** This is a monorepo with the Next.js app in `apps/web/`. The Vercel project is configured via the dashboard with Root Directory set to `apps/web/`. Adding a root-level vercel.json causes build failures and conflicts with this configuration.
+
+If there are deployment issues, the fix is NOT vercel.json. Check:
+1. Environment variables are set in Vercel dashboard
+2. The Root Directory setting in Vercel points to `apps/web`
+3. API route code for runtime errors
+
 ## When Stuck
 - Check the technical spec in `/Docs/cadence-technical-spec.md`
 - Follow the implementation sequence (Sprint 1 → 2 → 3...)
