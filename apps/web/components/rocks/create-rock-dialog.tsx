@@ -174,7 +174,7 @@ export function CreateRockDialog({
                 </SelectTrigger>
                 <SelectContent>
                   {loading ? (
-                    <SelectItem value="" disabled>Loading...</SelectItem>
+                    <SelectItem value="__loading__" disabled>Loading...</SelectItem>
                   ) : (
                     profiles.map((profile) => (
                       <SelectItem key={profile.id} value={profile.id}>
@@ -188,12 +188,12 @@ export function CreateRockDialog({
 
             <div className="space-y-2">
               <Label htmlFor="pillar">Pillar</Label>
-              <Select value={pillarId} onValueChange={setPillarId}>
+              <Select value={pillarId || "__none__"} onValueChange={(v) => setPillarId(v === "__none__" ? "" : v)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select pillar (optional)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="__none__">None</SelectItem>
                   {pillars.map((pillar) => (
                     <SelectItem key={pillar.id} value={pillar.id}>
                       {pillar.name}

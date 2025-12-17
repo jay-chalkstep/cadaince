@@ -91,7 +91,7 @@ export function CreateTodoDialog({
         body: JSON.stringify({
           title,
           description: description || null,
-          owner_id: ownerId || null,
+          owner_id: ownerId && ownerId !== "__me__" ? ownerId : null,
           due_date: dueDate || null,
         }),
       });
@@ -150,9 +150,9 @@ export function CreateTodoDialog({
                     <SelectValue placeholder="Assign to" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Me (default)</SelectItem>
+                    <SelectItem value="__me__">Me (default)</SelectItem>
                     {loading ? (
-                      <SelectItem value="" disabled>Loading...</SelectItem>
+                      <SelectItem value="__loading__" disabled>Loading...</SelectItem>
                     ) : (
                       profiles.map((profile) => (
                         <SelectItem key={profile.id} value={profile.id}>
