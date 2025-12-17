@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Loader2, Video, FileText, Upload, X } from "lucide-react";
+import { Loader2, Video, FileText, Upload, X, Camera } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { VideoRecorder } from "./video-recorder";
 
 interface CreateUpdateDialogProps {
   open: boolean;
@@ -37,6 +38,8 @@ export function CreateUpdateDialog({
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [format, setFormat] = useState<"text" | "video">("text");
+  const [videoMode, setVideoMode] = useState<"record" | "upload">("record");
+  const [showRecorder, setShowRecorder] = useState(false);
   const [type, setType] = useState("general");
   const [content, setContent] = useState("");
   const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -45,6 +48,8 @@ export function CreateUpdateDialog({
 
   const resetForm = () => {
     setFormat("text");
+    setVideoMode("record");
+    setShowRecorder(false);
     setType("general");
     setContent("");
     setVideoFile(null);
@@ -178,28 +183,18 @@ export function CreateUpdateDialog({
 
             <TabsContent value="video" className="mt-4">
               <div className="space-y-4">
-                {!videoFile ? (
-                  <div
-                    className="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:border-primary transition-colors"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                    <p className="text-sm font-medium">Click to upload video</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      MP4, MOV, or WebM up to 500MB
-                    </p>
-                  </div>
-                ) : (
+                {/* Video already uploaded - show success */}
+                {videoAssetId && !showRecorder && (
                   <div className="border rounded-lg p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <Video className="h-8 w-8 text-muted-foreground" />
+                        <Video className="h-8 w-8 text-green-600" />
                         <div>
-                          <p className="text-sm font-medium truncate max-w-[200px]">
-                            {videoFile.name}
+                          <p className="text-sm font-medium">
+                            {videoFile ? videoFile.name : "Recorded video"}
                           </p>
-                          <p className="text-xs text-muted-foreground">
-                            {(videoFile.size / (1024 * 1024)).toFixed(1)} MB
+                          <p className="text-xs text-green-600">
+                            Video ready to post
                           </p>
                         </div>
                       </div>
@@ -208,31 +203,127 @@ export function CreateUpdateDialog({
                         variant="ghost"
                         size="icon"
                         onClick={removeVideo}
-                        disabled={uploading}
                       >
                         <X className="h-4 w-4" />
                       </Button>
                     </div>
-                    {uploading && (
-                      <div className="mt-3">
-                        <div className="h-2 bg-muted rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-primary transition-all"
-                            style={{ width: `${uploadProgress}%` }}
-                          />
-                        </div>
+                  </div>
+                )}
+
+                {/* Show recorder */}
+                {showRecorder && !videoAssetId && (
+                  <VideoRecorder
+                    onComplete={(uploadId) => {
+                      setVideoAssetId(uploadId);
+                      setShowRecorder(false);
+                    }}
+                    onCancel={() => setShowRecorder(false)}
+                  />
+                )}
+
+                {/* Video mode selection - shown when no video and not recording */}
+                {!videoAssetId && !showRecorder && (
+                  <>
+                    {/* Mode toggle */}
+                    <div className="flex gap-2 p-1 bg-muted rounded-lg">
+                      <button
+                        type="button"
+                        onClick={() => setVideoMode("record")}
+                        className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
+                          videoMode === "record"
+                            ? "bg-background shadow-sm"
+                            : "hover:bg-background/50"
+                        }`}
+                      >
+                        <Camera className="h-4 w-4" />
+                        Record
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setVideoMode("upload")}
+                        className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
+                          videoMode === "upload"
+                            ? "bg-background shadow-sm"
+                            : "hover:bg-background/50"
+                        }`}
+                      >
+                        <Upload className="h-4 w-4" />
+                        Upload
+                      </button>
+                    </div>
+
+                    {/* Record mode */}
+                    {videoMode === "record" && (
+                      <div
+                        className="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:border-primary transition-colors"
+                        onClick={() => setShowRecorder(true)}
+                      >
+                        <Camera className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                        <p className="text-sm font-medium">Record a video</p>
                         <p className="text-xs text-muted-foreground mt-1">
-                          Uploading... {uploadProgress}%
+                          Use your camera to record up to 3 minutes
                         </p>
                       </div>
                     )}
-                    {!uploading && videoAssetId && (
-                      <p className="text-xs text-green-600 mt-2">
-                        Video uploaded successfully
-                      </p>
+
+                    {/* Upload mode */}
+                    {videoMode === "upload" && (
+                      <>
+                        {!videoFile ? (
+                          <div
+                            className="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:border-primary transition-colors"
+                            onClick={() => fileInputRef.current?.click()}
+                          >
+                            <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                            <p className="text-sm font-medium">Click to upload video</p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              MP4, MOV, or WebM up to 500MB
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="border rounded-lg p-4">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <Video className="h-8 w-8 text-muted-foreground" />
+                                <div>
+                                  <p className="text-sm font-medium truncate max-w-[200px]">
+                                    {videoFile.name}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {(videoFile.size / (1024 * 1024)).toFixed(1)} MB
+                                  </p>
+                                </div>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={removeVideo}
+                                disabled={uploading}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                            {uploading && (
+                              <div className="mt-3">
+                                <div className="h-2 bg-muted rounded-full overflow-hidden">
+                                  <div
+                                    className="h-full bg-primary transition-all"
+                                    style={{ width: `${uploadProgress}%` }}
+                                  />
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  Uploading... {uploadProgress}%
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </>
                     )}
-                  </div>
+                  </>
                 )}
+
                 <input
                   ref={fileInputRef}
                   type="file"
