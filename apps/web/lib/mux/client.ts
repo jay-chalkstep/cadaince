@@ -1,11 +1,32 @@
 import Mux from "@mux/mux-node";
 
-// Initialize Mux client
+// Lazy-initialized Mux client
 // Requires MUX_TOKEN_ID and MUX_TOKEN_SECRET environment variables
-export const mux = new Mux({
-  tokenId: process.env.MUX_TOKEN_ID,
-  tokenSecret: process.env.MUX_TOKEN_SECRET,
-});
+let muxClient: Mux | null = null;
+
+export function getMuxClient(): Mux | null {
+  if (!process.env.MUX_TOKEN_ID || !process.env.MUX_TOKEN_SECRET) {
+    return null;
+  }
+  if (!muxClient) {
+    muxClient = new Mux({
+      tokenId: process.env.MUX_TOKEN_ID,
+      tokenSecret: process.env.MUX_TOKEN_SECRET,
+    });
+  }
+  return muxClient;
+}
+
+// Legacy export for backwards compatibility
+export const mux = {
+  get video() {
+    const client = getMuxClient();
+    if (!client) {
+      throw new Error("Mux credentials not configured. Please set MUX_TOKEN_ID and MUX_TOKEN_SECRET.");
+    }
+    return client.video;
+  },
+};
 
 // Get playback URL for an asset
 export function getPlaybackUrl(playbackId: string): string {
