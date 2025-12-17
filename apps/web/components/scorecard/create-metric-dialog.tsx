@@ -159,7 +159,7 @@ export function CreateMetricDialog({
                 </SelectTrigger>
                 <SelectContent>
                   {loading ? (
-                    <SelectItem value="" disabled>Loading...</SelectItem>
+                    <SelectItem value="__loading__" disabled>Loading...</SelectItem>
                   ) : (
                     profiles.map((profile) => (
                       <SelectItem key={profile.id} value={profile.id}>

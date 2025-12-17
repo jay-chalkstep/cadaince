@@ -118,7 +118,7 @@ export function CreateNoteDialog({
                 </SelectTrigger>
                 <SelectContent>
                   {loading ? (
-                    <SelectItem value="" disabled>
+                    <SelectItem value="__loading__" disabled>
                       Loading...
                     </SelectItem>
                   ) : (

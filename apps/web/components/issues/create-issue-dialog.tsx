@@ -175,14 +175,14 @@ export function CreateIssueDialog({
 
             <div className="space-y-2">
               <Label htmlFor="owner">Owner (optional)</Label>
-              <Select value={ownerId} onValueChange={setOwnerId}>
+              <Select value={ownerId || "__unassigned__"} onValueChange={(v) => setOwnerId(v === "__unassigned__" ? "" : v)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Assign to someone" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Unassigned</SelectItem>
+                  <SelectItem value="__unassigned__">Unassigned</SelectItem>
                   {loading ? (
-                    <SelectItem value="" disabled>Loading...</SelectItem>
+                    <SelectItem value="__loading__" disabled>Loading...</SelectItem>
                   ) : (
                     profiles.map((profile) => (
                       <SelectItem key={profile.id} value={profile.id}>
