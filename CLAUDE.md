@@ -80,12 +80,12 @@ apps/web/
 - [x] Initialize Next.js 14 project with App Router
 - [x] Configure Tailwind + shadcn/ui
 - [x] Create folder structure
-- [ ] Set up Supabase project
-- [ ] Run database migrations
-- [ ] Integrate Clerk authentication
-- [ ] Build app shell (sidebar, header, routing)
-- [ ] Create Clerk webhook to sync users to profiles
-- [ ] Seed database with Choice Digital users/pillars
+- [x] Set up Supabase project
+- [x] Run database migrations (SQL files in supabase/migrations/)
+- [x] Integrate Clerk authentication
+- [x] Build app shell (sidebar, header, routing)
+- [x] Create Clerk webhook to sync users to profiles
+- [x] Seed database with Choice Digital users/pillars
 
 ### Sprint 2: EOS Core
 - Metrics CRUD API routes
