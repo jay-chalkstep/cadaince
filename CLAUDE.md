@@ -96,17 +96,20 @@ apps/web/
 - [x] To-Dos CRUD API routes and page
 
 ### Sprint 3: Updates
-- Updates CRUD API routes
-- Video upload with Mux
-- Transcription with Deepgram
+- [x] Updates CRUD API routes
+- [x] Updates page with feed view
+- [x] Video upload with Mux
+- [x] Transcription with Deepgram
 
 ### Sprint 4: Alerts & Private Notes
-- Alert system
-- Private notes for sensitive communication
+- [x] Alerts CRUD API with acknowledgment system
+- [x] Alerts page with type icons and acknowledgment tracking
+- [x] Private Notes CRUD API with status workflow
+- [x] Private Notes page (sent/received views)
 
 ### Sprint 5: iOS App
 - Swift/SwiftUI implementation
 
 ### Sprint 6: Intelligence
-- Morning briefing generation with Claude
-- Pre-meeting synthesis
+- [x] Morning briefing generation with Claude
+- [x] Pre-meeting synthesis (integrated into briefings)
