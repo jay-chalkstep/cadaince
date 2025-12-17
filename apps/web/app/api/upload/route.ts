@@ -1,13 +1,21 @@
 import { auth } from "@clerk/nextjs/server";
 import { createAdminClient } from "@/lib/supabase/server";
-import { mux } from "@/lib/mux/client";
+import { getMuxClient } from "@/lib/mux/client";
 import { NextResponse } from "next/server";
 
 // POST /api/upload - Create a direct upload URL for Mux
-export async function POST(req: Request) {
+export async function POST() {
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const mux = getMuxClient();
+  if (!mux) {
+    return NextResponse.json(
+      { error: "Video upload not configured. Please set MUX_TOKEN_ID and MUX_TOKEN_SECRET." },
+      { status: 503 }
+    );
   }
 
   const supabase = createAdminClient();
