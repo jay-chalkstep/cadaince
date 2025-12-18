@@ -41,14 +41,14 @@ export async function syncMetric(metric: Metric): Promise<SyncResult> {
         if (!metric.source_config) {
           throw new Error("HubSpot metric missing source_config");
         }
-        result = await fetchHubSpotMetric(metric.source_config as HubSpotMetricConfig);
+        result = await fetchHubSpotMetric(metric.source_config as unknown as HubSpotMetricConfig);
         break;
 
       case "bigquery":
         if (!metric.source_config) {
           throw new Error("BigQuery metric missing source_config");
         }
-        result = await fetchBigQueryMetric(metric.source_config as BigQueryMetricConfig);
+        result = await fetchBigQueryMetric(metric.source_config as unknown as BigQueryMetricConfig);
         break;
 
       default:
