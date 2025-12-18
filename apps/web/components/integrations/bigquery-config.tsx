@@ -157,8 +157,8 @@ export function BigQueryConfig({ integration, onUpdate }: BigQueryConfigProps) {
                 <div className="font-medium">{testResult.message}</div>
                 {testResult.details && (
                   <div className="mt-1 text-sm">
-                    {testResult.details.service_account && (
-                      <div>Service Account: {testResult.details.service_account as string}</div>
+                    {typeof testResult.details.service_account === "string" && (
+                      <div>Service Account: {testResult.details.service_account}</div>
                     )}
                   </div>
                 )}
