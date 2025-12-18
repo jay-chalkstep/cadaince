@@ -20,7 +20,19 @@ export interface BriefingContext {
     name: string;
     role: string;
     pillar: string | null;
+    access_level: string;
   };
+  // V/TO Strategic Context
+  vto: {
+    purpose: string | null;
+    ten_year_target: string | null;
+    three_year_revenue: number | null;
+    three_year_target_date: string | null;
+    one_year_revenue: number | null;
+    one_year_profit: number | null;
+    one_year_target_date: string | null;
+    one_year_goals: Array<{ goal: string; measurable: string }>;
+  } | null;
   metrics: Array<{
     name: string;
     current_value: number | null;
@@ -29,12 +41,20 @@ export interface BriefingContext {
     status: string;
     owner: string;
   }>;
+  // Anomalies detected from external data
+  anomalies: Array<{
+    metric_name: string;
+    type: string;
+    severity: string;
+    message: string;
+  }>;
   rocks: Array<{
     name: string;
     status: string;
     owner: string;
     quarter: number;
     year: number;
+    due_date: string | null;
   }>;
   issues: Array<{
     title: string;
@@ -87,30 +107,67 @@ Generate a concise, actionable morning briefing based on the provided context.
 Your response must be valid JSON matching this structure:
 {
   "greeting": "A brief, personalized greeting",
-  "summary": "2-3 sentence overview of the day's priorities",
+  "summary": "2-3 sentence overview of the day's priorities, referencing strategic goals when relevant",
   "highlights": ["Array of 2-4 positive developments or wins"],
-  "attention_needed": ["Array of 2-4 items requiring attention, ordered by urgency"],
+  "attention_needed": ["Array of 2-4 items requiring attention, ordered by urgency/impact"],
   "opportunities": ["Array of 1-2 strategic opportunities or suggestions"],
   "meeting_prep": "If there's an upcoming meeting, brief prep notes. Otherwise null"
 }
 
 Guidelines:
 - Be concise and direct - executives are busy
-- Prioritize by business impact
-- Use specific numbers and names when relevant
-- Flag urgent items clearly
+- Prioritize by business impact and alignment with strategic goals
+- Reference the V/TO (Vision/Traction Organizer) context to connect daily activities to strategic objectives
+- Use specific numbers, percentages, and names when relevant
+- Flag urgent items clearly, especially threshold breaches and anomalies
 - Keep the tone professional but warm
-- Focus on actionable insights, not just status updates`;
+- Focus on actionable insights, not just status updates
+- For ELT members, emphasize strategic posture and decisions needed
+- For pillar leads, emphasize domain-specific items plus cross-functional awareness
+- Highlight progress toward 1-Year Plan goals when data is available`;
 
-  const userPrompt = `Generate a morning briefing for ${context.user.name} (${context.user.role}${context.user.pillar ? `, ${context.user.pillar}` : ""}).
+  // Build strategic context from V/TO
+  const strategicContext = context.vto
+    ? `
+STRATEGIC CONTEXT (V/TO):
+- Purpose: ${context.vto.purpose || "Not defined"}
+- 10-Year Target: ${context.vto.ten_year_target || "Not defined"}
+${context.vto.one_year_revenue ? `- 1-Year Revenue Goal: $${context.vto.one_year_revenue.toLocaleString()}${context.vto.one_year_target_date ? ` (by ${new Date(context.vto.one_year_target_date).toLocaleDateString()})` : ""}` : ""}
+${context.vto.one_year_profit ? `- 1-Year Profit Goal: $${context.vto.one_year_profit.toLocaleString()}` : ""}
+${context.vto.one_year_goals?.length > 0 ? `- Key Goals: ${context.vto.one_year_goals.map((g) => g.goal).join("; ")}` : ""}
+`
+    : "";
 
+  // Build anomaly alerts
+  const anomalyAlerts = context.anomalies?.length > 0
+    ? `
+DATA ANOMALIES DETECTED (${context.anomalies.length}):
+${context.anomalies.slice(0, 5).map((a) => `- [${a.severity.toUpperCase()}] ${a.metric_name}: ${a.message}`).join("\n")}`
+    : "";
+
+  // Calculate rocks at risk
+  const rocksAtRisk = context.rocks.filter(
+    (r) => r.status === "at_risk" || r.status === "off_track"
+  );
+  const rocksDueSoon = context.rocks.filter((r) => {
+    if (!r.due_date) return false;
+    const daysUntilDue = Math.ceil(
+      (new Date(r.due_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+    );
+    return daysUntilDue <= 14 && daysUntilDue > 0;
+  });
+
+  const userPrompt = `Generate a morning briefing for ${context.user.name} (${context.user.role}${context.user.pillar ? `, ${context.user.pillar}` : ""}, ${context.user.access_level}).
+${strategicContext}
 CURRENT STATE:
 
 Metrics (${context.metrics.length} tracked):
 ${context.metrics.map((m) => `- ${m.name}: ${m.current_value ?? "No data"} (Goal: ${m.goal ?? "None"}, ${m.status}, ${m.trend} trend, Owner: ${m.owner})`).join("\n") || "No metrics data"}
+${anomalyAlerts}
 
-Rocks this quarter (${context.rocks.length}):
-${context.rocks.map((r) => `- ${r.name}: ${r.status} (Owner: ${r.owner})`).join("\n") || "No rocks"}
+Rocks this quarter (${context.rocks.length}${rocksAtRisk.length > 0 ? `, ${rocksAtRisk.length} at risk` : ""}):
+${context.rocks.map((r) => `- ${r.name}: ${r.status} (Owner: ${r.owner}${r.due_date ? `, Due: ${new Date(r.due_date).toLocaleDateString()}` : ""})`).join("\n") || "No rocks"}
+${rocksDueSoon.length > 0 ? `\nRocks due in next 14 days: ${rocksDueSoon.map((r) => r.name).join(", ")}` : ""}
 
 Open Issues (${context.issues.length}):
 ${context.issues.slice(0, 5).map((i) => `- [Priority ${i.priority}] ${i.title} (Owner: ${i.owner || "Unassigned"})`).join("\n") || "No open issues"}
