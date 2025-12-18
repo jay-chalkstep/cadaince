@@ -7,6 +7,7 @@ import {
   Calendar,
   CheckSquare,
   CircleDot,
+  Compass,
   FileText,
   Home,
   MessageSquare,
@@ -32,6 +33,7 @@ import {
 
 const mainNavItems = [
   { title: "Briefing", href: "/briefing", icon: BookOpen },
+  { title: "Vision", href: "/vision", icon: Compass },
   { title: "Scorecard", href: "/scorecard", icon: BarChart3 },
   { title: "Rocks", href: "/rocks", icon: CircleDot },
   { title: "Issues", href: "/issues", icon: MessageSquare },
@@ -46,7 +48,7 @@ const secondaryNavItems = [
 ];
 
 const settingsNavItems = [
-  { title: "People", href: "/people", icon: Users },
+  { title: "Team", href: "/team", icon: Users },
   { title: "Settings", href: "/settings", icon: Settings },
 ];
 
