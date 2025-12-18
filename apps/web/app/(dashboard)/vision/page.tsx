@@ -13,7 +13,9 @@ import {
   Save,
   X,
   Heart,
+  Settings2,
 } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -186,12 +188,22 @@ export default function VisionPage() {
             The strategic foundation that guides everything we do.
           </p>
         </div>
-        {vto?.updated_at && (
-          <p className="text-xs text-muted-foreground">
-            Last updated {new Date(vto.updated_at).toLocaleDateString()}{" "}
-            {vto.updated_by_profile && `by ${vto.updated_by_profile.full_name}`}
-          </p>
-        )}
+        <div className="flex items-center gap-4">
+          {vto?.updated_at && (
+            <p className="text-xs text-muted-foreground">
+              Last updated {new Date(vto.updated_at).toLocaleDateString()}{" "}
+              {vto.updated_by_profile && `by ${vto.updated_by_profile.full_name}`}
+            </p>
+          )}
+          {isAdmin && (
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/settings/vto">
+                <Settings2 className="h-4 w-4 mr-2" />
+                Edit V/TO
+              </Link>
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Core Values */}
