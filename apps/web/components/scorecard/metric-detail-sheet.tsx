@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { TrendingUp, TrendingDown, Minus, Loader2 } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Loader2, Settings2, Database } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
+import { MetricSourceDialog } from "@/components/integrations/metric-source-dialog";
 
 interface MetricValue {
   id: string;
@@ -36,6 +37,8 @@ interface Metric {
   recorded_at: string | null;
   trend: "up" | "down" | "flat";
   status: "on_track" | "at_risk" | "off_track";
+  source_type?: string;
+  source_config?: Record<string, unknown> | null;
   owner: {
     id: string;
     full_name: string;
@@ -61,6 +64,7 @@ export function MetricDetailSheet({
   const [newValue, setNewValue] = useState("");
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [sourceDialogOpen, setSourceDialogOpen] = useState(false);
 
   useEffect(() => {
     if (metric && open) {
@@ -204,6 +208,27 @@ export function MetricDetailSheet({
             </div>
           )}
 
+          {/* Data Source */}
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div className="flex items-center gap-3">
+              <Database className="h-5 w-5 text-muted-foreground" />
+              <div>
+                <p className="text-sm font-medium">Data Source</p>
+                <p className="text-sm text-muted-foreground capitalize">
+                  {metric.source_type || "manual"}
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSourceDialogOpen(true)}
+            >
+              <Settings2 className="mr-1.5 h-4 w-4" />
+              Configure
+            </Button>
+          </div>
+
           <Separator />
 
           {/* Record New Value */}
@@ -277,6 +302,16 @@ export function MetricDetailSheet({
             )}
           </div>
         </div>
+
+        <MetricSourceDialog
+          open={sourceDialogOpen}
+          onOpenChange={setSourceDialogOpen}
+          metric={metric}
+          onSave={() => {
+            onUpdate();
+            setSourceDialogOpen(false);
+          }}
+        />
       </SheetContent>
     </Sheet>
   );
