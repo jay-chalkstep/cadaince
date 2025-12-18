@@ -10,10 +10,12 @@ import {
   Compass,
   FileText,
   Home,
+  Link2,
   MessageSquare,
   MessageSquareLock,
   Settings,
   Users,
+  Video,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -33,6 +35,7 @@ import {
 
 const mainNavItems = [
   { title: "Briefing", href: "/briefing", icon: BookOpen },
+  { title: "L10", href: "/l10", icon: Video },
   { title: "Vision", href: "/vision", icon: Compass },
   { title: "Scorecard", href: "/scorecard", icon: BarChart3 },
   { title: "Rocks", href: "/rocks", icon: CircleDot },
@@ -49,11 +52,19 @@ const secondaryNavItems = [
 
 const settingsNavItems = [
   { title: "Team", href: "/team", icon: Users },
+  { title: "Integrations", href: "/settings/integrations", icon: Link2 },
   { title: "Settings", href: "/settings", icon: Settings },
 ];
 
 export function AppSidebar() {
   const pathname = usePathname();
+
+  const isActive = (href: string) => {
+    if (href === pathname) return true;
+    // Handle nested routes - /l10/xxx should highlight L10
+    if (href !== "/" && pathname.startsWith(href + "/")) return true;
+    return false;
+  };
 
   return (
     <Sidebar>
@@ -70,7 +81,7 @@ export function AppSidebar() {
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton
                     asChild
-                    isActive={pathname === item.href}
+                    isActive={isActive(item.href)}
                   >
                     <Link href={item.href}>
                       <item.icon className="h-4 w-4" />
@@ -92,7 +103,7 @@ export function AppSidebar() {
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton
                     asChild
-                    isActive={pathname === item.href}
+                    isActive={isActive(item.href)}
                   >
                     <Link href={item.href}>
                       <item.icon className="h-4 w-4" />
@@ -114,7 +125,7 @@ export function AppSidebar() {
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton
                     asChild
-                    isActive={pathname === item.href}
+                    isActive={isActive(item.href)}
                   >
                     <Link href={item.href}>
                       <item.icon className="h-4 w-4" />
