@@ -176,7 +176,9 @@ export function TeamMemberDetailSheet({
               <SheetTitle className="flex items-center gap-2">
                 {member.full_name}
                 {member.is_pillar_lead && (
-                  <Shield className="h-4 w-4 text-indigo-600" title="Pillar Lead" />
+                  <span title="Pillar Lead">
+                    <Shield className="h-4 w-4 text-indigo-600" />
+                  </span>
                 )}
               </SheetTitle>
               <SheetDescription>{member.title || member.role}</SheetDescription>

@@ -308,7 +308,9 @@ export default function TeamPage() {
                   <div className="flex items-center gap-2">
                     <h3 className="font-medium truncate">{member.full_name}</h3>
                     {member.is_pillar_lead && (
-                      <Shield className="h-4 w-4 text-indigo-600" title="Pillar Lead" />
+                      <span title="Pillar Lead">
+                        <Shield className="h-4 w-4 text-indigo-600" />
+                      </span>
                     )}
                   </div>
                   <p className="text-sm text-muted-foreground truncate">
