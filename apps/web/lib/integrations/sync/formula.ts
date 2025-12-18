@@ -71,7 +71,7 @@ async function fetchDataSourceValue(
       object: dataSource.hubspot_object as "deals" | "contacts" | "tickets" | "feedback_submissions",
       property: dataSource.hubspot_property!,
       aggregation: dataSource.hubspot_aggregation as "sum" | "avg" | "count" | "min" | "max",
-      filters: dataSource.hubspot_filters as Record<string, unknown> | undefined,
+      filters: dataSource.hubspot_filters as unknown as Record<string, unknown> | undefined,
       date_range: "custom",
       custom_date_field: "createdate",
     });

@@ -198,8 +198,8 @@ export default function ScorecardPage() {
         {/* Render value cells for each display window */}
         {displayWindows.map((window) => {
           const hasWindow = metric.time_windows?.includes(window);
-          const value = hasWindow ? metric.values_by_window?.[window] : null;
-          const status = hasWindow ? metric.status_by_window?.[window] : null;
+          const value = hasWindow ? (metric.values_by_window?.[window] ?? null) : null;
+          const status = hasWindow ? (metric.status_by_window?.[window] ?? null) : null;
 
           return (
             <TableCell key={window} className="text-right">
