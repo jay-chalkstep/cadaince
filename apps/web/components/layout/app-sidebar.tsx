@@ -14,6 +14,7 @@ import {
   MessageSquare,
   MessageSquareLock,
   Settings,
+  Settings2,
   Users,
   Video,
 } from "lucide-react";
@@ -52,6 +53,7 @@ const secondaryNavItems = [
 
 const settingsNavItems = [
   { title: "Team", href: "/team", icon: Users },
+  { title: "V/TO", href: "/settings/vto", icon: Settings2 },
   { title: "Integrations", href: "/settings/integrations", icon: Link2 },
   { title: "Settings", href: "/settings", icon: Settings },
 ];
