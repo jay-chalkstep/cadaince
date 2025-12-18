@@ -61,10 +61,11 @@ class BigQueryClient {
     }
 
     const data = await response.json();
-    this.accessToken = data.access_token;
+    const token: string = data.access_token;
+    this.accessToken = token;
     this.tokenExpiry = Date.now() + (data.expires_in * 1000);
 
-    return this.accessToken;
+    return token;
   }
 
   /**

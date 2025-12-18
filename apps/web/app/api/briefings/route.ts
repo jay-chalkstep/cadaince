@@ -22,6 +22,7 @@ export async function GET(req: Request) {
       id,
       full_name,
       role,
+      access_level,
       pillar:pillars(name)
     `)
     .eq("clerk_id", userId)
@@ -69,6 +70,7 @@ export async function GET(req: Request) {
       name: profile.full_name,
       role: profile.role,
       pillar: pillarData?.[0]?.name || null,
+      access_level: profile.access_level,
     },
     ...context,
   };
@@ -133,7 +135,7 @@ async function gatherBriefingContext(supabase: ReturnType<typeof createAdminClie
   const currentYear = now.getFullYear();
 
   // Fetch all context data in parallel
-  const [metricsResult, rocksResult, issuesResult, updatesResult, alertsResult, todosResult, meetingResult] =
+  const [metricsResult, rocksResult, issuesResult, updatesResult, alertsResult, todosResult, meetingResult, vtoResult, anomaliesResult] =
     await Promise.all([
       // Metrics with latest values
       supabase
@@ -142,8 +144,12 @@ async function gatherBriefingContext(supabase: ReturnType<typeof createAdminClie
           name,
           goal,
           unit,
-          owner:profiles!metrics_owner_id_fkey(full_name)
+          owner:profiles!metrics_owner_id_fkey(full_name),
+          metric_values(value, recorded_at)
         `)
+        .eq("is_active", true)
+        .order("recorded_at", { foreignTable: "metric_values", ascending: false })
+        .limit(1, { foreignTable: "metric_values" })
         .limit(20),
 
       // Current quarter rocks
@@ -153,17 +159,16 @@ async function gatherBriefingContext(supabase: ReturnType<typeof createAdminClie
           title,
           status,
           quarter,
-          year,
+          due_date,
           owner:profiles!rocks_owner_id_fkey(full_name)
         `)
-        .eq("quarter", currentQuarter)
-        .eq("year", currentYear),
+        .ilike("quarter", `%Q${currentQuarter}%`),
 
-      // Open issues
+      // Open issues (not resolved)
       supabase
         .from("issues")
-        .select("title, priority, created_at, owner:profiles!issues_owner_id_fkey(full_name)")
-        .eq("status", "open")
+        .select("title, priority, created_at, raised_by:profiles!issues_raised_by_fkey(full_name)")
+        .neq("status", "resolved")
         .order("priority", { ascending: true })
         .limit(10),
 
@@ -211,6 +216,37 @@ async function gatherBriefingContext(supabase: ReturnType<typeof createAdminClie
         .order("scheduled_at", { ascending: true })
         .limit(1)
         .single(),
+
+      // V/TO strategic context
+      supabase
+        .from("vto")
+        .select(`
+          purpose,
+          ten_year_target,
+          three_year_revenue,
+          three_year_target_date,
+          one_year_revenue,
+          one_year_profit,
+          one_year_target_date,
+          one_year_goals
+        `)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single(),
+
+      // Recent anomalies
+      supabase
+        .from("metric_anomalies")
+        .select(`
+          metric_id,
+          anomaly_type,
+          severity,
+          message,
+          metric:metrics(name)
+        `)
+        .is("resolved_at", null)
+        .order("detected_at", { ascending: false })
+        .limit(10),
     ]);
 
   // Helper to extract name from Supabase relation array
@@ -219,26 +255,73 @@ async function gatherBriefingContext(supabase: ReturnType<typeof createAdminClie
     return ownerArr?.[0]?.full_name || "Unknown";
   };
 
+  // Helper to parse quarter from text (e.g., "Q1 2024" or "Q1")
+  const parseQuarter = (quarter: string | null): number => {
+    if (!quarter) return currentQuarter;
+    const match = quarter.match(/Q(\d)/i);
+    return match ? parseInt(match[1]) : currentQuarter;
+  };
+
+  // Helper to derive year from due_date or quarter text
+  const deriveYear = (dueDate: string | null, quarter: string | null): number => {
+    if (dueDate) {
+      return new Date(dueDate).getFullYear();
+    }
+    if (quarter) {
+      const match = quarter.match(/(\d{4})/);
+      if (match) return parseInt(match[1]);
+    }
+    return currentYear;
+  };
+
+  // Helper to extract metric name from relation
+  const getMetricName = (metric: unknown): string => {
+    const metricArr = metric as { name: string }[] | null;
+    return metricArr?.[0]?.name || "Unknown";
+  };
+
   return {
-    metrics: (metricsResult.data || []).map((m) => ({
-      name: m.name,
-      current_value: null, // Would need to join with metric_values
-      goal: m.goal,
-      trend: "flat",
-      status: "on_track",
-      owner: getOwnerName(m.owner),
+    vto: vtoResult.data
+      ? {
+          purpose: vtoResult.data.purpose,
+          ten_year_target: vtoResult.data.ten_year_target,
+          three_year_revenue: vtoResult.data.three_year_revenue,
+          three_year_target_date: vtoResult.data.three_year_target_date,
+          one_year_revenue: vtoResult.data.one_year_revenue,
+          one_year_profit: vtoResult.data.one_year_profit,
+          one_year_target_date: vtoResult.data.one_year_target_date,
+          one_year_goals: vtoResult.data.one_year_goals || [],
+        }
+      : null,
+    metrics: (metricsResult.data || []).map((m) => {
+      const values = m.metric_values as { value: number; recorded_at: string }[] | null;
+      return {
+        name: m.name,
+        current_value: values?.[0]?.value ?? null,
+        goal: m.goal,
+        trend: "flat" as const,
+        status: "on_track" as const,
+        owner: getOwnerName(m.owner),
+      };
+    }),
+    anomalies: (anomaliesResult.data || []).map((a) => ({
+      metric_name: getMetricName(a.metric),
+      type: a.anomaly_type,
+      severity: a.severity,
+      message: a.message,
     })),
     rocks: (rocksResult.data || []).map((r) => ({
       name: r.title,
       status: r.status,
       owner: getOwnerName(r.owner),
-      quarter: r.quarter,
-      year: r.year,
+      quarter: parseQuarter(r.quarter),
+      year: deriveYear(r.due_date, r.quarter),
+      due_date: r.due_date,
     })),
     issues: (issuesResult.data || []).map((i) => ({
       title: i.title,
       priority: i.priority,
-      owner: getOwnerName(i.owner),
+      owner: getOwnerName(i.raised_by),
       created_at: i.created_at,
     })),
     updates: (updatesResult.data || []).map((u) => ({
