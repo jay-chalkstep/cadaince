@@ -155,7 +155,7 @@ export function HubSpotConfig({ integration, onUpdate }: HubSpotConfigProps) {
               )}
               <div className="flex-1">
                 <div className="font-medium">{testResult.message}</div>
-                {testResult.details?.available_scopes && (
+                {Array.isArray(testResult.details?.available_scopes) && (
                   <div className="mt-2 flex flex-wrap gap-1">
                     {(testResult.details.available_scopes as string[]).map((scope) => (
                       <Badge key={scope} variant="secondary" className="text-xs">

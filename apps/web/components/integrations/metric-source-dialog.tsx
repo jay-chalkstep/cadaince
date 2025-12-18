@@ -30,7 +30,7 @@ interface MetricSourceDialogProps {
     id: string;
     name: string;
     source_type?: string;
-    source_config?: MetricSourceConfig | null;
+    source_config?: Record<string, unknown> | null;
   } | null;
   onSave: () => void;
 }
@@ -92,12 +92,12 @@ export function MetricSourceDialog({
       const config = metric.source_config;
       setSourceType(metric.source_type || "manual");
       if (config) {
-        setHubspotObject(config.hubspot_object || "");
-        setHubspotProperty(config.hubspot_property || "");
-        setHubspotAggregation(config.hubspot_aggregation || "count");
-        setBigqueryQuery(config.bigquery_query || "");
-        setBigqueryValueColumn(config.bigquery_value_column || "");
-        setSyncFrequency(config.sync_frequency || "hourly");
+        setHubspotObject((config.hubspot_object as string) || "");
+        setHubspotProperty((config.hubspot_property as string) || "");
+        setHubspotAggregation((config.hubspot_aggregation as string) || "count");
+        setBigqueryQuery((config.bigquery_query as string) || "");
+        setBigqueryValueColumn((config.bigquery_value_column as string) || "");
+        setSyncFrequency((config.sync_frequency as string) || "hourly");
       } else {
         // Reset to defaults
         setHubspotObject("");
