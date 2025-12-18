@@ -8,6 +8,7 @@ import {
   CheckSquare,
   CircleDot,
   Compass,
+  Database,
   FileText,
   Home,
   Link2,
@@ -55,6 +56,7 @@ const settingsNavItems = [
   { title: "Team", href: "/team", icon: Users },
   { title: "V/TO", href: "/settings/vto", icon: Settings2 },
   { title: "Integrations", href: "/settings/integrations", icon: Link2 },
+  { title: "Data Sources", href: "/settings/data-sources", icon: Database },
   { title: "Settings", href: "/settings", icon: Settings },
 ];
 
