@@ -22,11 +22,16 @@ Aicomplice is a Leadership Alignment Engine implementing the EOS (Entrepreneuria
 
 ## Project Structure
 
+This is a **monorepo** with two separate Next.js applications:
+
 ```
 apps/
-  web/                    # Next.js application
+  marketing/              # Marketing site (aicomplice.com)
     app/
-      (marketing)/        # Public pages (landing, pricing)
+      page.tsx            # Landing page
+      not-found.tsx       # 404 page
+  web/                    # Product app (app.aicomplice.com)
+    app/
       (auth)/             # Clerk auth pages
       (dashboard)/        # Protected app pages
         briefing/
@@ -41,15 +46,19 @@ apps/
       api/                # API routes
     components/
       layout/             # Sidebar, headers
-      ui/                 # shadcn components
       onboarding/         # Wizard step components
     lib/
       ai/                 # Claude integration
       integrations/       # HubSpot, BigQuery
       supabase/           # Client, types
+packages/
+  ui/                     # Shared UI components (shadcn/ui)
+    src/
+      button.tsx
+      card.tsx
+      ...etc
 supabase/
   migrations/             # SQL migrations
-  seed.sql                # Dev seed data only
 ```
 
 ## Database Schema Overview
@@ -143,20 +152,28 @@ AI-generated daily synthesis that:
 ## Development Commands
 
 ```bash
-# Start dev server
-pnpm dev
+# Install dependencies (from root)
+npm install
+
+# Start app dev server (app.aicomplice.com)
+npm run dev:app
+# or from apps/web: npm run dev
+
+# Start marketing dev server (aicomplice.com)
+npm run dev:marketing
+# or from apps/marketing: npm run dev
+
+# Build all apps
+npm run build
 
 # Run migrations
-pnpm supabase db push
+npx supabase db push
 
 # Generate types from Supabase
-pnpm supabase gen types typescript --local > lib/supabase/types.ts
+npx supabase gen types typescript --local > apps/web/lib/supabase/types.ts
 
 # Seed dev data
-pnpm supabase db seed
-
-# Deploy to Vercel
-vercel --prod
+npx supabase db seed
 ```
 
 ## Environment Variables
@@ -204,9 +221,24 @@ Commit frequently - one logical change per commit.
 
 ## Vercel Deployment - IMPORTANT
 
-**DO NOT create a vercel.json file at the repository root.** This is a monorepo with the Next.js app in `apps/web/`. The Vercel project is configured via the dashboard with Root Directory set to `apps/web/`. Adding a root-level vercel.json causes build failures and conflicts with this configuration.
+This monorepo requires **TWO separate Vercel projects**:
 
-If there are deployment issues, the fix is NOT vercel.json. Check:
-1. Environment variables are set in Vercel dashboard
-2. The Root Directory setting in Vercel points to `apps/web`
+### 1. Marketing Site (aicomplice.com)
+- **Vercel Project Name:** `aicomplice-marketing`
+- **Root Directory:** `apps/marketing`
+- **Domain:** `aicomplice.com` + `www.aicomplice.com`
+- **Environment Variables:**
+  - `NEXT_PUBLIC_APP_URL=https://app.aicomplice.com`
+
+### 2. Product App (app.aicomplice.com)
+- **Vercel Project Name:** `aicomplice-app`
+- **Root Directory:** `apps/web`
+- **Domain:** `app.aicomplice.com`
+- **Environment Variables:** See `.env.local.example` in `apps/web/`
+
+**DO NOT create a vercel.json file at the repository root.** Configure Root Directory via the Vercel dashboard for each project.
+
+If there are deployment issues, check:
+1. Environment variables are set in Vercel dashboard for the correct project
+2. The Root Directory setting points to the correct `apps/` subdirectory
 3. API route code for runtime errors

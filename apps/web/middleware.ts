@@ -1,8 +1,8 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
 // Define public routes that don't require authentication
+// Note: Root "/" redirects to /briefing which requires auth
 const isPublicRoute = createRouteMatcher([
-  "/",
   "/sign-in(.*)",
   "/sign-up(.*)",
   "/api/webhooks(.*)",
