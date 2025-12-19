@@ -6,8 +6,8 @@ import "./globals.css";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Cadence",
-  description: "Leadership alignment engine for Choice Digital",
+  title: "Aicomplice",
+  description: "Your AI accomplice for leadership alignment",
 };
 
 export default function RootLayout({

@@ -157,7 +157,7 @@ export async function runAnomalyDetection(): Promise<JobResult> {
  * ```typescript
  * import { Inngest } from 'inngest';
  *
- * const inngest = new Inngest({ id: 'cadence' });
+ * const inngest = new Inngest({ id: 'aicomplice' });
  *
  * export const syncMetricsJob = inngest.createFunction(
  *   { id: 'sync-external-metrics', name: 'Sync External Metrics' },

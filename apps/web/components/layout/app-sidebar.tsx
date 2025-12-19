@@ -74,7 +74,7 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarHeader className="border-b px-6 py-4">
         <Link href="/briefing" className="flex items-center gap-2">
-          <span className="text-xl font-semibold">Cadence</span>
+          <span className="text-xl font-semibold">Aicomplice</span>
         </Link>
       </SidebarHeader>
       <SidebarContent>
