@@ -1,0 +1,20 @@
+{
+  "name": "aicomplice",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=apps/web",
+    "dev:marketing": "npm run dev --workspace=apps/marketing",
+    "dev:app": "npm run dev --workspace=apps/web",
+    "build": "npm run build --workspaces --if-present",
+    "build:marketing": "npm run build --workspace=apps/marketing",
+    "build:app": "npm run build --workspace=apps/web",
+    "lint": "npm run lint --workspaces --if-present"
+  },
+  "devDependencies": {
+    "typescript": "^5"
+  }
+}
