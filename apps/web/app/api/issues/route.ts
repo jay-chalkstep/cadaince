@@ -86,6 +86,8 @@ export async function POST(req: Request) {
       title,
       description: description || null,
       owner_id: owner_id || null,
+      // Keep legacy column populated for backwards-compatible RLS + data integrity
+      raised_by: profile.id,
       created_by: profile.id,
       priority: priority || 2, // Default to medium priority
       status: "open",

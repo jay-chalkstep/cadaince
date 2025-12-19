@@ -213,6 +213,9 @@ export type Database = {
           title: string;
           description: string | null;
           raised_by: string;
+          owner_id: string | null;
+          created_by: string | null;
+          linked_rock_id: string | null;
           source: string;
           source_ref: string | null;
           status: string;
@@ -227,6 +230,9 @@ export type Database = {
           title: string;
           description?: string | null;
           raised_by: string;
+          owner_id?: string | null;
+          created_by?: string | null;
+          linked_rock_id?: string | null;
           source?: string;
           source_ref?: string | null;
           status?: string;
@@ -241,6 +247,9 @@ export type Database = {
           title?: string;
           description?: string | null;
           raised_by?: string;
+          owner_id?: string | null;
+          created_by?: string | null;
+          linked_rock_id?: string | null;
           source?: string;
           source_ref?: string | null;
           status?: string;
@@ -255,28 +264,43 @@ export type Database = {
         Row: {
           id: string;
           title: string;
+          description: string | null;
           owner_id: string;
+          created_by: string | null;
           due_date: string;
           completed_at: string | null;
+          is_complete: boolean;
           meeting_id: string | null;
+          linked_rock_id: string | null;
+          linked_issue_id: string | null;
           created_at: string;
         };
         Insert: {
           id?: string;
           title: string;
+          description?: string | null;
           owner_id: string;
+          created_by?: string | null;
           due_date: string;
           completed_at?: string | null;
+          is_complete?: boolean;
           meeting_id?: string | null;
+          linked_rock_id?: string | null;
+          linked_issue_id?: string | null;
           created_at?: string;
         };
         Update: {
           id?: string;
           title?: string;
+          description?: string | null;
           owner_id?: string;
+          created_by?: string | null;
           due_date?: string;
           completed_at?: string | null;
+          is_complete?: boolean;
           meeting_id?: string | null;
+          linked_rock_id?: string | null;
+          linked_issue_id?: string | null;
           created_at?: string;
         };
       };
