@@ -19,6 +19,14 @@ CREATE TABLE IF NOT EXISTS organizations (
 ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;
 
 -- ============================================
+-- INSERT DEFAULT ORGANIZATION FOR EXISTING DATA
+-- ============================================
+-- This organization matches the hardcoded UUID in existing vto seed data
+INSERT INTO organizations (id, name, slug, onboarding_completed_at)
+VALUES ('00000000-0000-0000-0000-000000000001', 'Default Organization', 'default', NOW())
+ON CONFLICT (id) DO NOTHING;
+
+-- ============================================
 -- ADD organization_id TO EXISTING TABLES
 -- ============================================
 
