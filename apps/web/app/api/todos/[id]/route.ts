@@ -21,7 +21,7 @@ export async function GET(
       *,
       owner:profiles!todos_owner_id_fkey(id, full_name, avatar_url, email),
       created_by_profile:profiles!todos_created_by_fkey(id, full_name, avatar_url),
-      linked_rock:rocks(id, name, status),
+      linked_rock:rocks(id, title, status),
       linked_issue:issues(id, title, status)
     `)
     .eq("id", id)
