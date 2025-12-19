@@ -226,7 +226,7 @@ export async function sendMeetingReminders(): Promise<JobResult> {
  * ```typescript
  * import { Inngest } from 'inngest';
  *
- * const inngest = new Inngest({ id: 'cadence' });
+ * const inngest = new Inngest({ id: 'aicomplice' });
  *
  * export const generateL10AgendaJob = inngest.createFunction(
  *   { id: 'generate-l10-agenda', name: 'Generate L10 Meeting Agenda' },
