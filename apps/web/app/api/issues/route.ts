@@ -85,7 +85,7 @@ export async function POST(req: Request) {
     .insert({
       title,
       description: description || null,
-      owner_id: owner_id || null,
+      owner_id: owner_id || profile.id,
       // Keep legacy column populated for backwards-compatible RLS + data integrity
       raised_by: profile.id,
       created_by: profile.id,
