@@ -10,8 +10,10 @@ import {
   Compass,
   Database,
   FileText,
+  GitBranch,
   Home,
   Link2,
+  Megaphone,
   MessageSquare,
   MessageSquareLock,
   Settings,
@@ -43,10 +45,12 @@ const mainNavItems = [
   { title: "Rocks", href: "/rocks", icon: CircleDot },
   { title: "Issues", href: "/issues", icon: MessageSquare },
   { title: "To-Dos", href: "/todos", icon: CheckSquare },
+  { title: "Headlines", href: "/headlines", icon: Megaphone },
   { title: "Updates", href: "/updates", icon: FileText },
 ];
 
 const secondaryNavItems = [
+  { title: "Accountability Chart", href: "/accountability-chart", icon: GitBranch },
   { title: "Alerts", href: "/alerts", icon: Bell },
   { title: "Private Notes", href: "/notes", icon: MessageSquareLock },
   { title: "Meetings", href: "/meetings", icon: Calendar },

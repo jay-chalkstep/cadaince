@@ -13,8 +13,21 @@ export async function GET(req: Request) {
   const status = searchParams.get("status");
   const ownerId = searchParams.get("owner_id");
   const mine = searchParams.get("mine");
+  const visibility = searchParams.get("visibility"); // private, team, or all
+  const meetingId = searchParams.get("meeting_id");
 
   const supabase = createAdminClient();
+
+  // Get current user's profile first (needed for visibility filtering)
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("id, organization_id")
+    .eq("clerk_id", userId)
+    .single();
+
+  if (!profile?.organization_id) {
+    return NextResponse.json({ error: "Organization not found" }, { status: 404 });
+  }
 
   let query = supabase
     .from("todos")
@@ -23,6 +36,7 @@ export async function GET(req: Request) {
       owner:profiles!todos_owner_id_fkey(id, full_name, avatar_url),
       created_by_profile:profiles!todos_created_by_fkey(id, full_name, avatar_url)
     `)
+    .eq("organization_id", profile.organization_id)
     .order("due_date", { ascending: true, nullsFirst: false })
     .order("created_at", { ascending: false });
 
@@ -40,15 +54,24 @@ export async function GET(req: Request) {
 
   // Filter to current user's todos
   if (mine === "true") {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("clerk_id", userId)
-      .single();
+    query = query.eq("owner_id", profile.id);
+  }
 
-    if (profile) {
-      query = query.eq("owner_id", profile.id);
-    }
+  // Filter by visibility
+  if (visibility === "private") {
+    // Private todos: only show owner's private todos
+    query = query.eq("visibility", "private").eq("owner_id", profile.id);
+  } else if (visibility === "team") {
+    // Team todos: show all team-visible todos in org
+    query = query.eq("visibility", "team");
+  }
+  // If visibility is "all" or not specified, show:
+  // - All team todos in org
+  // - User's own private todos
+
+  // Filter by meeting
+  if (meetingId) {
+    query = query.eq("meeting_id", meetingId);
   }
 
   const { data: todos, error } = await query;
@@ -58,7 +81,15 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Failed to fetch todos" }, { status: 500 });
   }
 
-  return NextResponse.json(todos);
+  // If no visibility filter, filter out other people's private todos
+  let filteredTodos = todos;
+  if (!visibility || visibility === "all") {
+    filteredTodos = todos?.filter(
+      (t) => t.visibility !== "private" || t.owner_id === profile.id
+    );
+  }
+
+  return NextResponse.json(filteredTodos);
 }
 
 // POST /api/todos - Create a new todo
@@ -81,8 +112,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Profile not found" }, { status: 404 });
   }
 
+  // Get organization_id for the todo
+  const { data: profileWithOrg } = await supabase
+    .from("profiles")
+    .select("organization_id")
+    .eq("id", profile.id)
+    .single();
+
   const body = await req.json();
-  const { title, description, owner_id, due_date, linked_rock_id, linked_issue_id } = body;
+  const { title, description, owner_id, due_date, linked_rock_id, linked_issue_id, visibility, meeting_id } = body;
 
   if (!title) {
     return NextResponse.json(
@@ -106,6 +144,9 @@ export async function POST(req: Request) {
       is_complete: false,
       linked_rock_id: linked_rock_id || null,
       linked_issue_id: linked_issue_id || null,
+      visibility: visibility || "team", // Default to team visibility
+      meeting_id: meeting_id || null,
+      organization_id: profileWithOrg?.organization_id,
     })
     .select(`
       *,
