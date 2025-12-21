@@ -223,6 +223,261 @@ Leadership L10 (ELT)
 - **Pillar membership** = functional area (can be multiple)
 - **Pillar lead** = runs the Pillar L10
 
+## Feature Modules
+
+### Accountability Chart
+
+Visual org chart showing seats (roles) and who fills them. Core EOS artifact.
+
+**Tables:**
+- **seats** — Role definitions with hierarchy (parent_seat_id), GWC indicators, pillar association
+- **seat_assignments** — Junction table linking team_members to seats (supports multiple people per seat)
+
+**Key Concepts:**
+- Seats represent roles, not people (a seat can be empty or shared)
+- GWC = Gets it, Wants it, Capacity to do it (EOS people evaluation)
+- Hierarchy flows: Visionary/Integrator → Pillar Leads → Team Members
+
+**Routes:** `/accountability-chart`
+
+### To-Do Visibility
+
+To-dos split into private (only you) and team (visible in L10s).
+
+**Schema Changes:**
+- `todos.visibility` — 'private' | 'team' (default: team)
+- `todos.meeting_id` — Links to meeting where created
+
+**UI:** Two-tab layout on /todos page. My 90 dashboard shows both counts.
+
+### Headlines
+
+5-minute L10 ritual. Good news about customers or employees. Builds culture.
+
+**Table: headlines**
+- `headline_type` — 'customer' | 'employee' | 'general'
+- `mentioned_member_id` — Employee being recognized
+- `meeting_id` — Which L10 it was shared in
+- `reactions` — JSONB for emoji reactions
+
+**Routes:** `/headlines`
+
+**Integration:** Headlines widget on My 90 dashboard. Headlines section in L10 meeting view.
+
+### Rock Milestones
+
+Break 90-day rocks into trackable milestones. Shows progress within rocks.
+
+**Table: rock_milestones**
+- `rock_id` — Parent rock
+- `title`, `description`, `due_date`
+- `status` — 'not_started' | 'in_progress' | 'complete' | 'blocked'
+- `sort_order` — For drag reordering
+
+**Rock Table Additions:**
+- `milestone_count`, `milestones_complete` — Cached counts for progress display
+
+**UI:** Expandable milestone section in rock detail. Progress bar on rock cards.
+
+### Getting Started Widget
+
+Persistent activation checklist. Drives feature discovery.
+
+**Table: onboarding_progress**
+- `completed_items` — JSONB tracking completion timestamps
+- `dismissed_at` — When user hid the widget
+
+**Checklist Items:**
+1. Create organization (auto-detected)
+2. Set up pillars (auto-detected)
+3. Invite 2+ team members
+4. Start V/TO (auto-detected)
+5. Build accountability chart
+6. Add first scorecard metric
+7. Create a rock
+8. Schedule an L10
+9. Connect live data integration
+10. Share a headline
+
+**UI:** Fixed bottom-left widget, collapsible, shows percentage complete. Persists until dismissed or 100%.
+
+### Process Documentation
+
+Document Core Processes (the "Way" you do things). EOS requires documenting and following processes.
+
+**Tables:**
+- **processes** — Name, description, owner, pillar, status (draft/active/archived)
+- **process_steps** — Ordered steps within a process, rich text descriptions
+
+**Routes:** `/process`, `/process/[id]`
+
+**Starter Templates:** Sales Process, Hiring Process, Customer Onboarding
+
+### Insights Dashboard
+
+Aggregate view of organizational health. Trends, comparisons, early warnings.
+
+**Table: insight_snapshots**
+- Daily cached snapshots of org health metrics
+- `metrics_on_track`, `metrics_off_track`, `rocks_on_track`, etc.
+- `pillar_health` — JSONB breakdown by pillar
+
+**Background Job:** `daily-insight-snapshot` via Inngest
+
+**Routes:** `/insights`
+
+**Dashboard Sections:**
+- Health score cards (Scorecard, Rocks, To-Dos, Issues)
+- Trend charts (4-week line charts)
+- Pillar breakdown table
+- Attention needed list (off-track items)
+
+### Database Schema Summary
+
+```
+organizations
+├── seats (Accountability Chart)
+│   └── seat_assignments → team_members
+├── pillars
+│   └── processes
+│       └── process_steps
+├── team_members
+├── headlines
+├── rocks
+│   └── rock_milestones
+├── todos (+ visibility, meeting_id)
+├── issues
+├── metrics
+├── meetings
+├── vto
+├── onboarding_progress
+└── insight_snapshots
+```
+
+### Shared Components
+
+| Component | Used By |
+|-----------|---------|
+| `<OrgTree />` | Accountability Chart |
+| `<ProgressRing />` | Rock milestones, Getting Started, Insights |
+| `<Checklist />` | Getting Started, Rock milestones |
+| `<RichTextEditor />` | Process steps, Headlines |
+| `<TrendChart />` | Insights dashboard |
+| `<ReactionBar />` | Headlines |
+
+### Background Jobs (Inngest)
+
+| Job | Schedule | Purpose |
+|-----|----------|---------|
+| `daily-insight-snapshot` | Nightly | Cache org health metrics |
+| `onboarding-progress-sync` | On data change | Auto-detect checklist completions |
+| `milestone-reminder` | Daily | Notify approaching milestone due dates |
+
+### Migration Files
+
+Run in order:
+
+```
+013_seats.sql              # Accountability chart
+014_todos_visibility.sql   # Private/team to-dos
+015_headlines.sql          # Headlines
+016_milestones.sql         # Rock milestones
+017_onboarding_progress.sql # Getting started tracking
+018_processes.sql          # Process documentation
+019_insights.sql           # Insights snapshots
+```
+
+### API Route Summary
+
+```
+/api/accountability-chart/
+  GET /                    # Full chart
+  POST /seats              # Create seat
+  PATCH /seats/:id         # Update seat
+  DELETE /seats/:id        # Delete seat
+  POST /seats/:id/assign   # Assign member
+  DELETE /seats/:id/assign/:mid  # Unassign
+
+/api/headlines/
+  GET /                    # List headlines
+  POST /                   # Create headline
+  DELETE /:id              # Delete headline
+  POST /:id/react          # Add reaction
+
+/api/rocks/:id/milestones/
+  GET /                    # List milestones
+  POST /                   # Create milestone
+  PATCH /:mid              # Update milestone
+  DELETE /:mid             # Delete milestone
+  POST /reorder            # Reorder
+
+/api/onboarding-progress/
+  GET /                    # Current progress
+  POST /:key               # Mark complete
+  POST /dismiss            # Dismiss widget
+
+/api/processes/
+  GET /                    # List processes
+  GET /:id                 # Process with steps
+  POST /                   # Create process
+  PATCH /:id               # Update process
+  DELETE /:id              # Delete process
+  POST /:id/steps          # Add step
+  PATCH /:id/steps/:sid    # Update step
+  DELETE /:id/steps/:sid   # Delete step
+  POST /:id/publish        # Publish
+
+/api/insights/
+  GET /                    # Current health
+  GET /trends              # Historical trends
+  GET /pillar/:id          # Pillar breakdown
+```
+
+### Sidebar Navigation Update
+
+Add to existing sidebar in this order:
+
+```tsx
+// After existing items
+{ name: 'Headlines', href: '/headlines', icon: Megaphone },
+{ name: 'Accountability Chart', href: '/accountability-chart', icon: GitBranch },
+{ name: 'Process', href: '/process', icon: Workflow },
+{ name: 'Insights', href: '/insights', icon: BarChart3 },
+```
+
+Icons from `lucide-react`.
+
+### My 90 Dashboard Widgets
+
+The home dashboard (`/briefing` or `/my-90`) should include:
+
+1. **Team To-Dos** — Count + quick list (existing, now filtered to team)
+2. **Private To-Dos** — Count + quick list (new)
+3. **Rocks & Milestones** — Your rocks with progress bars (enhanced)
+4. **Recent Headlines** — Last 3-5 headlines (new)
+5. **Scorecard** — Your metrics (existing)
+6. **Getting Started** — Widget in bottom-left (new, conditional)
+
+### Competitive Positioning
+
+**What we have that Ninety.io doesn't:**
+- Live data integrations (HubSpot, BigQuery) — no manual entry
+- AI Morning Briefing — personalized daily synthesis
+- Async video updates with transcription
+- Private Notes to CoS/CEO — shadow communication layer
+- Role-aware personalization
+
+**What we're adding for parity:**
+- Accountability Chart
+- Private/Team To-Do split
+- Headlines
+- Rock Milestones
+- Process Documentation
+- Insights Dashboard
+- Getting Started widget
+
+After this build, Aicomplice has full EOS feature coverage PLUS differentiated AI/data capabilities.
+
 ## Development Commands
 
 ```bash
