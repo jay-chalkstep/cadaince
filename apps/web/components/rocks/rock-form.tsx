@@ -55,6 +55,7 @@ interface Rock {
   pillar_id: string | null;
   pillar?: Pillar | null;
   owner_id: string | null;
+  quarter_id: string | null;
 }
 
 interface RockFormData {
