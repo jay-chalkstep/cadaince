@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, CheckCircle2, Circle, Calendar, Loader2 } from "lucide-react";
+import { Plus, CheckCircle2, Circle, Calendar, Loader2, Lock, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import { CreateTodoDialog } from "@/components/todos/create-todo-dialog";
 
 interface Todo {
@@ -17,6 +18,7 @@ interface Todo {
   due_date: string | null;
   is_complete: boolean;
   completed_at: string | null;
+  visibility: "private" | "team";
   owner: {
     id: string;
     full_name: string;
@@ -28,13 +30,15 @@ export default function TodosPage() {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState("open");
+  const [activeStatusTab, setActiveStatusTab] = useState("open");
+  const [activeVisibilityTab, setActiveVisibilityTab] = useState("team");
   const [updatingIds, setUpdatingIds] = useState<Set<string>>(new Set());
+  const [defaultVisibility, setDefaultVisibility] = useState<"private" | "team">("team");
 
-  const fetchTodos = async (status: string) => {
+  const fetchTodos = async (status: string, visibility: string) => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/todos?status=${status}`);
+      const response = await fetch(`/api/todos?status=${status}&visibility=${visibility}`);
       if (response.ok) {
         const data = await response.json();
         setTodos(data);
@@ -47,8 +51,8 @@ export default function TodosPage() {
   };
 
   useEffect(() => {
-    fetchTodos(activeTab);
-  }, [activeTab]);
+    fetchTodos(activeStatusTab, activeVisibilityTab);
+  }, [activeStatusTab, activeVisibilityTab]);
 
   const getInitials = (name: string) => {
     return name
@@ -97,7 +101,7 @@ export default function TodosPage() {
 
       if (response.ok) {
         // Refresh the list
-        fetchTodos(activeTab);
+        fetchTodos(activeStatusTab, activeVisibilityTab);
       }
     } catch (error) {
       console.error("Failed to update todo:", error);
@@ -110,6 +114,11 @@ export default function TodosPage() {
     }
   };
 
+  const handleOpenDialog = (visibility: "private" | "team") => {
+    setDefaultVisibility(visibility);
+    setDialogOpen(true);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -119,137 +128,167 @@ export default function TodosPage() {
             Track 7-day action items
           </p>
         </div>
-        <Button onClick={() => setDialogOpen(true)}>
+        <Button onClick={() => handleOpenDialog(activeVisibilityTab as "private" | "team")}>
           <Plus className="mr-2 h-4 w-4" />
           Add To-Do
         </Button>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      {/* Visibility Tabs */}
+      <Tabs value={activeVisibilityTab} onValueChange={setActiveVisibilityTab}>
         <TabsList>
-          <TabsTrigger value="open" className="gap-2">
-            <Circle className="h-4 w-4" />
-            Open
+          <TabsTrigger value="team" className="gap-2">
+            <Users className="h-4 w-4" />
+            Team To-Dos
           </TabsTrigger>
-          <TabsTrigger value="completed" className="gap-2">
-            <CheckCircle2 className="h-4 w-4" />
-            Completed
+          <TabsTrigger value="private" className="gap-2">
+            <Lock className="h-4 w-4" />
+            Private
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value={activeTab} className="mt-4">
-          {loading ? (
-            <div className="space-y-2">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Card key={i}>
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-3">
-                      <Skeleton className="h-5 w-5 rounded" />
-                      <Skeleton className="h-5 flex-1" />
-                    </div>
+        <TabsContent value={activeVisibilityTab} className="mt-4">
+          {/* Status Tabs */}
+          <Tabs value={activeStatusTab} onValueChange={setActiveStatusTab}>
+            <TabsList className="mb-4">
+              <TabsTrigger value="open" className="gap-2">
+                <Circle className="h-4 w-4" />
+                Open
+              </TabsTrigger>
+              <TabsTrigger value="completed" className="gap-2">
+                <CheckCircle2 className="h-4 w-4" />
+                Completed
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value={activeStatusTab}>
+              {loading ? (
+                <div className="space-y-2">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Card key={i}>
+                      <CardContent className="p-4">
+                        <div className="flex items-center gap-3">
+                          <Skeleton className="h-5 w-5 rounded" />
+                          <Skeleton className="h-5 flex-1" />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : todos.length === 0 ? (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center py-12">
+                    {activeStatusTab === "open" ? (
+                      <>
+                        <Circle className="h-12 w-12 text-muted-foreground mb-4" />
+                        <p className="text-lg font-medium">
+                          No {activeVisibilityTab === "private" ? "private" : "team"} to-dos
+                        </p>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          {activeVisibilityTab === "private"
+                            ? "Private to-dos are only visible to you."
+                            : "Team to-dos are visible in L10 meetings."}
+                        </p>
+                        <Button onClick={() => handleOpenDialog(activeVisibilityTab as "private" | "team")}>
+                          <Plus className="mr-2 h-4 w-4" />
+                          Add To-Do
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="h-12 w-12 text-muted-foreground mb-4" />
+                        <p className="text-lg font-medium">No completed to-dos</p>
+                        <p className="text-sm text-muted-foreground">
+                          Completed to-dos will appear here.
+                        </p>
+                      </>
+                    )}
                   </CardContent>
                 </Card>
-              ))}
-            </div>
-          ) : todos.length === 0 ? (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-12">
-                {activeTab === "open" ? (
-                  <>
-                    <Circle className="h-12 w-12 text-muted-foreground mb-4" />
-                    <p className="text-lg font-medium">No open to-dos</p>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Create a to-do to track your action items.
-                    </p>
-                    <Button onClick={() => setDialogOpen(true)}>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add To-Do
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="h-12 w-12 text-muted-foreground mb-4" />
-                    <p className="text-lg font-medium">No completed to-dos</p>
-                    <p className="text-sm text-muted-foreground">
-                      Completed to-dos will appear here.
-                    </p>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-2">
-              {todos.map((todo) => (
-                <Card
-                  key={todo.id}
-                  className={todo.is_complete ? "opacity-60" : ""}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-3">
-                      <div className="pt-0.5">
-                        {updatingIds.has(todo.id) ? (
-                          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                        ) : (
-                          <Checkbox
-                            checked={todo.is_complete}
-                            onCheckedChange={() => handleToggleComplete(todo)}
-                          />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3
-                          className={`font-medium ${
-                            todo.is_complete ? "line-through text-muted-foreground" : ""
-                          }`}
-                        >
-                          {todo.title}
-                        </h3>
-                        {todo.description && (
-                          <p className="text-sm text-muted-foreground line-clamp-1 mt-0.5">
-                            {todo.description}
-                          </p>
-                        )}
-                        <div className="flex items-center gap-3 mt-2">
-                          {todo.due_date && (
-                            <div
-                              className={`flex items-center gap-1 text-xs ${
-                                !todo.is_complete && isOverdue(todo.due_date)
-                                  ? "text-red-600"
-                                  : "text-muted-foreground"
-                              }`}
-                            >
-                              <Calendar className="h-3 w-3" />
-                              {formatDate(todo.due_date)}
+              ) : (
+                <div className="space-y-2">
+                  {todos.map((todo) => (
+                    <Card
+                      key={todo.id}
+                      className={todo.is_complete ? "opacity-60" : ""}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-start gap-3">
+                          <div className="pt-0.5">
+                            {updatingIds.has(todo.id) ? (
+                              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                            ) : (
+                              <Checkbox
+                                checked={todo.is_complete}
+                                onCheckedChange={() => handleToggleComplete(todo)}
+                              />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <h3
+                                className={`font-medium ${
+                                  todo.is_complete ? "line-through text-muted-foreground" : ""
+                                }`}
+                              >
+                                {todo.title}
+                              </h3>
+                              {todo.visibility === "private" && (
+                                <Badge variant="outline" className="text-xs">
+                                  <Lock className="h-3 w-3 mr-1" />
+                                  Private
+                                </Badge>
+                              )}
+                            </div>
+                            {todo.description && (
+                              <p className="text-sm text-muted-foreground line-clamp-1 mt-0.5">
+                                {todo.description}
+                              </p>
+                            )}
+                            <div className="flex items-center gap-3 mt-2">
+                              {todo.due_date && (
+                                <div
+                                  className={`flex items-center gap-1 text-xs ${
+                                    !todo.is_complete && isOverdue(todo.due_date)
+                                      ? "text-red-600"
+                                      : "text-muted-foreground"
+                                  }`}
+                                >
+                                  <Calendar className="h-3 w-3" />
+                                  {formatDate(todo.due_date)}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          {todo.owner && (
+                            <div className="flex items-center gap-2">
+                              <Avatar className="h-7 w-7">
+                                <AvatarImage src={todo.owner.avatar_url || undefined} />
+                                <AvatarFallback className="text-xs">
+                                  {getInitials(todo.owner.full_name)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span className="text-sm text-muted-foreground hidden sm:inline">
+                                {todo.owner.full_name}
+                              </span>
                             </div>
                           )}
                         </div>
-                      </div>
-                      {todo.owner && (
-                        <div className="flex items-center gap-2">
-                          <Avatar className="h-7 w-7">
-                            <AvatarImage src={todo.owner.avatar_url || undefined} />
-                            <AvatarFallback className="text-xs">
-                              {getInitials(todo.owner.full_name)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span className="text-sm text-muted-foreground hidden sm:inline">
-                            {todo.owner.full_name}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
         </TabsContent>
       </Tabs>
 
       <CreateTodoDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        onCreated={() => fetchTodos(activeTab)}
+        onCreated={() => fetchTodos(activeStatusTab, activeVisibilityTab)}
+        defaultVisibility={defaultVisibility}
       />
     </div>
   );

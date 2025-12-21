@@ -79,7 +79,7 @@ export async function PATCH(
   }
 
   const body = await req.json();
-  const { title, description, owner_id, due_date, is_complete, linked_rock_id, linked_issue_id } = body;
+  const { title, description, owner_id, due_date, is_complete, linked_rock_id, linked_issue_id, visibility, meeting_id } = body;
 
   const updateData: Record<string, unknown> = {};
   if (title !== undefined) updateData.title = title;
@@ -89,6 +89,8 @@ export async function PATCH(
   if (is_complete !== undefined) updateData.is_complete = is_complete;
   if (linked_rock_id !== undefined) updateData.linked_rock_id = linked_rock_id;
   if (linked_issue_id !== undefined) updateData.linked_issue_id = linked_issue_id;
+  if (visibility !== undefined) updateData.visibility = visibility;
+  if (meeting_id !== undefined) updateData.meeting_id = meeting_id;
 
   // Set completed_at when marking complete
   if (is_complete === true) {

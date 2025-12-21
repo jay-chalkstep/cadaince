@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, Lock, Users } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 interface Profile {
   id: string;
@@ -31,12 +32,14 @@ interface CreateTodoDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreated: () => void;
+  defaultVisibility?: "private" | "team";
 }
 
 export function CreateTodoDialog({
   open,
   onOpenChange,
   onCreated,
+  defaultVisibility = "team",
 }: CreateTodoDialogProps) {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(false);
@@ -46,16 +49,18 @@ export function CreateTodoDialog({
   const [description, setDescription] = useState("");
   const [ownerId, setOwnerId] = useState("");
   const [dueDate, setDueDate] = useState("");
+  const [visibility, setVisibility] = useState<"private" | "team">(defaultVisibility);
 
   useEffect(() => {
     if (open) {
       fetchProfiles();
+      setVisibility(defaultVisibility);
       // Default due date to 7 days from now
       const defaultDate = new Date();
       defaultDate.setDate(defaultDate.getDate() + 7);
       setDueDate(defaultDate.toISOString().split("T")[0]);
     }
-  }, [open]);
+  }, [open, defaultVisibility]);
 
   const fetchProfiles = async () => {
     setLoading(true);
@@ -77,6 +82,7 @@ export function CreateTodoDialog({
     setDescription("");
     setOwnerId("");
     setDueDate("");
+    setVisibility(defaultVisibility);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -93,6 +99,7 @@ export function CreateTodoDialog({
           description: description || null,
           owner_id: ownerId && ownerId !== "__me__" ? ownerId : null,
           due_date: dueDate || null,
+          visibility,
         }),
       });
 
@@ -120,6 +127,42 @@ export function CreateTodoDialog({
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid gap-4">
+            {/* Visibility Toggle */}
+            <div className="space-y-3">
+              <Label>Visibility</Label>
+              <RadioGroup
+                value={visibility}
+                onValueChange={(v) => setVisibility(v as "private" | "team")}
+                className="grid grid-cols-2 gap-2"
+              >
+                <div>
+                  <RadioGroupItem value="team" id="team" className="peer sr-only" />
+                  <Label
+                    htmlFor="team"
+                    className="flex items-center justify-center gap-2 rounded-md border-2 border-muted bg-popover p-3 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary cursor-pointer"
+                  >
+                    <Users className="h-4 w-4" />
+                    <span className="text-sm">Team</span>
+                  </Label>
+                </div>
+                <div>
+                  <RadioGroupItem value="private" id="private" className="peer sr-only" />
+                  <Label
+                    htmlFor="private"
+                    className="flex items-center justify-center gap-2 rounded-md border-2 border-muted bg-popover p-3 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary cursor-pointer"
+                  >
+                    <Lock className="h-4 w-4" />
+                    <span className="text-sm">Private</span>
+                  </Label>
+                </div>
+              </RadioGroup>
+              <p className="text-xs text-muted-foreground">
+                {visibility === "team"
+                  ? "Visible to your team in L10 meetings"
+                  : "Only visible to you"}
+              </p>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="title">Title *</Label>
               <Input
