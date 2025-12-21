@@ -1,10 +1,20 @@
-# Aicomplice - Claude Code Guidelines
+# CLAUDE.md — Aicomplice
 
 ## What This Is
 Aicomplice is a Leadership Alignment Engine implementing the EOS (Entrepreneurial Operating System) framework. It synthesizes metrics, context, and updates into decision-ready intelligence for executive teams.
 
 **Brand:** Aicomplice (your AI accomplice for leadership alignment)
 **App URL:** app.aicomplice.com
+**Marketing URL:** aicomplice.com
+
+## Multi-Tenant Architecture
+This is a multi-tenant SaaS application. Every data table includes organization_id and uses Row Level Security to isolate tenants.
+
+**Critical Rules:**
+- EVERY query must scope by organization_id
+- NEVER expose data across organizations
+- RLS policies enforce isolation at the database level
+- New orgs are created via the onboarding wizard
 
 ## Tech Stack
 
@@ -23,8 +33,9 @@ Aicomplice is a Leadership Alignment Engine implementing the EOS (Entrepreneuria
 
 ```
 apps/
-  web/                    # Product app (app.aicomplice.com)
+  web/                    # Next.js application
     app/
+      (marketing)/        # Public pages (landing, pricing)
       (auth)/             # Clerk auth pages
       (dashboard)/        # Protected app pages
         briefing/
@@ -39,19 +50,15 @@ apps/
       api/                # API routes
     components/
       layout/             # Sidebar, headers
+      ui/                 # shadcn components
       onboarding/         # Wizard step components
     lib/
       ai/                 # Claude integration
       integrations/       # HubSpot, BigQuery
       supabase/           # Client, types
-packages/
-  ui/                     # Shared UI components (shadcn/ui)
-    src/
-      button.tsx
-      card.tsx
-      ...etc
 supabase/
   migrations/             # SQL migrations
+  seed.sql                # Dev seed data only
 ```
 
 ## Database Schema Overview
@@ -75,9 +82,45 @@ supabase/
 **team_members** — Extends Clerk users with EOS structure
 - clerk_user_id, email, full_name, title
 - role (admin, elt, slt, consumer)
-- pillar_id, is_pillar_lead
-- responsibilities (text array)
+- manager_id (FK to team_members for reporting structure)
+- eos_seat (Visionary, Integrator, etc.)
 - status (invited, active, inactive)
+
+**team_member_pillars** — Junction table for multi-pillar membership
+- team_member_id, pillar_id
+- is_primary (home pillar), is_lead (runs pillar L10)
+
+**quarters** — Time periods for rock planning
+- year, quarter (1-4)
+- start_date, end_date
+- planning_status (upcoming, planning, active, completed, reviewed)
+
+**rocks** — Quarterly initiatives with cascade
+- rock_level (company, pillar, individual)
+- parent_rock_id (for cascade hierarchy)
+- pillar_id (for pillar/individual rocks)
+- quarter_id (which quarter)
+- owner_id, status, title, description
+
+**meetings** — Recurring meeting definitions
+- meeting_type (leadership_l10, pillar_l10, one_on_one, quarterly, annual)
+- pillar_id (for pillar L10s)
+- manager_id, direct_id (for 1:1s)
+- attendee_ids (array), schedule info
+
+**meeting_instances** — Actual meeting occurrences
+- meeting_id, scheduled_at, status
+- scorecard_snapshot, rocks_snapshot (point-in-time)
+- notes, ai_summary
+
+**one_on_one_topics** — Persistent 1:1 talking points
+- meeting_id, added_by_id
+- title, notes, status (open, discussed, resolved)
+
+**issues** — IDS workflow items with escalation
+- issue_level (individual, pillar, company)
+- pillar_id, originated_in_meeting_id
+- escalated_from_id, escalated_at (for tracking escalation chain)
 
 **data_sources** — Reusable query definitions
 - source_type (hubspot, bigquery)
@@ -89,12 +132,16 @@ supabase/
 - data_source_id + time_window OR formula
 - owner_id (FK to team_members)
 
-**rocks** — Quarterly initiatives
-**issues** — IDS workflow items
 **todos** — Action items
 **updates** — Video/text updates with transcription
 **private_notes** — Confidential executive communication
 **alerts** — Interrupt-driven notifications
+
+### Key Analytics Views
+
+**company_rock_analytics** — Cascade metrics per company rock
+**company_rock_team_coverage** — "X% of team support this rock"
+**pillar_health** — Team size, rocks, issues per pillar
 
 ### RLS Pattern
 
@@ -142,26 +189,57 @@ AI-generated daily synthesis that:
 - References V/TO for strategic context
 - Personalizes based on role and pillar
 
+### Rock Cascade (Company → Pillar → Individual)
+
+Rocks flow down and accountability flows up:
+
+```
+Company Rock: "Increase ARR to $8M"
+├── Pillar Rock (Growth): "Launch partner channel"
+│   ├── Individual Rock: "Sign 5 partner agreements" (Sarah)
+│   └── Individual Rock: "Build partner marketing kit" (Tom)
+└── Pillar Rock (Product): "Ship self-serve onboarding"
+    └── Individual Rock: "Complete user research" (Mike)
+```
+
+- **Company Rocks (3-7):** Set by ELT, support 1-Year Plan
+- **Pillar Rocks:** Owned by Pillar Leads, support Company Rocks
+- **Individual Rocks:** Owned by team members, support Pillar Rocks
+
+### Meeting Pulse
+
+```
+1:1s (Manager + Direct)
+    └── surfaces blockers → escalates to...
+Pillar L10 (Pillar Lead + Team)
+    └── escalates cross-pillar issues to...
+Leadership L10 (ELT)
+    └── company-level decisions
+```
+
+### Org Structure
+
+- **Reporting line** = who you have 1:1s with (manager_id)
+- **Pillar membership** = functional area (can be multiple)
+- **Pillar lead** = runs the Pillar L10
+
 ## Development Commands
 
 ```bash
-# Install dependencies (from root)
-npm install
-
 # Start dev server
-npm run dev
-
-# Build
-npm run build
+pnpm dev
 
 # Run migrations
-npx supabase db push
+pnpm supabase db push
 
 # Generate types from Supabase
-npx supabase gen types typescript --local > apps/web/lib/supabase/types.ts
+pnpm supabase gen types typescript --local > lib/supabase/types.ts
 
 # Seed dev data
-npx supabase db seed
+pnpm supabase db seed
+
+# Deploy to Vercel
+vercel --prod
 ```
 
 ## Environment Variables
@@ -196,24 +274,3 @@ BIGQUERY_CREDENTIALS= (base64 encoded service account JSON)
 - Form validation with zod + react-hook-form
 - Loading states with Suspense boundaries
 - Error boundaries for graceful degradation
-
-## Commit Convention
-
-Use Conventional Commits: `type(scope): description`
-
-**Types:** feat, fix, docs, style, refactor, perf, test, chore, ci
-
-**Scopes:** db, api, ui, auth, scorecard, rocks, issues, todos, updates, alerts, briefing, notes, meetings, ios, inngest
-
-Commit frequently - one logical change per commit.
-
-## Vercel Deployment
-
-- **Root Directory:** `apps/web`
-- **Domain:** `app.aicomplice.com`
-- **Environment Variables:** See `.env.local.example` in `apps/web/`
-
-If there are deployment issues, check:
-1. Environment variables are set in Vercel dashboard
-2. The Root Directory setting points to `apps/web`
-3. API route code for runtime errors
