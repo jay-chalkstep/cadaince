@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 type RecurrencePattern = "weekly" | "biweekly" | "monthly";
@@ -212,10 +212,10 @@ export function MeetingScheduleEditor({
                 When enabled, meetings will be automatically scheduled
               </p>
             </div>
-            <Switch
+            <Checkbox
               id="active"
               checked={formData.is_active}
-              onCheckedChange={(checked) => handleChange("is_active", checked)}
+              onCheckedChange={(checked) => handleChange("is_active", checked === true)}
             />
           </div>
 
