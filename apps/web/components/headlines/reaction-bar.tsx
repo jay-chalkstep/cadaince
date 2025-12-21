@@ -4,10 +4,10 @@ import { useState } from "react";
 import { SmilePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface ReactionBarProps {
   reactions: Record<string, string[]>;
@@ -18,11 +18,11 @@ interface ReactionBarProps {
 const EMOJI_OPTIONS = ["🎉", "👏", "🔥", "❤️", "🙌", "💯", "🚀", "⭐"];
 
 export function ReactionBar({ reactions, currentUserId, onReaction }: ReactionBarProps) {
-  const [popoverOpen, setPopoverOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const handleEmojiClick = (emoji: string) => {
     onReaction(emoji);
-    setPopoverOpen(false);
+    setMenuOpen(false);
   };
 
   const reactionEntries = Object.entries(reactions || {}).filter(
@@ -49,13 +49,13 @@ export function ReactionBar({ reactions, currentUserId, onReaction }: ReactionBa
         );
       })}
 
-      <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
-        <PopoverTrigger asChild>
+      <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+        <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
             <SmilePlus className="h-4 w-4 text-muted-foreground" />
           </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-auto p-2" align="start">
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="p-2" align="start">
           <div className="flex gap-1">
             {EMOJI_OPTIONS.map((emoji) => (
               <Button
@@ -69,8 +69,8 @@ export function ReactionBar({ reactions, currentUserId, onReaction }: ReactionBa
               </Button>
             ))}
           </div>
-        </PopoverContent>
-      </Popover>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }
