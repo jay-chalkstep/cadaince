@@ -2,7 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
-// GET /api/rocks/:id - Get single rock
+// GET /api/rocks/:id - Get single rock with cascade info
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -13,16 +13,34 @@ export async function GET(
   }
 
   const { id } = await params;
+  const { searchParams } = new URL(req.url);
+  const includeChildren = searchParams.get("include") === "children";
+  const includeAncestors = searchParams.get("include") === "ancestors";
+
   const supabase = createAdminClient();
+
+  // Get user's organization
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("organization_id")
+    .eq("clerk_id", userId)
+    .single();
+
+  if (!profile?.organization_id) {
+    return NextResponse.json({ error: "Organization not found" }, { status: 404 });
+  }
 
   const { data: rock, error } = await supabase
     .from("rocks")
     .select(`
       *,
-      owner:profiles!rocks_owner_id_fkey(id, full_name, avatar_url, email),
-      pillar:pillars!rocks_pillar_id_fkey(id, name)
+      owner:profiles!rocks_owner_id_fkey(id, full_name, avatar_url, email, title),
+      pillar:pillars!rocks_pillar_id_fkey(id, name, color),
+      parent:rocks!rocks_parent_rock_id_fkey(id, title, rock_level, status),
+      quarter:quarters!rocks_quarter_id_fkey(id, year, quarter, planning_status, start_date, end_date)
     `)
     .eq("id", id)
+    .eq("organization_id", profile.organization_id)
     .single();
 
   if (error || !rock) {
@@ -31,18 +49,84 @@ export async function GET(
 
   // Get related milestones
   const { data: milestones } = await supabase
-    .from("milestones")
+    .from("rock_milestones")
     .select("*")
     .eq("rock_id", id)
     .order("due_date", { ascending: true });
 
-  return NextResponse.json({
+  let result: Record<string, unknown> = {
     ...rock,
     milestones: milestones || [],
-  });
+  };
+
+  // Include children (pillar/individual rocks under this one)
+  if (includeChildren) {
+    const { data: children } = await supabase
+      .from("rocks")
+      .select(`
+        *,
+        owner:profiles!rocks_owner_id_fkey(id, full_name, avatar_url),
+        pillar:pillars!rocks_pillar_id_fkey(id, name, color)
+      `)
+      .eq("parent_rock_id", id)
+      .order("rock_level", { ascending: true })
+      .order("title", { ascending: true });
+
+    // For company rocks, also get grandchildren (individual rocks)
+    if (rock.rock_level === "company" && children && children.length > 0) {
+      const childIds = children.map((c) => c.id);
+      const { data: grandchildren } = await supabase
+        .from("rocks")
+        .select(`
+          *,
+          owner:profiles!rocks_owner_id_fkey(id, full_name, avatar_url),
+          pillar:pillars!rocks_pillar_id_fkey(id, name, color)
+        `)
+        .in("parent_rock_id", childIds)
+        .order("title", { ascending: true });
+
+      // Nest grandchildren under their parents
+      const childrenWithGrandchildren = children.map((child) => ({
+        ...child,
+        children: (grandchildren || []).filter((gc) => gc.parent_rock_id === child.id),
+      }));
+
+      result.children = childrenWithGrandchildren;
+    } else {
+      result.children = children || [];
+    }
+  }
+
+  // Include ancestors (parent chain up to company rock)
+  if (includeAncestors && rock.parent_rock_id) {
+    const ancestors: Array<Record<string, unknown>> = [];
+    let currentParentId = rock.parent_rock_id;
+
+    while (currentParentId) {
+      const { data: parent } = await supabase
+        .from("rocks")
+        .select(`
+          id, title, rock_level, status, parent_rock_id,
+          owner:profiles!rocks_owner_id_fkey(id, full_name, avatar_url)
+        `)
+        .eq("id", currentParentId)
+        .single();
+
+      if (parent) {
+        ancestors.push(parent);
+        currentParentId = parent.parent_rock_id;
+      } else {
+        break;
+      }
+    }
+
+    result.ancestors = ancestors.reverse(); // From company down to immediate parent
+  }
+
+  return NextResponse.json(result);
 }
 
-// PATCH /api/rocks/:id - Update rock
+// PATCH /api/rocks/:id - Update rock with cascade fields
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -58,18 +142,18 @@ export async function PATCH(
   // Get current user's profile
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, access_level")
+    .select("id, organization_id, access_level, is_elt")
     .eq("clerk_id", userId)
     .single();
 
-  if (!profile) {
-    return NextResponse.json({ error: "Profile not found" }, { status: 404 });
+  if (!profile?.organization_id) {
+    return NextResponse.json({ error: "Organization not found" }, { status: 404 });
   }
 
-  // Get the rock to check ownership
+  // Get the rock to check ownership and org
   const { data: rock } = await supabase
     .from("rocks")
-    .select("owner_id")
+    .select("owner_id, organization_id, rock_level, pillar_id")
     .eq("id", id)
     .single();
 
@@ -77,34 +161,71 @@ export async function PATCH(
     return NextResponse.json({ error: "Rock not found" }, { status: 404 });
   }
 
-  // Check if user is admin, elt, or owner
+  if (rock.organization_id !== profile.organization_id) {
+    return NextResponse.json({ error: "Rock not found" }, { status: 404 });
+  }
+
+  // Check if user is admin, elt, owner, or pillar lead
   const isAdmin = profile.access_level === "admin";
-  const isElt = profile.access_level === "elt";
+  const isElt = profile.access_level === "elt" || profile.is_elt;
   const isOwner = rock.owner_id === profile.id;
 
-  if (!isAdmin && !isElt && !isOwner) {
+  // Check pillar lead status if not already authorized
+  let isPillarLead = false;
+  if (!isAdmin && !isElt && !isOwner && rock.pillar_id) {
+    const { data: membership } = await supabase
+      .from("team_member_pillars")
+      .select("is_lead")
+      .eq("team_member_id", profile.id)
+      .eq("pillar_id", rock.pillar_id)
+      .single();
+    isPillarLead = membership?.is_lead || false;
+  }
+
+  if (!isAdmin && !isElt && !isOwner && !isPillarLead) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const body = await req.json();
-  const { name, description, pillar_id, owner_id, status, quarter, year } = body;
+  const {
+    title,
+    name, // Legacy
+    description,
+    owner_id,
+    status,
+    due_date,
+    quarter,
+    quarter_id,
+    rock_level,
+    parent_rock_id,
+    pillar_id,
+    linked_metric_id,
+  } = body;
+
+  const updateData: Record<string, unknown> = {};
+  if (title !== undefined) updateData.title = title;
+  if (name !== undefined && title === undefined) updateData.title = name; // Legacy
+  if (description !== undefined) updateData.description = description;
+  if (owner_id !== undefined) updateData.owner_id = owner_id;
+  if (status !== undefined) updateData.status = status;
+  if (due_date !== undefined) updateData.due_date = due_date;
+  if (quarter !== undefined) updateData.quarter = quarter;
+  if (quarter_id !== undefined) updateData.quarter_id = quarter_id;
+  if (rock_level !== undefined) updateData.rock_level = rock_level;
+  if (parent_rock_id !== undefined) updateData.parent_rock_id = parent_rock_id;
+  if (pillar_id !== undefined) updateData.pillar_id = pillar_id;
+  if (linked_metric_id !== undefined) updateData.linked_metric_id = linked_metric_id;
 
   const { data: updated, error } = await supabase
     .from("rocks")
-    .update({
-      ...(name !== undefined && { name }),
-      ...(description !== undefined && { description }),
-      ...(pillar_id !== undefined && { pillar_id }),
-      ...(owner_id !== undefined && { owner_id }),
-      ...(status !== undefined && { status }),
-      ...(quarter !== undefined && { quarter }),
-      ...(year !== undefined && { year }),
-    })
+    .update(updateData)
     .eq("id", id)
     .select(`
       *,
-      owner:profiles!rocks_owner_id_fkey(id, full_name, avatar_url),
-      pillar:pillars!rocks_pillar_id_fkey(id, name)
+      owner:profiles!rocks_owner_id_fkey(id, full_name, avatar_url, title),
+      pillar:pillars!rocks_pillar_id_fkey(id, name, color),
+      parent:rocks!rocks_parent_rock_id_fkey(id, title, rock_level),
+      quarter:quarters!rocks_quarter_id_fkey(id, year, quarter, planning_status)
     `)
     .single();
 
@@ -132,7 +253,7 @@ export async function DELETE(
   // Check if user is admin
   const { data: profile } = await supabase
     .from("profiles")
-    .select("access_level")
+    .select("organization_id, access_level")
     .eq("clerk_id", userId)
     .single();
 
@@ -140,7 +261,25 @@ export async function DELETE(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const { error } = await supabase.from("rocks").delete().eq("id", id);
+  // Check if rock has children
+  const { data: children } = await supabase
+    .from("rocks")
+    .select("id")
+    .eq("parent_rock_id", id)
+    .limit(1);
+
+  if (children && children.length > 0) {
+    return NextResponse.json(
+      { error: "Cannot delete rock with child rocks. Delete children first." },
+      { status: 400 }
+    );
+  }
+
+  const { error } = await supabase
+    .from("rocks")
+    .delete()
+    .eq("id", id)
+    .eq("organization_id", profile.organization_id);
 
   if (error) {
     console.error("Error deleting rock:", error);
