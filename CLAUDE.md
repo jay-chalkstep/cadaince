@@ -5,7 +5,6 @@ Aicomplice is a Leadership Alignment Engine implementing the EOS (Entrepreneuria
 
 **Brand:** Aicomplice (your AI accomplice for leadership alignment)
 **App URL:** app.aicomplice.com
-**Marketing URL:** aicomplice.com
 
 ## Tech Stack
 
@@ -22,14 +21,8 @@ Aicomplice is a Leadership Alignment Engine implementing the EOS (Entrepreneuria
 
 ## Project Structure
 
-This is a **monorepo** with two separate Next.js applications:
-
 ```
 apps/
-  marketing/              # Marketing site (aicomplice.com)
-    app/
-      page.tsx            # Landing page
-      not-found.tsx       # 404 page
   web/                    # Product app (app.aicomplice.com)
     app/
       (auth)/             # Clerk auth pages
@@ -155,15 +148,10 @@ AI-generated daily synthesis that:
 # Install dependencies (from root)
 npm install
 
-# Start app dev server (app.aicomplice.com)
-npm run dev:app
-# or from apps/web: npm run dev
+# Start dev server
+npm run dev
 
-# Start marketing dev server (aicomplice.com)
-npm run dev:marketing
-# or from apps/marketing: npm run dev
-
-# Build all apps
+# Build
 npm run build
 
 # Run migrations
@@ -219,26 +207,13 @@ Use Conventional Commits: `type(scope): description`
 
 Commit frequently - one logical change per commit.
 
-## Vercel Deployment - IMPORTANT
+## Vercel Deployment
 
-This monorepo requires **TWO separate Vercel projects**:
-
-### 1. Marketing Site (aicomplice.com)
-- **Vercel Project Name:** `aicomplice-marketing`
-- **Root Directory:** `apps/marketing`
-- **Domain:** `aicomplice.com` + `www.aicomplice.com`
-- **Environment Variables:**
-  - `NEXT_PUBLIC_APP_URL=https://app.aicomplice.com`
-
-### 2. Product App (app.aicomplice.com)
-- **Vercel Project Name:** `aicomplice-app`
 - **Root Directory:** `apps/web`
 - **Domain:** `app.aicomplice.com`
 - **Environment Variables:** See `.env.local.example` in `apps/web/`
 
-**DO NOT create a vercel.json file at the repository root.** Configure Root Directory via the Vercel dashboard for each project.
-
 If there are deployment issues, check:
-1. Environment variables are set in Vercel dashboard for the correct project
-2. The Root Directory setting points to the correct `apps/` subdirectory
+1. Environment variables are set in Vercel dashboard
+2. The Root Directory setting points to `apps/web`
 3. API route code for runtime errors
