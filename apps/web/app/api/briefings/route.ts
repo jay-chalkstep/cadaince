@@ -29,7 +29,23 @@ export async function GET(req: Request) {
     .single();
 
   if (!profile) {
-    return NextResponse.json({ error: "Profile not found" }, { status: 404 });
+    // Return fallback briefing if profile not found
+    // This can happen during initial setup or if webhook hasn't synced yet
+    const today = new Date().toISOString().split("T")[0];
+    return NextResponse.json({
+      profile_id: null,
+      briefing_date: today,
+      content: {
+        greeting: "Good morning!",
+        summary: "Your profile is being set up. Please refresh in a moment.",
+        highlights: [],
+        attention_needed: [],
+        opportunities: [],
+        meeting_prep: null,
+      },
+      generated_at: new Date().toISOString(),
+      is_fallback: true,
+    });
   }
 
   const today = new Date().toISOString().split("T")[0];

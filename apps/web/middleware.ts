@@ -14,10 +14,16 @@ export default clerkMiddleware(async (auth, req) => {
     await auth.protect();
   }
 
-  // Add pathname header for server components to detect current route
-  const response = NextResponse.next();
-  response.headers.set("x-pathname", req.nextUrl.pathname);
-  return response;
+  // Add pathname to REQUEST headers for server components to detect current route
+  // Note: Must set on request headers, not response headers
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set("x-pathname", req.nextUrl.pathname);
+
+  return NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  });
 });
 
 export const config = {
