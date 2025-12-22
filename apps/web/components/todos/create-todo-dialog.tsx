@@ -21,7 +21,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 interface Profile {
   id: string;
@@ -130,32 +129,26 @@ export function CreateTodoDialog({
             {/* Visibility Toggle */}
             <div className="space-y-3">
               <Label>Visibility</Label>
-              <RadioGroup
-                value={visibility}
-                onValueChange={(v) => setVisibility(v as "private" | "team")}
-                className="grid grid-cols-2 gap-2"
-              >
-                <div>
-                  <RadioGroupItem value="team" id="team" className="peer sr-only" />
-                  <Label
-                    htmlFor="team"
-                    className="flex items-center justify-center gap-2 rounded-md border-2 border-muted bg-popover p-3 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary cursor-pointer"
-                  >
-                    <Users className="h-4 w-4" />
-                    <span className="text-sm">Team</span>
-                  </Label>
-                </div>
-                <div>
-                  <RadioGroupItem value="private" id="private" className="peer sr-only" />
-                  <Label
-                    htmlFor="private"
-                    className="flex items-center justify-center gap-2 rounded-md border-2 border-muted bg-popover p-3 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary cursor-pointer"
-                  >
-                    <Lock className="h-4 w-4" />
-                    <span className="text-sm">Private</span>
-                  </Label>
-                </div>
-              </RadioGroup>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  type="button"
+                  variant={visibility === "team" ? "default" : "outline"}
+                  className="flex items-center justify-center gap-2"
+                  onClick={() => setVisibility("team")}
+                >
+                  <Users className="h-4 w-4" />
+                  <span className="text-sm">Team</span>
+                </Button>
+                <Button
+                  type="button"
+                  variant={visibility === "private" ? "default" : "outline"}
+                  className="flex items-center justify-center gap-2"
+                  onClick={() => setVisibility("private")}
+                >
+                  <Lock className="h-4 w-4" />
+                  <span className="text-sm">Private</span>
+                </Button>
+              </div>
               <p className="text-xs text-muted-foreground">
                 {visibility === "team"
                   ? "Visible to your team in L10 meetings"

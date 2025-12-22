@@ -21,7 +21,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 interface TeamMember {
   id: string;
@@ -110,42 +109,35 @@ export function CreateHeadlineDialog({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-3">
             <Label>Type</Label>
-            <RadioGroup
-              value={headlineType}
-              onValueChange={(v) => setHeadlineType(v as typeof headlineType)}
-              className="grid grid-cols-3 gap-2"
-            >
-              <div>
-                <RadioGroupItem value="customer" id="customer" className="peer sr-only" />
-                <Label
-                  htmlFor="customer"
-                  className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-3 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-green-500 cursor-pointer"
-                >
-                  <Trophy className="h-5 w-5 mb-1 text-green-600" />
-                  <span className="text-xs">Customer</span>
-                </Label>
-              </div>
-              <div>
-                <RadioGroupItem value="employee" id="employee" className="peer sr-only" />
-                <Label
-                  htmlFor="employee"
-                  className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-3 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-blue-500 cursor-pointer"
-                >
-                  <User className="h-5 w-5 mb-1 text-blue-600" />
-                  <span className="text-xs">Shoutout</span>
-                </Label>
-              </div>
-              <div>
-                <RadioGroupItem value="general" id="general" className="peer sr-only" />
-                <Label
-                  htmlFor="general"
-                  className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-3 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-gray-500 cursor-pointer"
-                >
-                  <MessageSquare className="h-5 w-5 mb-1 text-gray-600" />
-                  <span className="text-xs">General</span>
-                </Label>
-              </div>
-            </RadioGroup>
+            <div className="grid grid-cols-3 gap-2">
+              <Button
+                type="button"
+                variant={headlineType === "customer" ? "default" : "outline"}
+                className="flex flex-col items-center justify-center h-16 gap-1"
+                onClick={() => setHeadlineType("customer")}
+              >
+                <Trophy className="h-5 w-5 text-green-600" />
+                <span className="text-xs">Customer</span>
+              </Button>
+              <Button
+                type="button"
+                variant={headlineType === "employee" ? "default" : "outline"}
+                className="flex flex-col items-center justify-center h-16 gap-1"
+                onClick={() => setHeadlineType("employee")}
+              >
+                <User className="h-5 w-5 text-blue-600" />
+                <span className="text-xs">Shoutout</span>
+              </Button>
+              <Button
+                type="button"
+                variant={headlineType === "general" ? "default" : "outline"}
+                className="flex flex-col items-center justify-center h-16 gap-1"
+                onClick={() => setHeadlineType("general")}
+              >
+                <MessageSquare className="h-5 w-5 text-gray-600" />
+                <span className="text-xs">General</span>
+              </Button>
+            </div>
           </div>
 
           <div className="space-y-2">
