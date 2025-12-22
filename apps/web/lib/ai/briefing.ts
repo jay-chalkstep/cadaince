@@ -81,6 +81,11 @@ export interface BriefingContext {
     type: string;
     scheduled_at: string;
   } | null;
+  mentions: Array<{
+    author: string;
+    entity_type: string;
+    preview: string;
+  }>;
 }
 
 export interface BriefingContent {
@@ -181,6 +186,9 @@ ${context.alerts.filter((a) => !a.acknowledged).slice(0, 3).map((a) => `- [${a.s
 Pending To-Dos: ${context.pendingTodos}
 
 ${context.upcomingMeeting ? `Next Meeting: ${context.upcomingMeeting.type} at ${new Date(context.upcomingMeeting.scheduled_at).toLocaleTimeString()}` : "No meetings scheduled today"}
+
+${context.mentions?.length > 0 ? `Unread Mentions (${context.mentions.length}):
+${context.mentions.map((m) => `- ${m.author} mentioned you on ${m.entity_type}: "${m.preview.slice(0, 50)}..."`).join("\n")}` : "No unread mentions"}
 
 Generate the briefing JSON:`;
 

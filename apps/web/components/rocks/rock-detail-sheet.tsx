@@ -23,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { CommentThread } from "@/components/comments/comment-thread";
 
 interface Milestone {
   id: string;
@@ -86,6 +87,23 @@ export function RockDetailSheet({
   const [newMilestoneTitle, setNewMilestoneTitle] = useState("");
   const [addingMilestone, setAddingMilestone] = useState(false);
   const [updatingMilestoneId, setUpdatingMilestoneId] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  // Fetch current user
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      try {
+        const response = await fetch("/api/users/me");
+        if (response.ok) {
+          const data = await response.json();
+          setCurrentUserId(data.id);
+        }
+      } catch (error) {
+        console.error("Failed to fetch current user:", error);
+      }
+    };
+    fetchCurrentUser();
+  }, []);
 
   useEffect(() => {
     if (rock && open) {
@@ -426,6 +444,15 @@ export function RockDetailSheet({
               </Button>
             </form>
           </div>
+
+          <Separator />
+
+          {/* Comments */}
+          <CommentThread
+            entityType="rock"
+            entityId={rock.id}
+            currentUserId={currentUserId}
+          />
         </div>
       </SheetContent>
     </Sheet>

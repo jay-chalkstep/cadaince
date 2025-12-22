@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { MetricSourceDialog } from "@/components/integrations/metric-source-dialog";
+import { CommentThread } from "@/components/comments/comment-thread";
 
 interface MetricValue {
   id: string;
@@ -65,6 +66,23 @@ export function MetricDetailSheet({
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [sourceDialogOpen, setSourceDialogOpen] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  // Fetch current user
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      try {
+        const response = await fetch("/api/users/me");
+        if (response.ok) {
+          const data = await response.json();
+          setCurrentUserId(data.id);
+        }
+      } catch (error) {
+        console.error("Failed to fetch current user:", error);
+      }
+    };
+    fetchCurrentUser();
+  }, []);
 
   useEffect(() => {
     if (metric && open) {
@@ -301,6 +319,15 @@ export function MetricDetailSheet({
               </div>
             )}
           </div>
+
+          <Separator />
+
+          {/* Comments */}
+          <CommentThread
+            entityType="metric"
+            entityId={metric.id}
+            currentUserId={currentUserId}
+          />
         </div>
 
         <MetricSourceDialog

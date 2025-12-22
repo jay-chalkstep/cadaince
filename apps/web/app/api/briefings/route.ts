@@ -45,6 +45,7 @@ export async function GET(req: Request) {
       },
       generated_at: new Date().toISOString(),
       is_fallback: true,
+      fallback_reason: "profile_not_found",
     });
   }
 
@@ -101,7 +102,7 @@ export async function GET(req: Request) {
       briefing_date: today,
       content: {
         greeting: `Good morning, ${profile.full_name}!`,
-        summary: "AI briefing generation is not configured. Please add your ANTHROPIC_API_KEY to enable personalized briefings.",
+        summary: "AI briefing generation is not configured. Please add your ANTHROPIC_API_KEY to your environment and redeploy.",
         highlights: [],
         attention_needed: context.alerts.filter((a) => !a.acknowledged).map((a) => a.title),
         opportunities: [],
@@ -109,6 +110,7 @@ export async function GET(req: Request) {
       },
       generated_at: new Date().toISOString(),
       is_fallback: true,
+      fallback_reason: "api_key_missing",
     });
   }
 
@@ -151,7 +153,7 @@ async function gatherBriefingContext(supabase: ReturnType<typeof createAdminClie
   const currentYear = now.getFullYear();
 
   // Fetch all context data in parallel
-  const [metricsResult, rocksResult, issuesResult, updatesResult, alertsResult, todosResult, meetingResult, vtoResult, anomaliesResult] =
+  const [metricsResult, rocksResult, issuesResult, updatesResult, alertsResult, todosResult, meetingResult, vtoResult, anomaliesResult, mentionsResult] =
     await Promise.all([
       // Metrics with latest values
       supabase
@@ -263,6 +265,24 @@ async function gatherBriefingContext(supabase: ReturnType<typeof createAdminClie
         .is("resolved_at", null)
         .order("detected_at", { ascending: false })
         .limit(10),
+
+      // Recent unread mentions
+      supabase
+        .from("mentions")
+        .select(`
+          id,
+          created_at,
+          comment:comments!mentions_comment_id_fkey(
+            entity_type,
+            entity_id,
+            body,
+            author:profiles!comments_author_id_fkey(full_name)
+          )
+        `)
+        .eq("mentioned_id", profileId)
+        .is("read_at", null)
+        .order("created_at", { ascending: false })
+        .limit(5),
     ]);
 
   // Helper to extract name from Supabase relation array
@@ -363,5 +383,18 @@ async function gatherBriefingContext(supabase: ReturnType<typeof createAdminClie
           scheduled_at: meetingResult.data.scheduled_at,
         }
       : null,
+    mentions: (mentionsResult.data || []).map((m) => {
+      const comment = m.comment as {
+        entity_type: string;
+        entity_id: string;
+        body: string;
+        author: { full_name: string }[] | null;
+      } | null;
+      return {
+        author: comment?.author?.[0]?.full_name || "Someone",
+        entity_type: comment?.entity_type || "unknown",
+        preview: comment?.body?.slice(0, 100) || "",
+      };
+    }),
   };
 }
