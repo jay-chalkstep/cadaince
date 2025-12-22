@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { MentionsWidget } from "@/components/mentions/mentions-widget";
 
 interface BriefingContent {
   greeting: string;
@@ -285,6 +286,9 @@ export default function BriefingPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* Mentions */}
+        <MentionsWidget />
       </div>
 
       {/* Footer */}

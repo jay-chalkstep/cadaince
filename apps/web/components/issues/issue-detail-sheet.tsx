@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Loader2, CheckCircle2 } from "lucide-react";
 import {
   Sheet,
@@ -22,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { CommentThread } from "@/components/comments/comment-thread";
 
 interface Issue {
   id: string;
@@ -65,6 +66,23 @@ export function IssueDetailSheet({
 }: IssueDetailSheetProps) {
   const [updating, setUpdating] = useState(false);
   const [resolution, setResolution] = useState("");
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  // Fetch current user
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      try {
+        const response = await fetch("/api/users/me");
+        if (response.ok) {
+          const data = await response.json();
+          setCurrentUserId(data.id);
+        }
+      } catch (error) {
+        console.error("Failed to fetch current user:", error);
+      }
+    };
+    fetchCurrentUser();
+  }, []);
 
   const getInitials = (name: string) => {
     return name
@@ -298,6 +316,15 @@ export function IssueDetailSheet({
               </Button>
             </div>
           )}
+
+          <Separator />
+
+          {/* Comments */}
+          <CommentThread
+            entityType="issue"
+            entityId={issue.id}
+            currentUserId={currentUserId}
+          />
         </div>
       </SheetContent>
     </Sheet>
