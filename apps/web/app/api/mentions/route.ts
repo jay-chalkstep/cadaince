@@ -63,7 +63,7 @@ export async function GET(req: Request) {
 
   // Filter out mentions where the comment was deleted
   const activeMentions = mentions?.filter(m => {
-    const comment = m.comment as { id: string } | null;
+    const comment = m.comment as unknown as { id: string } | null;
     return comment !== null;
   }) || [];
 
