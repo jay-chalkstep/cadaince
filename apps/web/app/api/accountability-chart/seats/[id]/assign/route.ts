@@ -31,7 +31,7 @@ export async function POST(
   }
 
   const body = await req.json();
-  const { team_member_id, is_primary } = body;
+  const { team_member_id, is_primary, assignment_type } = body;
 
   if (!team_member_id) {
     return NextResponse.json({ error: "team_member_id is required" }, { status: 400 });
@@ -68,12 +68,14 @@ export async function POST(
       seat_id: seatId,
       team_member_id,
       is_primary: is_primary ?? true,
+      assignment_type: assignment_type || "holder",
     }, {
       onConflict: "seat_id,team_member_id",
     })
     .select(`
       id,
       is_primary,
+      assignment_type,
       assigned_at,
       team_member:profiles!seat_assignments_team_member_id_fkey(
         id, full_name, avatar_url, email, title
