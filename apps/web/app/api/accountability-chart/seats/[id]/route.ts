@@ -34,9 +34,18 @@ export async function GET(
       assignments:seat_assignments(
         id,
         is_primary,
+        assignment_type,
         assigned_at,
         team_member:profiles!seat_assignments_team_member_id_fkey(
           id, full_name, avatar_url, email, title
+        )
+      ),
+      function_assignments:seat_function_assignments(
+        id,
+        assignment_type,
+        sort_order,
+        function:seat_functions!seat_function_assignments_function_id_fkey(
+          id, name, description, category, icon, is_eos_default
         )
       )
     `)
@@ -97,6 +106,9 @@ export async function PATCH(
     pillar_id,
     parent_seat_id,
     roles,
+    seat_type,
+    eos_role,
+    display_as_unit,
     core_values_match,
     gets_it,
     wants_it,
@@ -116,6 +128,9 @@ export async function PATCH(
   if (pillar_id !== undefined) updateData.pillar_id = pillar_id;
   if (parent_seat_id !== undefined) updateData.parent_seat_id = parent_seat_id;
   if (roles !== undefined) updateData.roles = roles;
+  if (seat_type !== undefined) updateData.seat_type = seat_type;
+  if (eos_role !== undefined) updateData.eos_role = eos_role;
+  if (display_as_unit !== undefined) updateData.display_as_unit = display_as_unit;
   if (core_values_match !== undefined) updateData.core_values_match = core_values_match;
   if (gets_it !== undefined) updateData.gets_it = gets_it;
   if (wants_it !== undefined) updateData.wants_it = wants_it;
@@ -134,8 +149,17 @@ export async function PATCH(
       assignments:seat_assignments(
         id,
         is_primary,
+        assignment_type,
         team_member:profiles!seat_assignments_team_member_id_fkey(
           id, full_name, avatar_url
+        )
+      ),
+      function_assignments:seat_function_assignments(
+        id,
+        assignment_type,
+        sort_order,
+        function:seat_functions!seat_function_assignments_function_id_fkey(
+          id, name, description, category, icon, is_eos_default
         )
       )
     `)

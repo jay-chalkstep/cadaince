@@ -22,7 +22,7 @@ export async function GET() {
     return NextResponse.json({ error: "Organization not found" }, { status: 404 });
   }
 
-  // Get all seats with assignments
+  // Get all seats with assignments and functions
   const { data: seats, error } = await supabase
     .from("seats")
     .select(`
@@ -31,14 +31,33 @@ export async function GET() {
       assignments:seat_assignments(
         id,
         is_primary,
+        assignment_type,
         assigned_at,
         team_member:profiles!seat_assignments_team_member_id_fkey(
           id, full_name, avatar_url, email, title
+        )
+      ),
+      function_assignments:seat_function_assignments(
+        id,
+        assignment_type,
+        sort_order,
+        function:seat_functions!seat_function_assignments_function_id_fkey(
+          id, name, description, category, icon, is_eos_default
         )
       )
     `)
     .eq("organization_id", profile.organization_id)
     .order("name");
+
+  // Get all relationships
+  const { data: relationships } = await supabase
+    .from("seat_relationships")
+    .select(`
+      *,
+      from_seat:seats!seat_relationships_from_seat_id_fkey(id, name),
+      to_seat:seats!seat_relationships_to_seat_id_fkey(id, name)
+    `)
+    .eq("organization_id", profile.organization_id);
 
   if (error) {
     console.error("Error fetching seats:", error);
@@ -60,5 +79,6 @@ export async function GET() {
   return NextResponse.json({
     seats: rootSeats,
     flatSeats: seats || [],
+    relationships: relationships || [],
   });
 }

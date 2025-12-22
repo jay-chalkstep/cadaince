@@ -33,6 +33,9 @@ export async function POST(req: Request) {
     pillar_id,
     parent_seat_id,
     roles,
+    seat_type,
+    eos_role,
+    display_as_unit,
     core_values_match,
     gets_it,
     wants_it,
@@ -68,6 +71,9 @@ export async function POST(req: Request) {
       pillar_id: pillar_id || null,
       parent_seat_id: parent_seat_id || null,
       roles: roles || [],
+      seat_type: seat_type || "single",
+      eos_role: eos_role || null,
+      display_as_unit: display_as_unit ?? false,
       core_values_match: core_values_match ?? true,
       gets_it: gets_it ?? true,
       wants_it: wants_it ?? true,
@@ -82,6 +88,7 @@ export async function POST(req: Request) {
       assignments:seat_assignments(
         id,
         is_primary,
+        assignment_type,
         team_member:profiles!seat_assignments_team_member_id_fkey(
           id, full_name, avatar_url
         )

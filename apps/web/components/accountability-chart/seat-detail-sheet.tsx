@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Loader2, Plus, Trash2, X, Check } from "lucide-react";
+import { Loader2, Plus, Trash2, X, Check, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -35,10 +36,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { FunctionsEditor } from "./functions-editor";
 
 interface Assignment {
   id: string;
   is_primary: boolean;
+  assignment_type?: "holder" | "co-holder" | "backup" | "fractional" | "dotted-line";
   team_member: {
     id: string;
     full_name: string;
@@ -46,6 +49,22 @@ interface Assignment {
     email: string;
     title: string | null;
   };
+}
+
+interface SeatFunction {
+  id: string;
+  name: string;
+  description: string | null;
+  category: string;
+  icon: string | null;
+  is_eos_default: boolean;
+}
+
+interface FunctionAssignment {
+  id: string;
+  assignment_type: "primary" | "shared" | "supporting";
+  sort_order: number;
+  function: SeatFunction;
 }
 
 interface Seat {
@@ -59,12 +78,16 @@ interface Seat {
     color: string | null;
   } | null;
   roles: string[];
+  seat_type?: "single" | "unit";
+  eos_role?: "visionary" | "integrator" | "leader" | null;
+  display_as_unit?: boolean;
   gets_it: boolean;
   wants_it: boolean;
   capacity_to_do: boolean;
   core_values_match: boolean;
   color: string | null;
   assignments: Assignment[];
+  function_assignments?: FunctionAssignment[];
 }
 
 interface TeamMember {
@@ -82,6 +105,21 @@ interface SeatDetailSheetProps {
   existingSeats: Seat[];
 }
 
+const ASSIGNMENT_TYPE_OPTIONS = [
+  { value: "holder", label: "Holder" },
+  { value: "co-holder", label: "Co-Holder" },
+  { value: "backup", label: "Backup" },
+  { value: "fractional", label: "Fractional" },
+  { value: "dotted-line", label: "Dotted Line" },
+];
+
+const EOS_ROLE_OPTIONS = [
+  { value: "", label: "None" },
+  { value: "visionary", label: "Visionary" },
+  { value: "integrator", label: "Integrator" },
+  { value: "leader", label: "Leader" },
+];
+
 export function SeatDetailSheet({
   seat,
   open,
@@ -92,18 +130,25 @@ export function SeatDetailSheet({
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
   const [roles, setRoles] = useState("");
+  const [seatType, setSeatType] = useState<"single" | "unit">("single");
+  const [eosRole, setEosRole] = useState("");
+  const [displayAsUnit, setDisplayAsUnit] = useState(false);
   const [getsIt, setGetsIt] = useState(true);
   const [wantsIt, setWantsIt] = useState(true);
   const [capacityToDo, setCapacityToDo] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [selectedMember, setSelectedMember] = useState("");
+  const [selectedAssignmentType, setSelectedAssignmentType] = useState("holder");
   const [assigning, setAssigning] = useState(false);
 
   useEffect(() => {
     if (seat && open) {
       setName(seat.name);
       setRoles(seat.roles?.join("\n") || "");
+      setSeatType(seat.seat_type || "single");
+      setEosRole(seat.eos_role || "");
+      setDisplayAsUnit(seat.display_as_unit || false);
       setGetsIt(seat.gets_it);
       setWantsIt(seat.wants_it);
       setCapacityToDo(seat.capacity_to_do);
@@ -137,6 +182,9 @@ export function SeatDetailSheet({
             .split("\n")
             .map((r) => r.trim())
             .filter(Boolean),
+          seat_type: seatType,
+          eos_role: eosRole || null,
+          display_as_unit: displayAsUnit,
           gets_it: getsIt,
           wants_it: wantsIt,
           capacity_to_do: capacityToDo,
@@ -181,12 +229,16 @@ export function SeatDetailSheet({
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ team_member_id: selectedMember }),
+          body: JSON.stringify({
+            team_member_id: selectedMember,
+            assignment_type: selectedAssignmentType,
+          }),
         }
       );
 
       if (response.ok) {
         setSelectedMember("");
+        setSelectedAssignmentType("holder");
         onUpdate();
       }
     } catch (error) {
@@ -222,6 +274,11 @@ export function SeatDetailSheet({
       .slice(0, 2);
   };
 
+  const getAssignmentTypeLabel = (type?: string) => {
+    const option = ASSIGNMENT_TYPE_OPTIONS.find((o) => o.value === type);
+    return option?.label || "Holder";
+  };
+
   const assignedIds = seat?.assignments?.map((a) => a.team_member.id) || [];
   const availableMembers = teamMembers.filter((m) => !assignedIds.includes(m.id));
 
@@ -231,10 +288,23 @@ export function SeatDetailSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="sm:max-w-lg overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>{editing ? "Edit Seat" : seat.name}</SheetTitle>
+          <SheetTitle className="flex items-center gap-2">
+            {editing ? "Edit Seat" : seat.name}
+            {seat.seat_type === "unit" && seat.display_as_unit && (
+              <Badge variant="outline" className="text-xs">
+                <Users className="h-3 w-3 mr-1" />
+                Unit
+              </Badge>
+            )}
+          </SheetTitle>
           <SheetDescription>
             {seat.pillar && (
               <Badge variant="secondary">{seat.pillar.name}</Badge>
+            )}
+            {seat.eos_role && (
+              <Badge variant="outline" className="ml-1 capitalize">
+                {seat.eos_role}
+              </Badge>
             )}
           </SheetDescription>
         </SheetHeader>
@@ -251,14 +321,72 @@ export function SeatDetailSheet({
                 />
               </div>
 
+              {/* Seat Type Toggle */}
+              <div className="space-y-3">
+                <Label>Seat Type</Label>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">Leadership Unit</p>
+                    <p className="text-xs text-muted-foreground">
+                      Multiple people operating as partners
+                    </p>
+                  </div>
+                  <Switch
+                    checked={seatType === "unit"}
+                    onCheckedChange={(checked) => {
+                      setSeatType(checked ? "unit" : "single");
+                      if (checked) setDisplayAsUnit(true);
+                    }}
+                  />
+                </div>
+                {seatType === "unit" && (
+                  <div className="flex items-center justify-between pl-4">
+                    <div>
+                      <p className="text-sm font-medium">Display as Unit</p>
+                      <p className="text-xs text-muted-foreground">
+                        Show holders side-by-side
+                      </p>
+                    </div>
+                    <Switch
+                      checked={displayAsUnit}
+                      onCheckedChange={setDisplayAsUnit}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* EOS Role */}
               <div className="space-y-2">
-                <Label htmlFor="roles">Roles / Responsibilities</Label>
+                <Label>EOS Role Tag</Label>
+                <Select value={eosRole} onValueChange={setEosRole}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select EOS role (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {EOS_ROLE_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Optional label for EOS methodology
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="roles">Roles / Responsibilities (Legacy)</Label>
                 <Textarea
                   id="roles"
                   value={roles}
                   onChange={(e) => setRoles(e.target.value)}
                   rows={4}
+                  placeholder="One role per line (use Functions for structured management)"
                 />
+                <p className="text-xs text-muted-foreground">
+                  Consider using Functions below for better organization
+                </p>
               </div>
 
               <div className="space-y-3">
@@ -334,9 +462,20 @@ export function SeatDetailSheet({
                             <p className="text-sm font-medium">
                               {assignment.team_member.full_name}
                             </p>
-                            <p className="text-xs text-muted-foreground">
-                              {assignment.team_member.email}
-                            </p>
+                            <div className="flex items-center gap-1">
+                              <p className="text-xs text-muted-foreground">
+                                {assignment.team_member.email}
+                              </p>
+                              {assignment.assignment_type &&
+                                assignment.assignment_type !== "holder" && (
+                                  <Badge
+                                    variant="secondary"
+                                    className="text-[10px] px-1"
+                                  >
+                                    {getAssignmentTypeLabel(assignment.assignment_type)}
+                                  </Badge>
+                                )}
+                            </div>
                           </div>
                         </div>
                         <Button
@@ -354,47 +493,83 @@ export function SeatDetailSheet({
                 </div>
 
                 {/* Assign new member */}
-                <div className="mt-3 flex gap-2">
-                  <Select value={selectedMember} onValueChange={setSelectedMember}>
-                    <SelectTrigger className="flex-1">
-                      <SelectValue placeholder="Assign team member" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableMembers.map((member) => (
-                        <SelectItem key={member.id} value={member.id}>
-                          {member.full_name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    size="sm"
-                    onClick={handleAssign}
-                    disabled={!selectedMember || assigning}
-                  >
-                    {assigning ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Plus className="h-4 w-4" />
-                    )}
-                  </Button>
+                <div className="mt-3 space-y-2">
+                  <div className="flex gap-2">
+                    <Select value={selectedMember} onValueChange={setSelectedMember}>
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="Assign team member" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableMembers.map((member) => (
+                          <SelectItem key={member.id} value={member.id}>
+                            {member.full_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex gap-2">
+                    <Select
+                      value={selectedAssignmentType}
+                      onValueChange={setSelectedAssignmentType}
+                    >
+                      <SelectTrigger className="flex-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ASSIGNMENT_TYPE_OPTIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      size="sm"
+                      onClick={handleAssign}
+                      disabled={!selectedMember || assigning}
+                    >
+                      {assigning ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Plus className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
                 </div>
               </div>
 
               <Separator />
 
-              {/* Roles */}
+              {/* Functions Editor */}
+              <FunctionsEditor
+                seatId={seat.id}
+                assignments={seat.function_assignments || []}
+                onUpdate={onUpdate}
+              />
+
+              <Separator />
+
+              {/* Legacy Roles (if any) */}
               {seat.roles && seat.roles.length > 0 && (
-                <div>
-                  <Label className="text-sm font-medium">Responsibilities</Label>
-                  <ul className="mt-2 space-y-1">
-                    {seat.roles.map((role, i) => (
-                      <li key={i} className="text-sm text-muted-foreground">
-                        • {role}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+                <>
+                  <div>
+                    <Label className="text-sm font-medium">
+                      Legacy Responsibilities
+                    </Label>
+                    <ul className="mt-2 space-y-1">
+                      {seat.roles.map((role, i) => (
+                        <li key={i} className="text-sm text-muted-foreground">
+                          • {role}
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Migrate these to Functions for better organization
+                    </p>
+                  </div>
+                  <Separator />
+                </>
               )}
 
               {/* GWC */}
