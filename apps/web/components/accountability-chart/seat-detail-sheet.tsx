@@ -58,6 +58,7 @@ interface SeatFunction {
   category: string;
   icon: string | null;
   is_eos_default: boolean;
+  is_custom: boolean;
 }
 
 interface FunctionAssignment {
