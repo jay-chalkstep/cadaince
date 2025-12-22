@@ -115,7 +115,7 @@ const ASSIGNMENT_TYPE_OPTIONS = [
 ];
 
 const EOS_ROLE_OPTIONS = [
-  { value: "", label: "None" },
+  { value: "none", label: "None" },
   { value: "visionary", label: "Visionary" },
   { value: "integrator", label: "Integrator" },
   { value: "leader", label: "Leader" },
@@ -132,7 +132,7 @@ export function SeatDetailSheet({
   const [name, setName] = useState("");
   const [roles, setRoles] = useState("");
   const [seatType, setSeatType] = useState<"single" | "unit">("single");
-  const [eosRole, setEosRole] = useState("");
+  const [eosRole, setEosRole] = useState("none");
   const [displayAsUnit, setDisplayAsUnit] = useState(false);
   const [getsIt, setGetsIt] = useState(true);
   const [wantsIt, setWantsIt] = useState(true);
@@ -148,7 +148,7 @@ export function SeatDetailSheet({
       setName(seat.name);
       setRoles(seat.roles?.join("\n") || "");
       setSeatType(seat.seat_type || "single");
-      setEosRole(seat.eos_role || "");
+      setEosRole(seat.eos_role || "none");
       setDisplayAsUnit(seat.display_as_unit || false);
       setGetsIt(seat.gets_it);
       setWantsIt(seat.wants_it);
@@ -184,7 +184,7 @@ export function SeatDetailSheet({
             .map((r) => r.trim())
             .filter(Boolean),
           seat_type: seatType,
-          eos_role: eosRole || null,
+          eos_role: eosRole && eosRole !== "none" ? eosRole : null,
           display_as_unit: displayAsUnit,
           gets_it: getsIt,
           wants_it: wantsIt,

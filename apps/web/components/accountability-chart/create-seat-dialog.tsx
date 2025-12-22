@@ -82,7 +82,7 @@ export function CreateSeatDialog({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: name.trim(),
-          pillar_id: selectedPillar || null,
+          pillar_id: selectedPillar && selectedPillar !== "none" ? selectedPillar : null,
           parent_seat_id: parentSeatId,
           roles: roles
             .split("\n")
@@ -140,7 +140,7 @@ export function CreateSeatDialog({
                 <SelectValue placeholder="Select pillar (optional)" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">No pillar</SelectItem>
+                <SelectItem value="none">No pillar</SelectItem>
                 {pillars.map((pillar) => (
                   <SelectItem key={pillar.id} value={pillar.id}>
                     {pillar.name}
