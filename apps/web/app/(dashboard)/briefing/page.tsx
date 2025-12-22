@@ -33,6 +33,7 @@ interface Briefing {
   viewed_at?: string;
   is_cached?: boolean;
   is_fallback?: boolean;
+  fallback_reason?: "profile_not_found" | "api_key_missing";
 }
 
 export default function BriefingPage() {
@@ -167,7 +168,13 @@ export default function BriefingPage() {
             <div className="flex items-center gap-2 text-yellow-800">
               <AlertCircle className="h-4 w-4" />
               <p className="text-sm">
-                AI briefings require an ANTHROPIC_API_KEY. Add it to your environment to enable personalized briefings.
+                {briefing.fallback_reason === "profile_not_found" ? (
+                  "Your profile is being set up. Please refresh the page in a moment."
+                ) : briefing.fallback_reason === "api_key_missing" ? (
+                  "AI briefings require an ANTHROPIC_API_KEY. Add it to your Vercel environment variables and redeploy to enable personalized briefings."
+                ) : (
+                  "AI briefings are temporarily unavailable. Please try again later."
+                )}
               </p>
             </div>
           </CardContent>

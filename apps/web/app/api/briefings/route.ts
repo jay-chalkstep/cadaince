@@ -45,6 +45,7 @@ export async function GET(req: Request) {
       },
       generated_at: new Date().toISOString(),
       is_fallback: true,
+      fallback_reason: "profile_not_found",
     });
   }
 
@@ -101,7 +102,7 @@ export async function GET(req: Request) {
       briefing_date: today,
       content: {
         greeting: `Good morning, ${profile.full_name}!`,
-        summary: "AI briefing generation is not configured. Please add your ANTHROPIC_API_KEY to enable personalized briefings.",
+        summary: "AI briefing generation is not configured. Please add your ANTHROPIC_API_KEY to your environment and redeploy.",
         highlights: [],
         attention_needed: context.alerts.filter((a) => !a.acknowledged).map((a) => a.title),
         opportunities: [],
@@ -109,6 +110,7 @@ export async function GET(req: Request) {
       },
       generated_at: new Date().toISOString(),
       is_fallback: true,
+      fallback_reason: "api_key_missing",
     });
   }
 
