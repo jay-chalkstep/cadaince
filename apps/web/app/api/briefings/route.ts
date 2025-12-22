@@ -384,7 +384,7 @@ async function gatherBriefingContext(supabase: ReturnType<typeof createAdminClie
         }
       : null,
     mentions: (mentionsResult.data || []).map((m) => {
-      const comment = m.comment as {
+      const comment = m.comment as unknown as {
         entity_type: string;
         entity_id: string;
         body: string;
