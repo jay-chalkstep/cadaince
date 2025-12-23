@@ -62,13 +62,19 @@ const ALLOWED_PATCH_FIELDS: Record<string, string> = {
 
 /**
  * Ensures a profile row exists for the given Clerk user.
- * Uses the RLS-authenticated client when possible, falls back to admin client
- * for email-based profile linking (invited users).
+ * Uses RLS client for reads (profile lookup) and admin client for writes
+ * (profile creation/linking) since auto-provisioning is a privileged operation.
  *
- * Why we need this:
- * - New users won't have a profile row yet
- * - Invited users may have a profile with their email but no clerk_id
- * - We must handle both cases safely without race conditions
+ * Why we need admin client for writes:
+ * - New users don't have a profile yet, so RLS can't identify them for inserts
+ * - Email-based profile linking requires updating a row the user doesn't own yet
+ * - This is safe because we verify the Clerk user ID matches the operation
+ *
+ * Handles these cases:
+ * - Existing profile with matching clerk_id (immediate return)
+ * - Invited profile with matching email but no clerk_id (link to Clerk user)
+ * - No profile exists (create new one)
+ * - Race conditions (re-fetch on conflict)
  */
 async function ensureProfileRow(
   clerkToken: string,
@@ -125,9 +131,10 @@ async function ensureProfileRow(
     return { profile: linkedProfile, error: null };
   }
 
-  // No existing profile - create new one using RLS client
-  // The RLS policy "Users can insert own profile" allows this
-  const { data: newProfile, error: insertError } = await rlsClient
+  // No existing profile - create new one
+  // Use admin client for insert to bypass RLS (profile auto-provisioning is a privileged operation)
+  // The user doesn't have a profile yet, so RLS can't identify them
+  const { data: newProfile, error: insertError } = await adminClient
     .from("profiles")
     .insert({
       clerk_id: userId,
@@ -138,8 +145,6 @@ async function ensureProfileRow(
       access_level: "admin", // First user is admin; subsequent users should be adjusted via onboarding
       is_elt: false,
       status: "active",
-      timezone: "UTC",
-      locale: "en",
     })
     .select("*")
     .single();
@@ -147,7 +152,7 @@ async function ensureProfileRow(
   if (insertError) {
     // If insert fails, the profile might have been created in a race condition
     // Try to fetch again
-    const { data: raceProfile } = await rlsClient
+    const { data: raceProfile } = await adminClient
       .from("profiles")
       .select("*")
       .eq("clerk_id", userId)
