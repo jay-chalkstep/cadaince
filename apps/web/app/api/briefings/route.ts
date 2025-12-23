@@ -16,7 +16,7 @@ export async function GET(req: Request) {
   const supabase = createAdminClient();
 
   // Get current user's profile
-  const { data: profile } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select(`
       id,
@@ -28,16 +28,36 @@ export async function GET(req: Request) {
     .eq("clerk_id", userId)
     .single();
 
+  if (profileError) {
+    console.error("Error fetching profile for briefing:", profileError, "clerk_id:", userId);
+  }
+
   if (!profile) {
     // Return fallback briefing if profile not found
     // This can happen during initial setup or if webhook hasn't synced yet
     const today = new Date().toISOString().split("T")[0];
+
+    // Check if profile exists without the pillar join (simpler query)
+    const { data: simpleProfile } = await supabase
+      .from("profiles")
+      .select("id, full_name")
+      .eq("clerk_id", userId)
+      .single();
+
+    const greeting = simpleProfile?.full_name
+      ? `Good morning, ${simpleProfile.full_name}!`
+      : "Good morning!";
+
+    const summary = simpleProfile
+      ? "Your briefing is being prepared. Please refresh the page."
+      : "Your profile is being set up. Please refresh in a moment.";
+
     return NextResponse.json({
-      profile_id: null,
+      profile_id: simpleProfile?.id || null,
       briefing_date: today,
       content: {
-        greeting: "Good morning!",
-        summary: "Your profile is being set up. Please refresh in a moment.",
+        greeting,
+        summary,
         highlights: [],
         attention_needed: [],
         opportunities: [],
