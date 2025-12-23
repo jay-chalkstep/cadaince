@@ -136,13 +136,38 @@ export async function POST(req: Request) {
     owner_id,
     status,
     due_date,
-    quarter, // Legacy
-    quarter_id, // New
+    quarter: quarterInput, // Could be string like "Q4 2025" or number like 4
+    quarter_id: quarterIdInput, // New: UUID
+    year: yearInput, // If quarter is a number, year should also be provided
     rock_level,
     parent_rock_id,
     pillar_id,
     linked_metric_id,
   } = body;
+
+  // Handle quarter/year conversion
+  let quarter = quarterInput;
+  let quarter_id = quarterIdInput;
+
+  // If quarter is a number and year is provided, format as "Q4 2025" for legacy field
+  if (typeof quarterInput === 'number' && typeof yearInput === 'number') {
+    quarter = `Q${quarterInput} ${yearInput}`;
+
+    // Also try to look up or create the quarter_id
+    if (!quarter_id) {
+      const { data: existingQuarter } = await supabase
+        .from("quarters")
+        .select("id")
+        .eq("organization_id", profile.organization_id)
+        .eq("year", yearInput)
+        .eq("quarter", quarterInput)
+        .single();
+
+      if (existingQuarter) {
+        quarter_id = existingQuarter.id;
+      }
+    }
+  }
 
   const rockTitle = title || name;
 
