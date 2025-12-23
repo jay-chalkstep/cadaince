@@ -55,7 +55,7 @@ export async function GET(
       .from("rocks")
       .select(`
         *,
-        owner:profiles!rocks_owner_id_fkey(id, full_name, avatar_url, title),
+        owner:profiles!owner_id(id, full_name, avatar_url, title),
         pillar:pillars(id, name, color)
       `)
       .eq("quarter_id", id)
