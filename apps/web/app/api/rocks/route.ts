@@ -10,7 +10,8 @@ export async function GET(req: Request) {
   }
 
   const { searchParams } = new URL(req.url);
-  const quarter = searchParams.get("quarter"); // Legacy: Q1, Q2, etc.
+  const quarterParam = searchParams.get("quarter"); // Could be "4" or "Q4 2025"
+  const yearParam = searchParams.get("year"); // Year like "2025"
   const quarterId = searchParams.get("quarter_id"); // New: UUID
   const status = searchParams.get("status");
   const ownerId = searchParams.get("owner_id");
@@ -32,6 +33,37 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Organization not found" }, { status: 404 });
   }
 
+  // Handle quarter/year conversion for filtering
+  let quarterFilter: string | null = null;
+  let quarterIdFilter: string | null = quarterId;
+
+  if (quarterParam && yearParam) {
+    // If quarter is a simple number like "4", convert to "Q4 2025" format
+    const quarterNum = parseInt(quarterParam);
+    const yearNum = parseInt(yearParam);
+    if (!isNaN(quarterNum) && !isNaN(yearNum) && quarterNum >= 1 && quarterNum <= 4) {
+      quarterFilter = `Q${quarterNum} ${yearNum}`;
+
+      // Also try to find quarter_id for more accurate filtering
+      if (!quarterIdFilter) {
+        const { data: quarterRecord } = await supabase
+          .from("quarters")
+          .select("id")
+          .eq("organization_id", profile.organization_id)
+          .eq("year", yearNum)
+          .eq("quarter", quarterNum)
+          .single();
+
+        if (quarterRecord) {
+          quarterIdFilter = quarterRecord.id;
+        }
+      }
+    }
+  } else if (quarterParam) {
+    // Legacy format like "Q4 2025"
+    quarterFilter = quarterParam;
+  }
+
   let query = supabase
     .from("rocks")
     .select(`
@@ -45,14 +77,11 @@ export async function GET(req: Request) {
     .order("rock_level", { ascending: true })
     .order("title", { ascending: true });
 
-  // Filter by legacy quarter string (Q1 2024, etc.)
-  if (quarter) {
-    query = query.eq("quarter", quarter);
-  }
-
-  // Filter by quarter_id (new UUID-based)
-  if (quarterId) {
-    query = query.eq("quarter_id", quarterId);
+  // Filter by quarter_id first (preferred), fallback to legacy quarter string
+  if (quarterIdFilter) {
+    query = query.eq("quarter_id", quarterIdFilter);
+  } else if (quarterFilter) {
+    query = query.eq("quarter", quarterFilter);
   }
 
   if (status) {
