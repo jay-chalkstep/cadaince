@@ -271,6 +271,9 @@ LEFT JOIN seat_functions sf ON sfa.function_id = sf.id AND sf.is_hidden = false
 GROUP BY s.id;
 
 -- Update the existing get_org_chart function to include new fields
+-- Must drop first because return type has changed
+DROP FUNCTION IF EXISTS get_org_chart(uuid);
+
 CREATE OR REPLACE FUNCTION get_org_chart(p_organization_id UUID)
 RETURNS TABLE (
   id UUID,
