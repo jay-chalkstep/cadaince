@@ -1,148 +1,445 @@
-import { auth, currentUser } from "@clerk/nextjs/server";
-import { createAdminClient } from "@/lib/supabase/server";
+import { auth, currentUser, clerkClient } from "@clerk/nextjs/server";
+import { createClerkAuthClient, createAdminClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
-export async function GET() {
-  const { userId } = await auth();
+// ============================================
+// TYPE DEFINITIONS
+// ============================================
+
+interface AuthContext {
+  userId: string;
+  orgId: string | null;
+  orgRole: string | null;
+  orgSlug: string | null;
+}
+
+interface UserInfo {
+  id: string;
+  email: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  imageUrl: string | null;
+}
+
+interface ActiveOrg {
+  id: string;
+  name: string;
+  slug: string | null;
+  imageUrl: string | null;
+  role: string | null;
+}
+
+interface OrgMembership {
+  orgId: string;
+  orgName: string;
+  orgSlug: string | null;
+  role: string;
+}
+
+interface GetMeResponse {
+  auth: AuthContext;
+  user: UserInfo;
+  profile: Record<string, unknown>;
+  activeOrg: ActiveOrg | null;
+  memberships: OrgMembership[];
+}
+
+interface PatchMeResponse {
+  profile: Record<string, unknown>;
+}
+
+// Allowed fields for PATCH - maps API field names to DB column names
+const ALLOWED_PATCH_FIELDS: Record<string, string> = {
+  display_name: "full_name",
+  avatar_url: "avatar_url",
+  timezone: "timezone",
+  locale: "locale",
+};
+
+// ============================================
+// HELPER: Ensure profile exists (upsert pattern)
+// ============================================
+
+/**
+ * Ensures a profile row exists for the given Clerk user.
+ * Uses the RLS-authenticated client when possible, falls back to admin client
+ * for email-based profile linking (invited users).
+ *
+ * Why we need this:
+ * - New users won't have a profile row yet
+ * - Invited users may have a profile with their email but no clerk_id
+ * - We must handle both cases safely without race conditions
+ */
+async function ensureProfileRow(
+  clerkToken: string,
+  userId: string,
+  email: string,
+  fullName: string,
+  avatarUrl: string | null
+): Promise<{ profile: Record<string, unknown> | null; error: string | null }> {
+  // First, try with RLS client - this works if profile exists with matching clerk_id
+  const rlsClient = createClerkAuthClient(clerkToken);
+
+  const { data: existingProfile, error: fetchError } = await rlsClient
+    .from("profiles")
+    .select("*")
+    .eq("clerk_id", userId)
+    .single();
+
+  if (existingProfile) {
+    return { profile: existingProfile, error: null };
+  }
+
+  // Profile doesn't exist with this clerk_id
+  // Check if there's an invited profile with matching email (needs admin client)
+  const adminClient = createAdminClient();
+
+  const { data: emailProfile } = await adminClient
+    .from("profiles")
+    .select("id, organization_id")
+    .eq("email", email)
+    .is("clerk_id", null)
+    .single();
+
+  if (emailProfile) {
+    // Link existing invited profile to this Clerk user
+    // This must use admin client because the user can't update a row they don't own yet
+    const { data: linkedProfile, error: linkError } = await adminClient
+      .from("profiles")
+      .update({
+        clerk_id: userId,
+        full_name: fullName,
+        avatar_url: avatarUrl,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", emailProfile.id)
+      .select("*")
+      .single();
+
+    if (linkError) {
+      console.error("Error linking profile to Clerk user:", linkError);
+      return { profile: null, error: "Failed to link existing profile" };
+    }
+
+    console.log(`Linked existing profile ${emailProfile.id} to Clerk user ${userId}`);
+    return { profile: linkedProfile, error: null };
+  }
+
+  // No existing profile - create new one using RLS client
+  // The RLS policy "Users can insert own profile" allows this
+  const { data: newProfile, error: insertError } = await rlsClient
+    .from("profiles")
+    .insert({
+      clerk_id: userId,
+      email,
+      full_name: fullName,
+      avatar_url: avatarUrl,
+      role: "Team Member",
+      access_level: "admin", // First user is admin; subsequent users should be adjusted via onboarding
+      is_elt: false,
+      status: "active",
+      timezone: "UTC",
+      locale: "en",
+    })
+    .select("*")
+    .single();
+
+  if (insertError) {
+    // If insert fails, the profile might have been created in a race condition
+    // Try to fetch again
+    const { data: raceProfile } = await rlsClient
+      .from("profiles")
+      .select("*")
+      .eq("clerk_id", userId)
+      .single();
+
+    if (raceProfile) {
+      return { profile: raceProfile, error: null };
+    }
+
+    console.error("Error creating profile:", insertError);
+    return { profile: null, error: "Failed to create profile" };
+  }
+
+  console.log(`Auto-provisioned new profile for ${email} (Clerk ID: ${userId})`);
+  return { profile: newProfile, error: null };
+}
+
+// ============================================
+// GET /api/users/me
+// ============================================
+
+export async function GET(): Promise<NextResponse<GetMeResponse | { error: string; details?: string }>> {
+  // Get Clerk auth context - includes org info if user is in an org context
+  const authResult = await auth();
+  const { userId, orgId, orgRole, orgSlug, getToken } = authResult;
 
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const supabase = createAdminClient();
-
-  // Try to fetch existing profile
-  const { data: profile, error } = await supabase
-    .from("profiles")
-    .select(`
-      *,
-      pillar:pillars(id, name)
-    `)
-    .eq("clerk_id", userId)
-    .single();
-
-  // Profile exists - return it
-  if (profile) {
-    return NextResponse.json(profile);
+  // Get Clerk session token for RLS
+  const clerkToken = await getToken();
+  if (!clerkToken) {
+    return NextResponse.json({ error: "Could not get session token" }, { status: 500 });
   }
 
-  // Handle the "not found" case by auto-provisioning
-  if (error?.code === "PGRST116") {
-    console.log("Profile not found for clerk_id, attempting auto-provision:", userId);
+  // Get current Clerk user details (minimal fields only)
+  const clerkUser = await currentUser();
+  if (!clerkUser) {
+    return NextResponse.json({ error: "Could not fetch user details" }, { status: 500 });
+  }
 
+  const email = clerkUser.emailAddresses[0]?.emailAddress;
+  if (!email) {
+    return NextResponse.json({ error: "No email found for user" }, { status: 400 });
+  }
+
+  const fullName =
+    [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ") ||
+    email.split("@")[0];
+
+  // Ensure profile row exists (idempotent upsert)
+  const { profile, error: profileError } = await ensureProfileRow(
+    clerkToken,
+    userId,
+    email,
+    fullName,
+    clerkUser.imageUrl ?? null
+  );
+
+  if (profileError || !profile) {
+    return NextResponse.json(
+      { error: profileError || "Failed to fetch profile" },
+      { status: 500 }
+    );
+  }
+
+  // Build auth context - org info is optional, /me works without an active org
+  const authContext: AuthContext = {
+    userId,
+    orgId: orgId ?? null,
+    orgRole: orgRole ?? null,
+    orgSlug: orgSlug ?? null,
+  };
+
+  // Build minimal user info from Clerk (don't expose full Clerk user object)
+  const userInfo: UserInfo = {
+    id: clerkUser.id,
+    email,
+    firstName: clerkUser.firstName ?? null,
+    lastName: clerkUser.lastName ?? null,
+    imageUrl: clerkUser.imageUrl ?? null,
+  };
+
+  // Get active org details if user is in an org context
+  let activeOrg: ActiveOrg | null = null;
+  if (orgId) {
     try {
-      // Fetch Clerk user details
-      const clerkUser = await currentUser();
-
-      if (!clerkUser) {
-        console.error("Could not fetch Clerk user for auto-provision:", userId);
-        return NextResponse.json(
-          { error: "Could not fetch user details" },
-          { status: 500 }
-        );
-      }
-
-      const email = clerkUser.emailAddresses[0]?.emailAddress;
-      if (!email) {
-        console.error("No email found for Clerk user:", userId);
-        return NextResponse.json(
-          { error: "No email found for user" },
-          { status: 400 }
-        );
-      }
-
-      const fullName =
-        [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ") ||
-        email.split("@")[0];
-
-      // Check if there's an existing profile with this email (from seed data or invite)
-      const { data: existingByEmail } = await supabase
-        .from("profiles")
-        .select("id, organization_id")
-        .eq("email", email)
-        .single();
-
-      if (existingByEmail) {
-        // Link existing profile to this Clerk user
-        const { data: updatedProfile, error: updateError } = await supabase
-          .from("profiles")
-          .update({
-            clerk_id: userId,
-            full_name: fullName,
-            avatar_url: clerkUser.imageUrl ?? null,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", existingByEmail.id)
-          .select(`
-            *,
-            pillar:pillars(id, name)
-          `)
-          .single();
-
-        if (updateError) {
-          console.error("Error linking profile to Clerk user:", updateError);
-          return NextResponse.json(
-            { error: "Failed to link profile" },
-            { status: 500 }
-          );
-        }
-
-        console.log(`Linked existing profile ${existingByEmail.id} to Clerk user ${userId}`);
-        return NextResponse.json(updatedProfile);
-      }
-
-      // Create new profile (no organization yet - onboarding will handle that)
-      const { data: newProfile, error: insertError } = await supabase
-        .from("profiles")
-        .insert({
-          clerk_id: userId,
-          email,
-          full_name: fullName,
-          avatar_url: clerkUser.imageUrl ?? null,
-          role: "Team Member",
-          access_level: "admin", // First user is admin
-          is_elt: false,
-          status: "active",
-        })
-        .select(`
-          *,
-          pillar:pillars(id, name)
-        `)
-        .single();
-
-      if (insertError) {
-        console.error("Error creating profile:", insertError);
-        return NextResponse.json(
-          { error: "Failed to create profile" },
-          { status: 500 }
-        );
-      }
-
-      console.log(`Auto-provisioned new profile for ${email} (Clerk ID: ${userId})`);
-      return NextResponse.json(newProfile);
-    } catch (provisionError) {
-      console.error("Error during auto-provision:", provisionError);
-      return NextResponse.json(
-        { error: "Failed to provision user" },
-        { status: 500 }
-      );
+      const clerk = await clerkClient();
+      const org = await clerk.organizations.getOrganization({ organizationId: orgId });
+      activeOrg = {
+        id: org.id,
+        name: org.name,
+        slug: org.slug ?? null,
+        imageUrl: org.imageUrl ?? null,
+        role: orgRole ?? null,
+      };
+    } catch (err) {
+      console.error("Error fetching active org:", err);
+      // Don't fail the request, just skip org details
     }
   }
 
-  // For other errors (not "not found"), return 500
-  console.error("Error fetching profile:", {
-    message: error?.message,
-    details: error?.details,
-    hint: error?.hint,
-    code: error?.code,
-    clerkUserId: userId,
-  });
+  // Get user's org memberships for tenant switching UI
+  let memberships: OrgMembership[] = [];
+  try {
+    const clerk = await clerkClient();
+    const membershipList = await clerk.users.getOrganizationMembershipList({ userId });
 
-  return NextResponse.json(
-    {
-      error: "Failed to fetch profile",
-      details: process.env.NODE_ENV === "development" ? error?.message : undefined,
-    },
-    { status: 500 }
+    memberships = membershipList.data.map((m) => ({
+      orgId: m.organization.id,
+      orgName: m.organization.name,
+      orgSlug: m.organization.slug ?? null,
+      role: m.role,
+    }));
+  } catch (err) {
+    console.error("Error fetching org memberships:", err);
+    // Don't fail the request, just return empty memberships
+  }
+
+  return NextResponse.json({
+    auth: authContext,
+    user: userInfo,
+    profile,
+    activeOrg,
+    memberships,
+  });
+}
+
+// ============================================
+// PATCH /api/users/me
+// ============================================
+
+export async function PATCH(
+  req: Request
+): Promise<NextResponse<PatchMeResponse | { error: string; details?: string }>> {
+  const authResult = await auth();
+  const { userId, getToken } = authResult;
+
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Get Clerk session token for RLS
+  const clerkToken = await getToken();
+  if (!clerkToken) {
+    return NextResponse.json({ error: "Could not get session token" }, { status: 500 });
+  }
+
+  // Parse and validate request body
+  let body: Record<string, unknown>;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  // Validate that only allowed fields are present
+  const unknownFields = Object.keys(body).filter(
+    (key) => !Object.prototype.hasOwnProperty.call(ALLOWED_PATCH_FIELDS, key)
   );
+
+  if (unknownFields.length > 0) {
+    return NextResponse.json(
+      { error: `Unknown fields: ${unknownFields.join(", ")}` },
+      { status: 400 }
+    );
+  }
+
+  // If body is empty, just return current profile
+  if (Object.keys(body).length === 0) {
+    const rlsClient = createClerkAuthClient(clerkToken);
+    const { data: profile, error } = await rlsClient
+      .from("profiles")
+      .select("*")
+      .eq("clerk_id", userId)
+      .single();
+
+    if (error || !profile) {
+      return NextResponse.json(
+        { error: "Profile not found" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({ profile });
+  }
+
+  // Build update object with DB column names
+  const updateData: Record<string, unknown> = {};
+
+  for (const [apiField, dbColumn] of Object.entries(ALLOWED_PATCH_FIELDS)) {
+    if (Object.prototype.hasOwnProperty.call(body, apiField)) {
+      const value = body[apiField];
+
+      // Validate field types
+      if (apiField === "display_name") {
+        if (typeof value !== "string" || value.trim().length === 0) {
+          return NextResponse.json(
+            { error: "display_name must be a non-empty string" },
+            { status: 400 }
+          );
+        }
+        updateData[dbColumn] = value.trim();
+      } else if (apiField === "avatar_url") {
+        if (value !== null && typeof value !== "string") {
+          return NextResponse.json(
+            { error: "avatar_url must be a string or null" },
+            { status: 400 }
+          );
+        }
+        // Basic URL validation if not null
+        if (value !== null && typeof value === "string") {
+          try {
+            new URL(value);
+          } catch {
+            return NextResponse.json(
+              { error: "avatar_url must be a valid URL" },
+              { status: 400 }
+            );
+          }
+        }
+        updateData[dbColumn] = value;
+      } else if (apiField === "timezone" || apiField === "locale") {
+        if (typeof value !== "string") {
+          return NextResponse.json(
+            { error: `${apiField} must be a string` },
+            { status: 400 }
+          );
+        }
+        updateData[dbColumn] = value;
+      }
+    }
+  }
+
+  // Perform update using RLS client
+  const rlsClient = createClerkAuthClient(clerkToken);
+
+  // First ensure profile exists
+  const { data: existingProfile } = await rlsClient
+    .from("profiles")
+    .select("id")
+    .eq("clerk_id", userId)
+    .single();
+
+  if (!existingProfile) {
+    // Profile doesn't exist yet, need to create it first
+    const clerkUser = await currentUser();
+    if (!clerkUser) {
+      return NextResponse.json({ error: "Could not fetch user details" }, { status: 500 });
+    }
+
+    const email = clerkUser.emailAddresses[0]?.emailAddress;
+    if (!email) {
+      return NextResponse.json({ error: "No email found for user" }, { status: 400 });
+    }
+
+    const fullName =
+      [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ") ||
+      email.split("@")[0];
+
+    const { error: createError } = await ensureProfileRow(
+      clerkToken,
+      userId,
+      email,
+      fullName,
+      clerkUser.imageUrl ?? null
+    );
+
+    if (createError) {
+      return NextResponse.json({ error: createError }, { status: 500 });
+    }
+  }
+
+  // Now perform the update
+  const { data: updatedProfile, error: updateError } = await rlsClient
+    .from("profiles")
+    .update(updateData)
+    .eq("clerk_id", userId)
+    .select("*")
+    .single();
+
+  if (updateError) {
+    console.error("Error updating profile:", updateError);
+    return NextResponse.json(
+      {
+        error: "Failed to update profile",
+        details: process.env.NODE_ENV === "development" ? updateError.message : undefined,
+      },
+      { status: 500 }
+    );
+  }
+
+  return NextResponse.json({ profile: updatedProfile });
 }
