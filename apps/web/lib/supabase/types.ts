@@ -20,6 +20,10 @@ export type Database = {
           pillar_id: string | null;
           access_level: string;
           is_elt: boolean;
+          organization_id: string | null;
+          timezone: string;
+          locale: string;
+          status: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -33,6 +37,10 @@ export type Database = {
           pillar_id?: string | null;
           access_level?: string;
           is_elt?: boolean;
+          organization_id?: string | null;
+          timezone?: string;
+          locale?: string;
+          status?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -46,6 +54,10 @@ export type Database = {
           pillar_id?: string | null;
           access_level?: string;
           is_elt?: boolean;
+          organization_id?: string | null;
+          timezone?: string;
+          locale?: string;
+          status?: string | null;
           created_at?: string;
           updated_at?: string;
         };
