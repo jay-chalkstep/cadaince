@@ -56,7 +56,7 @@ export async function POST(req: Request) {
         title,
         status,
         due_date,
-        owner:profiles!rocks_owner_id_fkey(id, full_name)
+        owner:profiles!owner_id(id, full_name)
       `)
       .in("status", ["on_track", "at_risk", "off_track"]),
     supabase

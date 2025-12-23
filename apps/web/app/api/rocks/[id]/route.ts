@@ -34,10 +34,10 @@ export async function GET(
     .from("rocks")
     .select(`
       *,
-      owner:profiles!rocks_owner_id_fkey(id, full_name, avatar_url, email, title),
-      pillar:pillars!rocks_pillar_id_fkey(id, name, color),
-      parent:rocks!rocks_parent_rock_id_fkey(id, title, rock_level, status),
-      quarter:quarters!rocks_quarter_id_fkey(id, year, quarter, planning_status, start_date, end_date)
+      owner:profiles!owner_id(id, full_name, avatar_url, email, title),
+      pillar:pillars!pillar_id(id, name, color),
+      parent:rocks!parent_rock_id(id, title, rock_level, status),
+      quarter:quarters!quarter_id(id, year, quarter, planning_status, start_date, end_date)
     `)
     .eq("id", id)
     .eq("organization_id", profile.organization_id)
@@ -65,8 +65,8 @@ export async function GET(
       .from("rocks")
       .select(`
         *,
-        owner:profiles!rocks_owner_id_fkey(id, full_name, avatar_url),
-        pillar:pillars!rocks_pillar_id_fkey(id, name, color)
+        owner:profiles!owner_id(id, full_name, avatar_url),
+        pillar:pillars!pillar_id(id, name, color)
       `)
       .eq("parent_rock_id", id)
       .order("rock_level", { ascending: true })
@@ -79,8 +79,8 @@ export async function GET(
         .from("rocks")
         .select(`
           *,
-          owner:profiles!rocks_owner_id_fkey(id, full_name, avatar_url),
-          pillar:pillars!rocks_pillar_id_fkey(id, name, color)
+          owner:profiles!owner_id(id, full_name, avatar_url),
+          pillar:pillars!pillar_id(id, name, color)
         `)
         .in("parent_rock_id", childIds)
         .order("title", { ascending: true });
@@ -107,7 +107,7 @@ export async function GET(
         .from("rocks")
         .select(`
           id, title, rock_level, status, parent_rock_id,
-          owner:profiles!rocks_owner_id_fkey(id, full_name, avatar_url)
+          owner:profiles!owner_id(id, full_name, avatar_url)
         `)
         .eq("id", currentParentId)
         .single();
@@ -222,10 +222,10 @@ export async function PATCH(
     .eq("id", id)
     .select(`
       *,
-      owner:profiles!rocks_owner_id_fkey(id, full_name, avatar_url, title),
-      pillar:pillars!rocks_pillar_id_fkey(id, name, color),
-      parent:rocks!rocks_parent_rock_id_fkey(id, title, rock_level),
-      quarter:quarters!rocks_quarter_id_fkey(id, year, quarter, planning_status)
+      owner:profiles!owner_id(id, full_name, avatar_url, title),
+      pillar:pillars!pillar_id(id, name, color),
+      parent:rocks!parent_rock_id(id, title, rock_level),
+      quarter:quarters!quarter_id(id, year, quarter, planning_status)
     `)
     .single();
 

@@ -33,7 +33,7 @@ export async function GET(
       author:profiles!private_notes_author_id_fkey(id, full_name, avatar_url, email, role),
       recipient:profiles!private_notes_recipient_id_fkey(id, full_name, avatar_url, email, role),
       linked_update:updates(id, content, format, author:profiles!updates_author_id_fkey(id, full_name)),
-      linked_rock:rocks(id, title, status, owner:profiles!rocks_owner_id_fkey(id, full_name)),
+      linked_rock:rocks(id, title, status, owner:profiles!owner_id(id, full_name)),
       linked_metric:metrics(id, name, goal, unit),
       escalated_to_issue:issues(id, title, status)
     `)

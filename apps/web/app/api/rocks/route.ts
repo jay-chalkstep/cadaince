@@ -68,10 +68,10 @@ export async function GET(req: Request) {
     .from("rocks")
     .select(`
       *,
-      owner:profiles!rocks_owner_id_fkey(id, full_name, avatar_url, title),
-      pillar:pillars!rocks_pillar_id_fkey(id, name, color),
-      parent:rocks!rocks_parent_rock_id_fkey(id, title, rock_level),
-      quarter:quarters!rocks_quarter_id_fkey(id, year, quarter, planning_status)
+      owner:profiles!owner_id(id, full_name, avatar_url, title),
+      pillar:pillars!pillar_id(id, name, color),
+      parent:rocks!parent_rock_id(id, title, rock_level),
+      quarter:quarters!quarter_id(id, year, quarter, planning_status)
     `)
     .eq("organization_id", profile.organization_id)
     .order("rock_level", { ascending: true })
@@ -107,8 +107,22 @@ export async function GET(req: Request) {
   const { data: rocks, error } = await query;
 
   if (error) {
-    console.error("Error fetching rocks:", error);
-    return NextResponse.json({ error: "Failed to fetch rocks" }, { status: 500 });
+    console.error("Error fetching rocks:", {
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+      code: error.code,
+      organizationId: profile.organization_id,
+      quarterIdFilter,
+      quarterFilter,
+    });
+    return NextResponse.json(
+      {
+        error: "Failed to fetch rocks",
+        details: process.env.NODE_ENV === "development" ? error.message : undefined
+      },
+      { status: 500 }
+    );
   }
 
   // If include=children, fetch child rocks for each rock
@@ -119,8 +133,8 @@ export async function GET(req: Request) {
           .from("rocks")
           .select(`
             *,
-            owner:profiles!rocks_owner_id_fkey(id, full_name, avatar_url),
-            pillar:pillars!rocks_pillar_id_fkey(id, name, color)
+            owner:profiles!owner_id(id, full_name, avatar_url),
+            pillar:pillars!pillar_id(id, name, color)
           `)
           .eq("parent_rock_id", rock.id)
           .order("title", { ascending: true });
@@ -321,16 +335,28 @@ export async function POST(req: Request) {
     })
     .select(`
       *,
-      owner:profiles!rocks_owner_id_fkey(id, full_name, avatar_url, title),
-      pillar:pillars!rocks_pillar_id_fkey(id, name, color),
-      parent:rocks!rocks_parent_rock_id_fkey(id, title, rock_level),
-      quarter:quarters!rocks_quarter_id_fkey(id, year, quarter, planning_status)
+      owner:profiles!owner_id(id, full_name, avatar_url, title),
+      pillar:pillars!pillar_id(id, name, color),
+      parent:rocks!parent_rock_id(id, title, rock_level),
+      quarter:quarters!quarter_id(id, year, quarter, planning_status)
     `)
     .single();
 
   if (error) {
-    console.error("Error creating rock:", error);
-    return NextResponse.json({ error: "Failed to create rock" }, { status: 500 });
+    console.error("Error creating rock:", {
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+      code: error.code,
+      organizationId: profile.organization_id,
+    });
+    return NextResponse.json(
+      {
+        error: "Failed to create rock",
+        details: process.env.NODE_ENV === "development" ? error.message : undefined
+      },
+      { status: 500 }
+    );
   }
 
   return NextResponse.json(rock, { status: 201 });

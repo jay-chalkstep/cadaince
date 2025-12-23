@@ -47,8 +47,8 @@ export async function GET(
     .from("rocks")
     .select(`
       *,
-      owner:profiles!rocks_owner_id_fkey(id, full_name, avatar_url, title),
-      pillar:pillars!rocks_pillar_id_fkey(id, name, color)
+      owner:profiles!owner_id(id, full_name, avatar_url, title),
+      pillar:pillars!pillar_id(id, name, color)
     `)
     .eq("parent_rock_id", id)
     .order("rock_level", { ascending: true })
@@ -69,8 +69,8 @@ export async function GET(
     .from("rocks")
     .select(`
       *,
-      owner:profiles!rocks_owner_id_fkey(id, full_name, avatar_url, title),
-      pillar:pillars!rocks_pillar_id_fkey(id, name, color)
+      owner:profiles!owner_id(id, full_name, avatar_url, title),
+      pillar:pillars!pillar_id(id, name, color)
     `)
     .in("parent_rock_id", childIds)
     .order("title", { ascending: true });

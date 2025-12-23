@@ -198,7 +198,7 @@ async function gatherBriefingContext(supabase: ReturnType<typeof createAdminClie
           status,
           quarter,
           due_date,
-          owner:profiles!rocks_owner_id_fkey(full_name)
+          owner:profiles!owner_id(full_name)
         `)
         .ilike("quarter", `%Q${currentQuarter}%`),
 

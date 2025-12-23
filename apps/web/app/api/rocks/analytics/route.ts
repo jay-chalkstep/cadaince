@@ -31,8 +31,8 @@ export async function GET(req: Request) {
     .from("rocks")
     .select(`
       *,
-      owner:profiles!rocks_owner_id_fkey(id, full_name, avatar_url, title),
-      quarter:quarters!rocks_quarter_id_fkey(id, year, quarter, planning_status)
+      owner:profiles!owner_id(id, full_name, avatar_url, title),
+      quarter:quarters!quarter_id(id, year, quarter, planning_status)
     `)
     .eq("organization_id", profile.organization_id)
     .eq("rock_level", "company")
@@ -68,8 +68,8 @@ export async function GET(req: Request) {
     .from("rocks")
     .select(`
       *,
-      owner:profiles!rocks_owner_id_fkey(id, full_name, avatar_url),
-      pillar:pillars!rocks_pillar_id_fkey(id, name, color)
+      owner:profiles!owner_id(id, full_name, avatar_url),
+      pillar:pillars!pillar_id(id, name, color)
     `)
     .in("parent_rock_id", companyRockIds)
     .eq("rock_level", "pillar");
@@ -80,8 +80,8 @@ export async function GET(req: Request) {
     .from("rocks")
     .select(`
       *,
-      owner:profiles!rocks_owner_id_fkey(id, full_name, avatar_url),
-      pillar:pillars!rocks_pillar_id_fkey(id, name, color)
+      owner:profiles!owner_id(id, full_name, avatar_url),
+      pillar:pillars!pillar_id(id, name, color)
     `)
     .in("parent_rock_id", pillarRockIds)
     .eq("rock_level", "individual");
