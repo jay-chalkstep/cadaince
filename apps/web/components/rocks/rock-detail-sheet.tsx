@@ -1,18 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Loader2, Plus, Check, Circle, AlertCircle, Clock, Trash2 } from "lucide-react";
+import { Loader2, Plus, Check, Circle, AlertCircle, Clock, Trash2, MessageSquare } from "lucide-react";
 import {
   Sheet,
   SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -37,6 +33,7 @@ interface Milestone {
 interface Rock {
   id: string;
   name: string;
+  title?: string;
   description: string | null;
   status: "not_started" | "on_track" | "off_track" | "complete";
   quarter: number;
@@ -51,6 +48,7 @@ interface Rock {
   pillar: {
     id: string;
     name: string;
+    color?: string;
   } | null;
 }
 
@@ -62,14 +60,14 @@ interface RockDetailSheetProps {
 }
 
 const statusConfig = {
-  not_started: { label: "Not Started", color: "bg-gray-500" },
-  on_track: { label: "On Track", color: "bg-green-600" },
-  off_track: { label: "Off Track", color: "bg-red-600" },
-  complete: { label: "Complete", color: "bg-blue-600" },
+  not_started: { label: "Not Started", color: "bg-gray-100 text-gray-700 hover:bg-gray-200" },
+  on_track: { label: "On Track", color: "bg-green-100 text-green-700 hover:bg-green-200" },
+  off_track: { label: "Off Track", color: "bg-red-100 text-red-700 hover:bg-red-200" },
+  complete: { label: "Complete", color: "bg-blue-100 text-blue-700 hover:bg-blue-200" },
 };
 
 const milestoneStatusConfig = {
-  not_started: { label: "Not Started", icon: Circle, color: "text-gray-500" },
+  not_started: { label: "Not Started", icon: Circle, color: "text-gray-400" },
   in_progress: { label: "In Progress", icon: Clock, color: "text-blue-500" },
   complete: { label: "Complete", icon: Check, color: "text-green-500" },
   blocked: { label: "Blocked", icon: AlertCircle, color: "text-red-500" },
@@ -227,195 +225,146 @@ export function RockDetailSheet({
 
   if (!rock) return null;
 
+  const rockTitle = rock.title || rock.name;
   const completedCount = milestones.filter((m) => m.status === "complete").length;
   const progressPercent = milestones.length > 0 ? (completedCount / milestones.length) * 100 : 0;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-lg overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle>{rock.name}</SheetTitle>
-          <SheetDescription>
-            Q{rock.quarter} {rock.year}
-          </SheetDescription>
-        </SheetHeader>
-
-        <div className="mt-6 space-y-6">
-          {/* Status */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Status</label>
+      <SheetContent className="sm:max-w-md overflow-y-auto p-0">
+        {/* Header */}
+        <div className="sticky top-0 bg-background z-10 border-b">
+          <div className="p-6 pb-4">
+            {/* Status badge - clickable */}
             <Select
               value={rock.status}
               onValueChange={handleStatusChange}
               disabled={updating}
             >
-              <SelectTrigger>
-                <SelectValue>
-                  <div className="flex items-center gap-2">
-                    {updating && <Loader2 className="h-4 w-4 animate-spin" />}
-                    <Badge
-                      variant="outline"
-                      className={statusConfig[rock.status].color + " text-white border-0"}
-                    >
-                      {statusConfig[rock.status].label}
-                    </Badge>
-                  </div>
-                </SelectValue>
+              <SelectTrigger className="w-auto h-7 border-0 p-0 focus:ring-0 mb-3">
+                <Badge className={`${statusConfig[rock.status].color} border-0 cursor-pointer`}>
+                  {updating && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
+                  {statusConfig[rock.status].label}
+                </Badge>
               </SelectTrigger>
               <SelectContent>
                 {Object.entries(statusConfig).map(([value, config]) => (
                   <SelectItem key={value} value={value}>
-                    <Badge
-                      variant="outline"
-                      className={config.color + " text-white border-0"}
-                    >
+                    <Badge className={`${config.color} border-0`}>
                       {config.label}
                     </Badge>
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-          </div>
 
-          {/* Pillar */}
-          {rock.pillar && (
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Pillar</label>
-              <Badge variant="secondary">{rock.pillar.name}</Badge>
+            {/* Title */}
+            <h2 className="text-xl font-semibold leading-tight">{rockTitle}</h2>
+
+            {/* Meta info row */}
+            <div className="flex items-center gap-3 mt-3 text-sm text-muted-foreground">
+              <span>Q{rock.quarter} {rock.year}</span>
+              {rock.pillar && (
+                <>
+                  <span>·</span>
+                  <Badge variant="secondary" className="font-normal">
+                    {rock.pillar.name}
+                  </Badge>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="p-6 space-y-6">
+          {/* Owner */}
+          {rock.owner && (
+            <div className="flex items-center gap-3">
+              <Avatar className="h-8 w-8">
+                <AvatarImage src={rock.owner.avatar_url || undefined} />
+                <AvatarFallback className="text-xs">{getInitials(rock.owner.full_name)}</AvatarFallback>
+              </Avatar>
+              <div>
+                <p className="text-sm font-medium">{rock.owner.full_name}</p>
+                <p className="text-xs text-muted-foreground">Owner</p>
+              </div>
             </div>
           )}
 
           {/* Description */}
           {rock.description && (
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Description</label>
-              <p className="text-sm text-muted-foreground">{rock.description}</p>
+            <div>
+              <p className="text-sm text-muted-foreground leading-relaxed">{rock.description}</p>
             </div>
           )}
-
-          <Separator />
-
-          {/* Owner */}
-          {rock.owner && (
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Owner</label>
-              <div className="flex items-center gap-3">
-                <Avatar className="h-10 w-10">
-                  <AvatarImage src={rock.owner.avatar_url || undefined} />
-                  <AvatarFallback>{getInitials(rock.owner.full_name)}</AvatarFallback>
-                </Avatar>
-                <div>
-                  <p className="font-medium">{rock.owner.full_name}</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <Separator />
 
           {/* Milestones */}
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <label className="text-sm font-medium">Milestones</label>
+              <h3 className="text-sm font-medium">Milestones</h3>
               {milestones.length > 0 && (
-                <span className="text-sm text-muted-foreground">
-                  {completedCount}/{milestones.length} complete
+                <span className="text-xs text-muted-foreground">
+                  {completedCount} of {milestones.length}
                 </span>
               )}
             </div>
 
             {/* Progress bar */}
             {milestones.length > 0 && (
-              <div className="space-y-1">
-                <Progress value={progressPercent} className="h-2" />
-              </div>
+              <Progress value={progressPercent} className="h-1.5" />
             )}
 
             {/* Milestones list */}
             {loadingMilestones ? (
-              <div className="flex items-center justify-center py-4">
+              <div className="flex items-center justify-center py-6">
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               </div>
             ) : milestones.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-muted-foreground py-2">
                 No milestones yet. Add milestones to track progress.
               </p>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-1">
                 {milestones.map((milestone) => {
-                  const StatusIcon = milestoneStatusConfig[milestone.status].icon;
                   const isUpdating = updatingMilestoneId === milestone.id;
 
                   return (
                     <div
                       key={milestone.id}
-                      className={`flex items-start gap-3 p-3 rounded-lg border ${
-                        milestone.status === "complete" ? "bg-muted/50" : ""
-                      } ${milestone.is_overdue ? "border-red-200" : ""}`}
+                      className={`group flex items-center gap-3 py-2 px-2 -mx-2 rounded-md hover:bg-muted/50 transition-colors ${
+                        milestone.status === "complete" ? "opacity-60" : ""
+                      }`}
                     >
                       {isUpdating ? (
-                        <Loader2 className="h-5 w-5 animate-spin mt-0.5" />
+                        <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
                       ) : (
                         <Checkbox
                           checked={milestone.status === "complete"}
                           onCheckedChange={() => toggleMilestoneComplete(milestone)}
-                          className="mt-0.5"
+                          className="flex-shrink-0"
                         />
                       )}
-                      <div className="flex-1 min-w-0">
-                        <p
-                          className={`text-sm font-medium ${
-                            milestone.status === "complete"
-                              ? "line-through text-muted-foreground"
-                              : ""
-                          }`}
-                        >
-                          {milestone.title}
-                        </p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <Select
-                            value={milestone.status}
-                            onValueChange={(v) => handleMilestoneStatusChange(milestone.id, v)}
-                            disabled={isUpdating}
-                          >
-                            <SelectTrigger className="h-6 w-auto text-xs border-0 p-0 pr-2">
-                              <SelectValue>
-                                <div className="flex items-center gap-1">
-                                  <StatusIcon
-                                    className={`h-3 w-3 ${milestoneStatusConfig[milestone.status].color}`}
-                                  />
-                                  <span>{milestoneStatusConfig[milestone.status].label}</span>
-                                </div>
-                              </SelectValue>
-                            </SelectTrigger>
-                            <SelectContent>
-                              {Object.entries(milestoneStatusConfig).map(([value, config]) => {
-                                const Icon = config.icon;
-                                return (
-                                  <SelectItem key={value} value={value}>
-                                    <div className="flex items-center gap-2">
-                                      <Icon className={`h-3 w-3 ${config.color}`} />
-                                      {config.label}
-                                    </div>
-                                  </SelectItem>
-                                );
-                              })}
-                            </SelectContent>
-                          </Select>
-                          {milestone.is_overdue && (
-                            <Badge variant="destructive" className="text-xs h-5">
-                              Overdue
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
+                      <span
+                        className={`flex-1 text-sm ${
+                          milestone.status === "complete"
+                            ? "line-through text-muted-foreground"
+                            : ""
+                        }`}
+                      >
+                        {milestone.title}
+                      </span>
+                      {milestone.is_overdue && (
+                        <Badge variant="destructive" className="text-xs h-5 px-1.5">
+                          Overdue
+                        </Badge>
+                      )}
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 hover:opacity-100"
+                        className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
                         onClick={() => handleDeleteMilestone(milestone.id)}
                       >
-                        <Trash2 className="h-3 w-3" />
+                        <Trash2 className="h-3 w-3 text-muted-foreground" />
                       </Button>
                     </div>
                   );
@@ -424,35 +373,41 @@ export function RockDetailSheet({
             )}
 
             {/* Add milestone form */}
-            <form onSubmit={handleAddMilestone} className="flex gap-2">
+            <form onSubmit={handleAddMilestone} className="flex gap-2 pt-1">
               <Input
                 placeholder="Add a milestone..."
                 value={newMilestoneTitle}
                 onChange={(e) => setNewMilestoneTitle(e.target.value)}
-                className="flex-1"
+                className="h-8 text-sm"
               />
               <Button
                 type="submit"
                 size="sm"
+                variant="secondary"
+                className="h-8 px-3"
                 disabled={!newMilestoneTitle.trim() || addingMilestone}
               >
                 {addingMilestone ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-3 w-3 animate-spin" />
                 ) : (
-                  <Plus className="h-4 w-4" />
+                  <Plus className="h-3 w-3" />
                 )}
               </Button>
             </form>
           </div>
 
-          <Separator />
-
           {/* Comments */}
-          <CommentThread
-            entityType="rock"
-            entityId={rock.id}
-            currentUserId={currentUserId}
-          />
+          <div className="space-y-3 pt-2 border-t">
+            <div className="flex items-center gap-2">
+              <MessageSquare className="h-4 w-4 text-muted-foreground" />
+              <h3 className="text-sm font-medium">Comments</h3>
+            </div>
+            <CommentThread
+              entityType="rock"
+              entityId={rock.id}
+              currentUserId={currentUserId}
+            />
+          </div>
         </div>
       </SheetContent>
     </Sheet>

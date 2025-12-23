@@ -20,6 +20,7 @@ import { CreateRockDialog } from "@/components/rocks/create-rock-dialog";
 interface Rock {
   id: string;
   name: string;
+  title?: string;
   description: string | null;
   status: "not_started" | "on_track" | "off_track" | "complete";
   quarter: number;
@@ -34,6 +35,9 @@ interface Rock {
     name: string;
   } | null;
 }
+
+// Helper to get rock display name
+const getRockName = (rock: Rock) => rock.title || rock.name;
 
 const statusConfig = {
   not_started: { label: "Not Started", color: "bg-gray-500" },
@@ -193,7 +197,7 @@ export default function RocksPage() {
                       <CardHeader className="pb-3">
                         <div className="flex items-start justify-between">
                           <CardTitle className="text-base font-medium line-clamp-2">
-                            {rock.name}
+                            {getRockName(rock)}
                           </CardTitle>
                         </div>
                         {rock.pillar && (
