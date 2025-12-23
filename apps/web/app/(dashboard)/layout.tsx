@@ -13,30 +13,43 @@ export const dynamic = "force-dynamic";
 async function checkOnboardingStatus(clerkUserId: string): Promise<string | null> {
   const supabase = createAdminClient();
 
-  // Check if user has a profile with an organization
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("id, organization_id")
-    .eq("clerk_id", clerkUserId)
-    .single();
+  try {
+    // Check if user has a profile with an organization
+    const { data: profile, error } = await supabase
+      .from("profiles")
+      .select("id, organization_id")
+      .eq("clerk_id", clerkUserId)
+      .single();
 
-  // User has no profile or no organization - needs onboarding
-  if (!profile || !profile.organization_id) {
+    // If there's an error or no profile, redirect to onboarding
+    // This handles the race condition where webhook hasn't created the profile yet
+    if (error || !profile) {
+      console.log("Profile not found for clerk_id, redirecting to onboarding:", clerkUserId);
+      return "/onboarding";
+    }
+
+    // User has profile but no organization - needs onboarding
+    if (!profile.organization_id) {
+      return "/onboarding";
+    }
+
+    // Check if organization has completed onboarding
+    const { data: org } = await supabase
+      .from("organizations")
+      .select("id, onboarding_completed_at")
+      .eq("id", profile.organization_id)
+      .single();
+
+    if (!org?.onboarding_completed_at) {
+      return "/onboarding";
+    }
+
+    return null;
+  } catch (err) {
+    // On any error, redirect to onboarding as a safe fallback
+    console.error("Error checking onboarding status:", err);
     return "/onboarding";
   }
-
-  // Check if organization has completed onboarding
-  const { data: org } = await supabase
-    .from("organizations")
-    .select("id, onboarding_completed_at")
-    .eq("id", profile.organization_id)
-    .single();
-
-  if (!org?.onboarding_completed_at) {
-    return "/onboarding";
-  }
-
-  return null;
 }
 
 export default async function DashboardLayout({
