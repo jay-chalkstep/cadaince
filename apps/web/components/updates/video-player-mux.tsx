@@ -57,9 +57,10 @@ export const VideoPlayerMux = forwardRef<VideoPlayerMuxHandle, VideoPlayerMuxPro
         className={className}
         onTimeUpdate={handleTimeUpdate}
         style={{
+          // @ts-expect-error - Mux player CSS custom properties
           "--controls": "bottom",
           "--media-object-fit": "contain",
-        } as React.CSSProperties}
+        }}
       />
     );
   }
