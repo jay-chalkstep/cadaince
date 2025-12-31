@@ -12,11 +12,24 @@ import {
   AlertTriangle,
   ChevronDown,
   X,
+  MoreHorizontal,
+  Check,
+  CheckCheck,
+  Archive,
+  Trash2,
+  ExternalLink,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import {
   VideoPlayerMux,
@@ -47,12 +60,27 @@ export interface Update {
   };
   linked_rock: { id: string; title: string; status: string } | null;
   linked_metric: { id: string; name: string } | null;
+  // Read state fields
+  read_at?: string | null;
+  acknowledged_at?: string | null;
+  archived_at?: string | null;
+  converted_to_issue?: { id: string; title: string; status: string } | null;
+}
+
+export interface UpdateActions {
+  onMarkAsRead?: (id: string) => void;
+  onAcknowledge?: (id: string) => void;
+  onArchive?: (id: string) => void;
+  onDelete?: (id: string) => void;
+  onConvertToIssue?: (update: Update) => void;
 }
 
 interface UpdateExpandableCardProps {
   update: Update;
   isExpanded: boolean;
   onToggleExpand: (id: string | null) => void;
+  actions?: UpdateActions;
+  canDelete?: boolean; // Whether current user can delete (author or admin)
 }
 
 // Extract playback ID from Mux stream URL
@@ -103,6 +131,8 @@ export function UpdateExpandableCard({
   update,
   isExpanded,
   onToggleExpand,
+  actions,
+  canDelete = false,
 }: UpdateExpandableCardProps) {
   const videoRef = useRef<VideoPlayerMuxHandle>(null);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -111,6 +141,9 @@ export function UpdateExpandableCard({
   const playbackId = extractPlaybackId(update.video_url);
   const TypeIcon = getTypeIcon(update.type);
   const isVideo = update.format === "video" && playbackId;
+  const isUnread = !update.read_at;
+  const isAcknowledged = !!update.acknowledged_at;
+  const isConverted = !!update.converted_to_issue;
 
   // Handle word click to seek video
   const handleWordClick = useCallback((time: number) => {
@@ -160,102 +193,184 @@ export function UpdateExpandableCard({
     >
       <Card
         className={cn(
-          "overflow-hidden transition-shadow",
-          isExpanded && "ring-2 ring-primary shadow-lg"
+          "relative overflow-hidden transition-shadow",
+          isExpanded && "ring-2 ring-primary shadow-lg",
+          isUnread && "border-l-2 border-l-blue-500"
         )}
       >
         {/* Collapsed Header - Always Visible */}
         <CardContent className="p-0">
-          <button
-            onClick={() => onToggleExpand(isExpanded ? null : update.id)}
-            className="w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
-          >
-            <div className="flex items-start gap-4 p-4">
-              {/* Thumbnail or Icon */}
-              <div className="relative flex-shrink-0">
-                {isVideo && update.thumbnail_url ? (
-                  <div className="relative w-24 h-16 md:w-32 md:h-20 rounded-md overflow-hidden bg-muted">
-                    <img
-                      src={update.thumbnail_url}
-                      alt=""
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                      <Video className="h-6 w-6 text-white" />
+          <div className="flex items-start gap-4 p-4">
+            {/* Thumbnail or Icon - clickable to expand */}
+            <button
+              onClick={() => onToggleExpand(isExpanded ? null : update.id)}
+              className="relative flex-shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-md"
+            >
+              {isVideo && update.thumbnail_url ? (
+                <div className="relative w-24 h-16 md:w-32 md:h-20 rounded-md overflow-hidden bg-muted">
+                  <img
+                    src={update.thumbnail_url}
+                    alt=""
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                    <Video className="h-6 w-6 text-white" />
+                  </div>
+                  {update.duration_seconds && (
+                    <div className="absolute bottom-1 right-1 px-1.5 py-0.5 text-xs font-medium text-white bg-black/70 rounded">
+                      {formatDuration(update.duration_seconds)}
                     </div>
-                    {update.duration_seconds && (
-                      <div className="absolute bottom-1 right-1 px-1.5 py-0.5 text-xs font-medium text-white bg-black/70 rounded">
-                        {formatDuration(update.duration_seconds)}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="w-12 h-12 rounded-md bg-muted flex items-center justify-center">
-                    <TypeIcon className="h-5 w-5 text-muted-foreground" />
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
+              ) : (
+                <div className="w-12 h-12 rounded-md bg-muted flex items-center justify-center">
+                  <TypeIcon className="h-5 w-5 text-muted-foreground" />
+                </div>
+              )}
+            </button>
 
-              {/* Content */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <Badge variant={getTypeBadgeVariant(update.type)}>
-                    {update.type}
+            {/* Content - clickable to expand */}
+            <button
+              onClick={() => onToggleExpand(isExpanded ? null : update.id)}
+              className="flex-1 min-w-0 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
+            >
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                <Badge variant={getTypeBadgeVariant(update.type)}>
+                  {update.type}
+                </Badge>
+                {update.linked_rock && (
+                  <Badge variant="outline" className="text-xs">
+                    <Target className="h-3 w-3 mr-1" />
+                    {update.linked_rock.title}
                   </Badge>
-                  {update.linked_rock && (
-                    <Badge variant="outline" className="text-xs">
-                      <Target className="h-3 w-3 mr-1" />
-                      {update.linked_rock.title}
-                    </Badge>
-                  )}
-                  {update.linked_metric && (
-                    <Badge variant="outline" className="text-xs">
-                      <BarChart3 className="h-3 w-3 mr-1" />
-                      {update.linked_metric.name}
-                    </Badge>
-                  )}
-                </div>
-
-                {update.content && (
-                  <p
-                    className={cn(
-                      "text-sm text-foreground",
-                      !isExpanded && "line-clamp-2"
-                    )}
-                  >
-                    {update.content}
-                  </p>
                 )}
-
-                <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
-                  <Avatar className="h-5 w-5">
-                    <AvatarImage src={update.author.avatar_url || undefined} />
-                    <AvatarFallback className="text-[10px]">
-                      {update.author.full_name
-                        .split(" ")
-                        .map((n) => n[0])
-                        .join("")}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span>{update.author.full_name}</span>
-                  <span>·</span>
-                  <Clock className="h-3 w-3" />
-                  <span>
-                    {format(new Date(update.published_at), "MMM d, h:mm a")}
-                  </span>
-                </div>
+                {update.linked_metric && (
+                  <Badge variant="outline" className="text-xs">
+                    <BarChart3 className="h-3 w-3 mr-1" />
+                    {update.linked_metric.name}
+                  </Badge>
+                )}
+                {isAcknowledged && (
+                  <Badge variant="secondary" className="text-xs">
+                    <CheckCheck className="h-3 w-3 mr-1" />
+                    Acknowledged
+                  </Badge>
+                )}
+                {isConverted && update.converted_to_issue && (
+                  <Badge variant="default" className="text-xs bg-green-600 hover:bg-green-700">
+                    <ExternalLink className="h-3 w-3 mr-1" />
+                    Issue Created
+                  </Badge>
+                )}
               </div>
+
+              {update.content && (
+                <p
+                  className={cn(
+                    "text-sm text-foreground",
+                    isUnread && "font-medium",
+                    !isExpanded && "line-clamp-2"
+                  )}
+                >
+                  {update.content}
+                </p>
+              )}
+
+              <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
+                <Avatar className="h-5 w-5">
+                  <AvatarImage src={update.author.avatar_url || undefined} />
+                  <AvatarFallback className="text-[10px]">
+                    {update.author.full_name
+                      .split(" ")
+                      .map((n) => n[0])
+                      .join("")}
+                  </AvatarFallback>
+                </Avatar>
+                <span>{update.author.full_name}</span>
+                <span>·</span>
+                <Clock className="h-3 w-3" />
+                <span>
+                  {format(new Date(update.published_at), "MMM d, h:mm a")}
+                </span>
+              </div>
+            </button>
+
+            {/* Actions Menu + Expand Indicator */}
+            <div className="flex items-center gap-1 flex-shrink-0">
+              {actions && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <MoreHorizontal className="h-4 w-4" />
+                      <span className="sr-only">Actions</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {isUnread && actions.onMarkAsRead && (
+                      <DropdownMenuItem onClick={() => actions.onMarkAsRead!(update.id)}>
+                        <Check className="mr-2 h-4 w-4" />
+                        Mark as read
+                      </DropdownMenuItem>
+                    )}
+                    {!isAcknowledged && actions.onAcknowledge && (
+                      <DropdownMenuItem onClick={() => actions.onAcknowledge!(update.id)}>
+                        <CheckCheck className="mr-2 h-4 w-4" />
+                        Acknowledge
+                      </DropdownMenuItem>
+                    )}
+                    {!isConverted && actions.onConvertToIssue && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => actions.onConvertToIssue!(update)}>
+                          <AlertTriangle className="mr-2 h-4 w-4" />
+                          Convert to Issue
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                    {actions.onArchive && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => actions.onArchive!(update.id)}>
+                          <Archive className="mr-2 h-4 w-4" />
+                          Archive
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                    {canDelete && actions.onDelete && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => actions.onDelete!(update.id)}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Delete
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
 
               {/* Expand/Collapse Indicator */}
-              <motion.div
-                animate={{ rotate: isExpanded ? 180 : 0 }}
-                transition={{ duration: 0.2 }}
-                className="flex-shrink-0 text-muted-foreground"
+              <button
+                onClick={() => onToggleExpand(isExpanded ? null : update.id)}
+                className="p-1 text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
               >
-                <ChevronDown className="h-5 w-5" />
-              </motion.div>
+                <motion.div
+                  animate={{ rotate: isExpanded ? 180 : 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <ChevronDown className="h-5 w-5" />
+                </motion.div>
+              </button>
             </div>
-          </button>
+          </div>
 
           {/* Expanded Content */}
           <AnimatePresence>

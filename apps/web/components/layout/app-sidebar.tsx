@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import {
   BarChart3,
   Bell,
@@ -23,6 +24,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Badge } from "@/components/ui/badge";
 
 import {
   Sidebar,
@@ -66,6 +68,27 @@ const settingsNavItems = [
 
 export function AppSidebar() {
   const pathname = usePathname();
+  const [unreadUpdatesCount, setUnreadUpdatesCount] = useState(0);
+
+  // Fetch unread updates count
+  useEffect(() => {
+    const fetchCount = async () => {
+      try {
+        const res = await fetch("/api/updates/count");
+        if (res.ok) {
+          const { count } = await res.json();
+          setUnreadUpdatesCount(count);
+        }
+      } catch (error) {
+        console.error("Failed to fetch updates count:", error);
+      }
+    };
+
+    fetchCount();
+    // Poll every 60 seconds
+    const interval = setInterval(fetchCount, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   const isActive = (href: string) => {
     if (href === pathname) return true;
@@ -91,9 +114,19 @@ export function AppSidebar() {
                     asChild
                     isActive={isActive(item.href)}
                   >
-                    <Link href={item.href}>
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
+                    <Link href={item.href} className="flex items-center justify-between w-full">
+                      <span className="flex items-center gap-2">
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                      </span>
+                      {item.href === "/updates" && unreadUpdatesCount > 0 && (
+                        <Badge
+                          variant="default"
+                          className="h-5 min-w-5 px-1.5 text-[10px] bg-blue-600 hover:bg-blue-600"
+                        >
+                          {unreadUpdatesCount > 9 ? "9+" : unreadUpdatesCount}
+                        </Badge>
+                      )}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

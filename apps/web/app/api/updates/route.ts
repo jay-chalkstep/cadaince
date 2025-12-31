@@ -2,7 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
-// GET /api/updates - List updates
+// GET /api/updates - List updates with read state
 export async function GET(req: Request) {
   const { userId } = await auth();
   if (!userId) {
@@ -14,21 +14,41 @@ export async function GET(req: Request) {
   const authorId = searchParams.get("author_id");
   const limit = parseInt(searchParams.get("limit") || "20");
   const offset = parseInt(searchParams.get("offset") || "0");
+  const unreadOnly = searchParams.get("unread") === "true";
+  const showArchived = searchParams.get("archived") === "true";
 
   const supabase = createAdminClient();
 
+  // Get current user's profile for read state lookup
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("clerk_id", userId)
+    .single();
+
+  if (!profile) {
+    return NextResponse.json({ error: "Profile not found" }, { status: 404 });
+  }
+
+  // Build the query with read state and converted issue
   let query = supabase
     .from("updates")
     .select(`
       *,
       author:profiles!updates_author_id_fkey(id, full_name, avatar_url, role),
       linked_rock:rocks(id, title, status),
-      linked_metric:metrics(id, name)
+      linked_metric:metrics(id, name),
+      converted_to_issue:issues!updates_converted_to_issue_id_fkey(id, title, status)
     `)
     .eq("is_draft", false)
     .not("published_at", "is", null)
     .order("published_at", { ascending: false })
     .range(offset, offset + limit - 1);
+
+  // Filter by archived status (default: exclude archived)
+  if (!showArchived) {
+    query = query.is("archived_at", null);
+  }
 
   if (type) {
     query = query.eq("type", type);
@@ -44,7 +64,35 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Failed to fetch updates" }, { status: 500 });
   }
 
-  return NextResponse.json(updates);
+  // Fetch read states for current user
+  const updateIds = updates?.map((u) => u.id) || [];
+  const { data: readStates } = await supabase
+    .from("update_read_state")
+    .select("update_id, read_at, acknowledged_at")
+    .eq("profile_id", profile.id)
+    .in("update_id", updateIds);
+
+  // Create a map for quick lookup
+  const readStateMap = new Map(
+    readStates?.map((rs) => [rs.update_id, rs]) || []
+  );
+
+  // Merge read state into updates
+  const updatesWithReadState = updates?.map((update) => {
+    const readState = readStateMap.get(update.id);
+    return {
+      ...update,
+      read_at: readState?.read_at || null,
+      acknowledged_at: readState?.acknowledged_at || null,
+    };
+  }) || [];
+
+  // Filter by unread if requested
+  const filteredUpdates = unreadOnly
+    ? updatesWithReadState.filter((u) => !u.read_at)
+    : updatesWithReadState;
+
+  return NextResponse.json(filteredUpdates);
 }
 
 // POST /api/updates - Create a new update
