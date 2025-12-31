@@ -16,6 +16,7 @@ export async function GET(req: Request) {
   const supabase = createAdminClient();
 
   // Get current user's profile with organization_id
+  // Note: Using maybeSingle() to avoid 300 errors when pillar join returns multiple/no rows
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select(`
@@ -24,13 +25,24 @@ export async function GET(req: Request) {
       full_name,
       role,
       access_level,
-      pillar:pillars(name)
+      pillar_id
     `)
     .eq("clerk_id", userId)
     .single();
 
   if (profileError) {
     console.error("Error fetching profile for briefing:", profileError, "clerk_id:", userId);
+  }
+
+  // Fetch pillar name separately if profile has a pillar
+  let pillarName: string | null = null;
+  if (profile?.pillar_id) {
+    const { data: pillar } = await supabase
+      .from("pillars")
+      .select("name")
+      .eq("id", profile.pillar_id)
+      .single();
+    pillarName = pillar?.name || null;
   }
 
   if (!profile) {
@@ -121,13 +133,11 @@ export async function GET(req: Request) {
   const context = await gatherBriefingContext(supabase, profile.id, profile.organization_id);
 
   // Add user info to context
-  // Supabase returns relations as arrays when not using .single()
-  const pillarData = profile.pillar as { name: string }[] | null;
   const fullContext: BriefingContext = {
     user: {
       name: profile.full_name,
       role: profile.role,
-      pillar: pillarData?.[0]?.name || null,
+      pillar: pillarName,
       access_level: profile.access_level,
     },
     ...context,
