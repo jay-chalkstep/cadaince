@@ -112,9 +112,22 @@ export async function POST(req: Request) {
     }
 
     case "video.upload.asset_created": {
-      // Upload completed, asset created
+      // Upload completed, asset created - update the record with the real asset ID
       const { asset_id, id: uploadId } = data;
       console.log("Upload completed, asset ID:", asset_id, "Upload ID:", uploadId);
+
+      // The database stores upload_id in video_asset_id column
+      // Update it to the actual asset_id so video.asset.ready can find it
+      const { error } = await supabase
+        .from("updates")
+        .update({ video_asset_id: asset_id })
+        .eq("video_asset_id", uploadId);
+
+      if (error) {
+        console.error("Failed to update video_asset_id:", error);
+      } else {
+        console.log("Updated video_asset_id from", uploadId, "to", asset_id);
+      }
       break;
     }
   }
