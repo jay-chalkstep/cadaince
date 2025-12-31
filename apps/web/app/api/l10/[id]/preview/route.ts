@@ -104,7 +104,7 @@ export async function GET(
     // Below-goal metrics - need to get latest values and compare
     getBelowGoalMetrics(supabase, profile.organization_id),
 
-    // Carryover todos - incomplete and past due
+    // Carryover todos - incomplete and due on or before meeting date
     supabase
       .from("todos")
       .select(`
@@ -115,7 +115,7 @@ export async function GET(
       `)
       .eq("organization_id", profile.organization_id)
       .eq("is_complete", false)
-      .lt("due_date", meeting.scheduled_at.split("T")[0])
+      .lte("due_date", meeting.scheduled_at.split("T")[0])
       .order("due_date", { ascending: true }),
   ]);
 

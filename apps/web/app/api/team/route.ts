@@ -2,7 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
-// GET /api/team - List all team members
+// GET /api/team - List all team members for the user's organization
 export async function GET(req: Request) {
   const { userId } = await auth();
   if (!userId) {
@@ -10,6 +10,18 @@ export async function GET(req: Request) {
   }
 
   const supabase = createAdminClient();
+
+  // Get user's organization
+  const { data: currentUser } = await supabase
+    .from("profiles")
+    .select("organization_id")
+    .eq("clerk_id", userId)
+    .single();
+
+  if (!currentUser?.organization_id) {
+    return NextResponse.json([]);
+  }
+
   const { searchParams } = new URL(req.url);
   const pillarId = searchParams.get("pillar_id");
   const status = searchParams.get("status");
@@ -20,6 +32,7 @@ export async function GET(req: Request) {
       *,
       pillar:pillars!profiles_pillar_id_fkey(id, name, slug, color)
     `)
+    .eq("organization_id", currentUser.organization_id)
     .order("full_name", { ascending: true });
 
   if (pillarId) {
@@ -49,15 +62,19 @@ export async function POST(req: Request) {
 
   const supabase = createAdminClient();
 
-  // Check if user is admin
+  // Check if user is admin and get organization
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, access_level")
+    .select("id, access_level, organization_id")
     .eq("clerk_id", userId)
     .single();
 
   if (!profile || profile.access_level !== "admin") {
     return NextResponse.json({ error: "Forbidden - Admin access required" }, { status: 403 });
+  }
+
+  if (!profile.organization_id) {
+    return NextResponse.json({ error: "No organization" }, { status: 403 });
   }
 
   const body = await req.json();
@@ -114,6 +131,7 @@ export async function POST(req: Request) {
       timezone: timezone || "America/Denver",
       status: "invited",
       invited_at: new Date().toISOString(),
+      organization_id: profile.organization_id,
     })
     .select(`
       *,
