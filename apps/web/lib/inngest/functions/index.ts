@@ -1,14 +1,17 @@
 // Integration event-driven functions
-// Functions will be added as integrations are implemented
 
-// Calendar functions (Week 2)
-// export * from './calendar';
+// Calendar functions
+import { calendarFunctions } from "./calendar";
 
-// Slack functions (Week 3)
-// export * from './slack';
+// Slack functions (Phase 3)
+// import { slackFunctions } from './slack';
 
-// reMarkable functions (Week 4)
-// export * from './remarkable';
+// reMarkable functions (Phase 4)
+// import { remarkableFunctions } from './remarkable';
 
-// Export empty array for now - will be populated with functions
-export const functions = [];
+// Export all functions for Inngest
+export const functions = [
+  ...calendarFunctions,
+  // ...slackFunctions,
+  // ...remarkableFunctions,
+];

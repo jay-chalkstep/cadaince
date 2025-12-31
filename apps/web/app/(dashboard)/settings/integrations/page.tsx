@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { Database, AlertCircle } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Database, AlertCircle, Calendar, Check } from "lucide-react";
 import { IntegrationCard, IntegrationCardSkeleton } from "@/components/integrations/integration-card";
 import { SyncLogsTable } from "@/components/integrations/sync-logs-table";
+import { CalendarConnectButton } from "@/components/integrations/calendar-connect-button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
@@ -16,6 +17,13 @@ interface Integration {
   credentials_set: boolean;
   last_sync_at: string | null;
   last_error: string | null;
+  config: Record<string, unknown>;
+}
+
+interface CalendarIntegration {
+  integration_type: string;
+  status: string;
+  connected_at: string | null;
   config: Record<string, unknown>;
 }
 
@@ -32,9 +40,69 @@ const INTEGRATION_META: Record<string, { description: string; icon: React.ReactN
 
 export default function IntegrationsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [integrations, setIntegrations] = useState<Integration[]>([]);
+  const [calendarIntegrations, setCalendarIntegrations] = useState<Record<string, CalendarIntegration>>({});
   const [loading, setLoading] = useState(true);
+  const [calendarLoading, setCalendarLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Handle success/error from OAuth callback
+  useEffect(() => {
+    const success = searchParams.get("success");
+    const errorParam = searchParams.get("error");
+
+    if (success === "google_calendar_connected") {
+      setSuccessMessage("Google Calendar connected successfully!");
+      // Clear the URL params
+      router.replace("/settings/integrations");
+    } else if (success === "outlook_calendar_connected") {
+      setSuccessMessage("Outlook Calendar connected successfully!");
+      router.replace("/settings/integrations");
+    } else if (errorParam) {
+      const errorMessages: Record<string, string> = {
+        oauth_denied: "You denied access to your calendar. Please try again.",
+        invalid_state: "Security verification failed. Please try again.",
+        state_expired: "The connection request expired. Please try again.",
+        token_exchange_failed: "Failed to complete authorization. Please try again.",
+        save_failed: "Failed to save connection. Please try again.",
+        unexpected_error: "An unexpected error occurred. Please try again.",
+      };
+      setError(errorMessages[errorParam] || "An error occurred during connection.");
+      router.replace("/settings/integrations");
+    }
+  }, [searchParams, router]);
+
+  // Fetch calendar integrations status
+  const fetchCalendarIntegrations = async () => {
+    try {
+      setCalendarLoading(true);
+      const response = await fetch("/api/integrations/status");
+      if (response.ok) {
+        const data = await response.json();
+        setCalendarIntegrations(data.integrations || {});
+      }
+    } catch (err) {
+      console.error("Failed to fetch calendar integrations:", err);
+    } finally {
+      setCalendarLoading(false);
+    }
+  };
+
+  // Disconnect calendar integration
+  const handleCalendarDisconnect = async (provider: "google" | "outlook") => {
+    const response = await fetch(`/api/integrations/calendar/${provider}`, {
+      method: "DELETE",
+    });
+
+    if (response.ok) {
+      await fetchCalendarIntegrations();
+      setSuccessMessage(`${provider === "google" ? "Google" : "Outlook"} Calendar disconnected.`);
+    } else {
+      throw new Error("Failed to disconnect");
+    }
+  };
 
   const fetchIntegrations = async () => {
     try {
@@ -58,6 +126,7 @@ export default function IntegrationsPage() {
 
   useEffect(() => {
     fetchIntegrations();
+    fetchCalendarIntegrations();
   }, []);
 
   if (error) {
@@ -79,40 +148,103 @@ export default function IntegrationsPage() {
     );
   }
 
+  const googleCalendar = calendarIntegrations["google_calendar"];
+  const outlookCalendar = calendarIntegrations["outlook_calendar"];
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Integrations</h1>
         <p className="text-sm text-muted-foreground">
-          Manage external data sources for Scorecard metrics
+          Connect your calendars and data sources
         </p>
       </div>
 
-      {/* Integration Cards */}
-      <div className="grid gap-4">
-        {loading ? (
-          <>
-            <IntegrationCardSkeleton />
-            <IntegrationCardSkeleton />
-          </>
-        ) : (
-          integrations.map((integration) => {
-            const meta = INTEGRATION_META[integration.type] || {
-              description: "External integration",
-              icon: <Database className="h-5 w-5" />,
-            };
-            return (
-              <IntegrationCard
-                key={integration.id}
-                integration={integration}
-                description={meta.description}
-                icon={meta.icon}
-                onSync={fetchIntegrations}
+      {/* Success Message */}
+      {successMessage && (
+        <Alert className="border-green-500 bg-green-50 dark:bg-green-950/20">
+          <Check className="h-4 w-4 text-green-500" />
+          <AlertTitle className="text-green-700 dark:text-green-400">Success</AlertTitle>
+          <AlertDescription className="text-green-600 dark:text-green-300">
+            {successMessage}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Calendar Integrations */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center text-base">
+            <Calendar className="h-5 w-5 mr-2" />
+            Calendar Integrations
+          </CardTitle>
+          <CardDescription>
+            Sync your L10 meetings with your preferred calendar
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {calendarLoading ? (
+            <div className="space-y-4">
+              <div className="h-16 bg-muted animate-pulse rounded-lg" />
+              <div className="h-16 bg-muted animate-pulse rounded-lg" />
+            </div>
+          ) : (
+            <>
+              <CalendarConnectButton
+                provider="google"
+                isConnected={googleCalendar?.status === "active"}
+                connectedEmail={googleCalendar?.config?.google_email as string | undefined}
+                onDisconnect={() => handleCalendarDisconnect("google")}
               />
-            );
-          })
-        )}
-      </div>
+              <CalendarConnectButton
+                provider="outlook"
+                isConnected={outlookCalendar?.status === "active"}
+                connectedEmail={outlookCalendar?.config?.microsoft_email as string | undefined}
+                onDisconnect={() => handleCalendarDisconnect("outlook")}
+              />
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Data Source Integrations */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center text-base">
+            <Database className="h-5 w-5 mr-2" />
+            Data Sources
+          </CardTitle>
+          <CardDescription>
+            Connect external data sources for Scorecard metrics
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4">
+            {loading ? (
+              <>
+                <IntegrationCardSkeleton />
+                <IntegrationCardSkeleton />
+              </>
+            ) : (
+              integrations.map((integration) => {
+                const meta = INTEGRATION_META[integration.type] || {
+                  description: "External integration",
+                  icon: <Database className="h-5 w-5" />,
+                };
+                return (
+                  <IntegrationCard
+                    key={integration.id}
+                    integration={integration}
+                    description={meta.description}
+                    icon={meta.icon}
+                    onSync={fetchIntegrations}
+                  />
+                );
+              })
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Recent Sync Logs */}
       {!loading && integrations.length > 0 && (
