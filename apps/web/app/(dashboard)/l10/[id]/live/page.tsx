@@ -133,7 +133,7 @@ export default function LiveMeetingPage() {
       const [profilesRes, todosRes, issuesRes] = await Promise.all([
         fetch("/api/profiles"),
         fetch("/api/todos?status=pending"),
-        fetch("/api/issues?status=detected,prioritized"),
+        fetch("/api/issues?status=open"),
       ]);
 
       if (profilesRes.ok) setProfiles(await profilesRes.json());

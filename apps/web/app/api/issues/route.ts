@@ -16,6 +16,17 @@ export async function GET(req: Request) {
 
   const supabase = createAdminClient();
 
+  // Get current user's organization
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("organization_id")
+    .eq("clerk_id", userId)
+    .single();
+
+  if (!profile?.organization_id) {
+    return NextResponse.json([]);
+  }
+
   let query = supabase
     .from("issues")
     .select(`
@@ -23,6 +34,7 @@ export async function GET(req: Request) {
       owner:profiles!issues_owner_id_fkey(id, full_name, avatar_url),
       created_by_profile:profiles!issues_created_by_fkey(id, full_name, avatar_url)
     `)
+    .eq("organization_id", profile.organization_id)
     .order("priority", { ascending: true })
     .order("created_at", { ascending: false });
 
@@ -59,15 +71,19 @@ export async function POST(req: Request) {
 
   const supabase = createAdminClient();
 
-  // Get current user's profile
+  // Get current user's profile with organization
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id")
+    .select("id, organization_id")
     .eq("clerk_id", userId)
     .single();
 
   if (!profile) {
     return NextResponse.json({ error: "Profile not found" }, { status: 404 });
+  }
+
+  if (!profile.organization_id) {
+    return NextResponse.json({ error: "No organization" }, { status: 403 });
   }
 
   const body = await req.json();
@@ -86,6 +102,7 @@ export async function POST(req: Request) {
       title,
       description: description || null,
       owner_id: owner_id || profile.id,
+      organization_id: profile.organization_id,
       // Keep legacy column populated for backwards-compatible RLS + data integrity
       raised_by: profile.id,
       created_by: profile.id,
