@@ -32,24 +32,29 @@ function verifyMuxSignature(
 
 // POST /api/webhooks/mux - Handle Mux webhooks
 export async function POST(req: Request) {
+  console.log("Mux webhook endpoint hit");
+
   const body = await req.text();
   const headersList = await headers();
   const signature = headersList.get("mux-signature");
+
+  console.log("Mux webhook - has signature:", !!signature, "has secret:", !!process.env.MUX_WEBHOOK_SECRET);
 
   // Verify signature if webhook secret is configured
   const webhookSecret = process.env.MUX_WEBHOOK_SECRET;
   if (webhookSecret && signature) {
     const isValid = verifyMuxSignature(body, signature, webhookSecret);
     if (!isValid) {
-      console.error("Invalid Mux webhook signature");
+      console.error("Invalid Mux webhook signature - rejecting request");
       return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
     }
+    console.log("Mux webhook signature verified");
   }
 
   const event = JSON.parse(body);
   const { type, data } = event;
 
-  console.log("Mux webhook received:", type);
+  console.log("Mux webhook received:", type, "asset:", data?.id || data?.asset_id);
 
   const supabase = createAdminClient();
 
