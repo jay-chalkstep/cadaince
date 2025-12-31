@@ -2,7 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
-// GET /api/pillars - List all pillars
+// GET /api/pillars - List all pillars for the user's organization
 export async function GET() {
   const { userId } = await auth();
   if (!userId) {
@@ -10,6 +10,17 @@ export async function GET() {
   }
 
   const supabase = createAdminClient();
+
+  // Get user's organization
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("organization_id")
+    .eq("clerk_id", userId)
+    .single();
+
+  if (!profile?.organization_id) {
+    return NextResponse.json([]);
+  }
 
   const { data: pillars, error } = await supabase
     .from("pillars")
@@ -22,6 +33,7 @@ export async function GET() {
       sort_order,
       leader:profiles!pillars_leader_id_fkey(id, full_name, avatar_url)
     `)
+    .eq("organization_id", profile.organization_id)
     .order("sort_order", { ascending: true, nullsFirst: false })
     .order("name", { ascending: true });
 
@@ -58,15 +70,19 @@ export async function POST(req: Request) {
 
   const supabase = createAdminClient();
 
-  // Check if user is admin
+  // Check if user is admin and get organization
   const { data: profile } = await supabase
     .from("profiles")
-    .select("access_level")
+    .select("access_level, organization_id")
     .eq("clerk_id", userId)
     .single();
 
   if (!profile || profile.access_level !== "admin") {
     return NextResponse.json({ error: "Forbidden - Admin access required" }, { status: 403 });
+  }
+
+  if (!profile.organization_id) {
+    return NextResponse.json({ error: "No organization" }, { status: 403 });
   }
 
   const body = await req.json();
@@ -88,6 +104,7 @@ export async function POST(req: Request) {
       color: color || "#6366F1",
       sort_order: sort_order || 0,
       leader_id,
+      organization_id: profile.organization_id,
     })
     .select(`
       id,

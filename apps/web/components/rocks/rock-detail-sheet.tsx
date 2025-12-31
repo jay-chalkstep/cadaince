@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Loader2, Plus, Check, Circle, AlertCircle, Clock, Trash2, MessageSquare } from "lucide-react";
+import { Loader2, Plus, Check, Circle, AlertCircle, Clock, Trash2, MessageSquare, ChevronDown } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -235,17 +235,20 @@ export function RockDetailSheet({
         {/* Header */}
         <div className="sticky top-0 bg-background z-10 border-b">
           <div className="p-6 pb-4">
-            {/* Status badge - clickable */}
+            {/* Status badge - clickable dropdown */}
             <Select
               value={rock.status}
               onValueChange={handleStatusChange}
               disabled={updating}
             >
-              <SelectTrigger className="w-auto h-7 border-0 p-0 focus:ring-0 mb-3">
-                <Badge className={`${statusConfig[rock.status].color} border-0 cursor-pointer`}>
-                  {updating && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
-                  {statusConfig[rock.status].label}
-                </Badge>
+              <SelectTrigger className="w-auto h-auto border rounded-md px-2 py-1 focus:ring-1 mb-3 hover:bg-muted/50 transition-colors">
+                <div className="flex items-center gap-1.5">
+                  <Badge className={`${statusConfig[rock.status].color} border-0`}>
+                    {updating && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
+                    {statusConfig[rock.status].label}
+                  </Badge>
+                  <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                </div>
               </SelectTrigger>
               <SelectContent>
                 {Object.entries(statusConfig).map(([value, config]) => (
