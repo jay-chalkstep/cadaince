@@ -15,6 +15,28 @@ function getAnthropicClient(): Anthropic | null {
   return anthropicClient;
 }
 
+// Retry helper with exponential backoff
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxAttempts: number = 3,
+  baseDelayMs: number = 1000
+): Promise<T> {
+  let lastError: Error | undefined;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error as Error;
+      console.warn(`Attempt ${attempt}/${maxAttempts} failed:`, error);
+      if (attempt < maxAttempts) {
+        const delay = baseDelayMs * Math.pow(2, attempt - 1);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+  }
+  throw lastError;
+}
+
 export interface IssueExtractionResult {
   title: string;              // Max 80 chars, IDS-ready
   description: string;        // Bullet points from transcript
@@ -126,17 +148,20 @@ ${teamContext}
 Generate the issue JSON:`;
 
   try {
-    const response = await client.messages.create({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 512,
-      messages: [
-        {
-          role: "user",
-          content: userPrompt,
-        },
-      ],
-      system: SYSTEM_PROMPT,
-    });
+    // Wrap API call in retry logic (3 attempts with exponential backoff)
+    const response = await withRetry(() =>
+      client.messages.create({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 512,
+        messages: [
+          {
+            role: "user",
+            content: userPrompt,
+          },
+        ],
+        system: SYSTEM_PROMPT,
+      })
+    );
 
     const content = response.content[0];
     if (content.type !== "text") {
@@ -171,7 +196,7 @@ Generate the issue JSON:`;
 
     return result;
   } catch (error) {
-    console.error("Error extracting issue from update:", error);
+    console.error("Error extracting issue from update after retries:", error);
     return null;
   }
 }
