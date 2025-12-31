@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Database, AlertCircle, Calendar, Check } from "lucide-react";
+import { Database, AlertCircle, Calendar, Check, MessageSquare } from "lucide-react";
 import { IntegrationCard, IntegrationCardSkeleton } from "@/components/integrations/integration-card";
 import { SyncLogsTable } from "@/components/integrations/sync-logs-table";
 import { CalendarConnectButton } from "@/components/integrations/calendar-connect-button";
+import { SlackConnectButton } from "@/components/integrations/slack-connect-button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
@@ -27,6 +28,13 @@ interface CalendarIntegration {
   config: Record<string, unknown>;
 }
 
+interface SlackWorkspace {
+  id: string;
+  workspace_name: string | null;
+  team_icon_url: string | null;
+  is_active: boolean;
+}
+
 const INTEGRATION_META: Record<string, { description: string; icon: React.ReactNode }> = {
   hubspot: {
     description: "Pipeline, CSAT, support tickets",
@@ -43,8 +51,10 @@ export default function IntegrationsPage() {
   const searchParams = useSearchParams();
   const [integrations, setIntegrations] = useState<Integration[]>([]);
   const [calendarIntegrations, setCalendarIntegrations] = useState<Record<string, CalendarIntegration>>({});
+  const [slackWorkspace, setSlackWorkspace] = useState<SlackWorkspace | null>(null);
   const [loading, setLoading] = useState(true);
   const [calendarLoading, setCalendarLoading] = useState(true);
+  const [slackLoading, setSlackLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -60,14 +70,22 @@ export default function IntegrationsPage() {
     } else if (success === "outlook_calendar_connected") {
       setSuccessMessage("Outlook Calendar connected successfully!");
       router.replace("/settings/integrations");
+    } else if (success === "slack_connected") {
+      setSuccessMessage("Slack workspace connected successfully!");
+      router.replace("/settings/integrations");
+      fetchSlackWorkspace();
     } else if (errorParam) {
       const errorMessages: Record<string, string> = {
-        oauth_denied: "You denied access to your calendar. Please try again.",
+        oauth_denied: "You denied access. Please try again.",
         invalid_state: "Security verification failed. Please try again.",
         state_expired: "The connection request expired. Please try again.",
         token_exchange_failed: "Failed to complete authorization. Please try again.",
         save_failed: "Failed to save connection. Please try again.",
         unexpected_error: "An unexpected error occurred. Please try again.",
+        slack_oauth_denied: "You denied access to Slack. Please try again.",
+        slack_exchange_failed: "Failed to exchange Slack authorization. Please try again.",
+        slack_save_failed: "Failed to save Slack connection. Please try again.",
+        admin_required: "Admin access is required to connect Slack.",
       };
       setError(errorMessages[errorParam] || "An error occurred during connection.");
       router.replace("/settings/integrations");
@@ -87,6 +105,50 @@ export default function IntegrationsPage() {
       console.error("Failed to fetch calendar integrations:", err);
     } finally {
       setCalendarLoading(false);
+    }
+  };
+
+  // Fetch Slack workspace status
+  const fetchSlackWorkspace = async () => {
+    try {
+      setSlackLoading(true);
+      const response = await fetch("/api/integrations/slack/status");
+      if (response.ok) {
+        const data = await response.json();
+        setSlackWorkspace(data.workspace || null);
+      }
+    } catch (err) {
+      console.error("Failed to fetch Slack workspace:", err);
+    } finally {
+      setSlackLoading(false);
+    }
+  };
+
+  // Disconnect Slack workspace
+  const handleSlackDisconnect = async () => {
+    const response = await fetch("/api/integrations/slack", {
+      method: "DELETE",
+    });
+
+    if (response.ok) {
+      await fetchSlackWorkspace();
+      setSuccessMessage("Slack workspace disconnected.");
+    } else {
+      throw new Error("Failed to disconnect");
+    }
+  };
+
+  // Resync Slack users
+  const handleSlackResync = async () => {
+    const response = await fetch("/api/integrations/slack/sync-users", {
+      method: "POST",
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      setSuccessMessage(`Synced ${data.synced} Slack users (${data.matched} matched).`);
+    } else {
+      throw new Error("Failed to sync users");
     }
   };
 
@@ -127,6 +189,7 @@ export default function IntegrationsPage() {
   useEffect(() => {
     fetchIntegrations();
     fetchCalendarIntegrations();
+    fetchSlackWorkspace();
   }, []);
 
   if (error) {
@@ -203,6 +266,32 @@ export default function IntegrationsPage() {
                 onDisconnect={() => handleCalendarDisconnect("outlook")}
               />
             </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Slack Integration */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center text-base">
+            <MessageSquare className="h-5 w-5 mr-2" />
+            Slack Integration
+          </CardTitle>
+          <CardDescription>
+            Get notifications and use slash commands in Slack
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {slackLoading ? (
+            <div className="h-16 bg-muted animate-pulse rounded-lg" />
+          ) : (
+            <SlackConnectButton
+              isConnected={slackWorkspace?.is_active ?? false}
+              workspaceName={slackWorkspace?.workspace_name ?? undefined}
+              workspaceIcon={slackWorkspace?.team_icon_url ?? undefined}
+              onDisconnect={handleSlackDisconnect}
+              onResync={handleSlackResync}
+            />
           )}
         </CardContent>
       </Card>

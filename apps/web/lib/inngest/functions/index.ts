@@ -3,8 +3,8 @@
 // Calendar functions
 import { calendarFunctions } from "./calendar";
 
-// Slack functions (Phase 3)
-// import { slackFunctions } from './slack';
+// Slack functions
+import { slackFunctions } from "./slack";
 
 // reMarkable functions (Phase 4)
 // import { remarkableFunctions } from './remarkable';
@@ -12,6 +12,6 @@ import { calendarFunctions } from "./calendar";
 // Export all functions for Inngest
 export const functions = [
   ...calendarFunctions,
-  // ...slackFunctions,
+  ...slackFunctions,
   // ...remarkableFunctions,
 ];
