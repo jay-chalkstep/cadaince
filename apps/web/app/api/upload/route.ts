@@ -37,8 +37,6 @@ export async function POST() {
       cors_origin: process.env.NEXT_PUBLIC_APP_URL || "*",
       new_asset_settings: {
         playback_policy: ["public"],
-        // Enable MP4 support for download/fallback
-        mp4_support: "standard",
       },
     });
 
