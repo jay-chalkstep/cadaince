@@ -61,36 +61,51 @@ export async function POST(req: Request) {
   switch (type) {
     case "video.asset.ready": {
       // Video has finished processing
-      const { id: assetId, playback_ids, duration } = data;
+      const { id: assetId, upload_id: uploadId, playback_ids, duration } = data;
       const playbackId = playback_ids?.[0]?.id;
+
+      console.log("Video asset ready:", assetId, "upload:", uploadId);
 
       if (!playbackId) {
         console.error("No playback ID found for asset:", assetId);
         return NextResponse.json({ received: true });
       }
 
-      // Find the update with this asset ID
-      const { data: update } = await supabase
+      // Find the update - try asset_id first, then fall back to upload_id
+      // (upload_id fallback needed when this fires before video.upload.asset_created)
+      let update = await supabase
         .from("updates")
         .select("id, video_asset_id")
         .eq("video_asset_id", assetId)
         .single();
 
-      if (update) {
+      if (!update.data && uploadId) {
+        console.log("Asset ID not found, trying upload_id:", uploadId);
+        update = await supabase
+          .from("updates")
+          .select("id, video_asset_id")
+          .eq("video_asset_id", uploadId)
+          .single();
+      }
+
+      if (update.data) {
         const videoUrl = getPlaybackUrl(playbackId);
         const thumbnailUrl = getThumbnailUrl(playbackId, { width: 640 });
 
-        // Update the record with video URLs
+        // Update the record with video URLs and asset_id if we found it via upload_id
         await supabase
           .from("updates")
           .update({
             video_url: videoUrl,
             thumbnail_url: thumbnailUrl,
             duration_seconds: Math.round(duration || 0),
+            video_asset_id: assetId, // Ensure we have the real asset_id
           })
-          .eq("id", update.id);
+          .eq("id", update.data.id);
 
-        console.log("Video ready, URLs saved. Transcription will run when static_renditions.ready fires.");
+        console.log("Video ready, URLs saved for update:", update.data.id);
+      } else {
+        console.error("No update found for asset:", assetId, "or upload:", uploadId);
       }
       break;
     }
