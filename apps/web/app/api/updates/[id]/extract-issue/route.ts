@@ -70,14 +70,19 @@ export async function POST(
     .limit(20);
 
   // Prepare context for AI
+  // Supabase returns single-relation results as objects, but TypeScript may infer arrays
+  const author = update.author as { id: string; full_name: string } | null;
+  const linkedRock = update.linked_rock as { id: string; title: string } | null;
+  const linkedMetric = update.linked_metric as { id: string; name: string } | null;
+
   const updateContext: UpdateContext = {
     content: update.content,
     transcript: update.transcript,
     type: update.type as "general" | "rock" | "scorecard" | "incident",
-    author_name: update.author?.full_name || "Unknown",
+    author_name: author?.full_name || "Unknown",
     published_at: update.published_at,
-    linked_rock: update.linked_rock,
-    linked_metric: update.linked_metric,
+    linked_rock: linkedRock,
+    linked_metric: linkedMetric,
   };
 
   const teamContext: TeamContext = {
@@ -109,7 +114,7 @@ export async function POST(
   }
 
   // Try to match linked rock to actual rock
-  let linked_rock_id: string | null = update.linked_rock?.id || null;
+  let linked_rock_id: string | null = linkedRock?.id || null;
   if (!linked_rock_id && extraction.linked_rock_title && rocks) {
     const match = rocks.find(
       (r) =>
