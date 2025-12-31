@@ -87,12 +87,20 @@ export async function POST(req: Request) {
 
         // Trigger transcription if Deepgram is configured
         if (process.env.DEEPGRAM_API_KEY) {
+          console.log("Starting Deepgram transcription for update:", update.id);
           try {
-            // Get MP4 URL for transcription
+            // Get MP4 URL for transcription (requires mp4_support enabled on asset)
             const mp4Url = `https://stream.mux.com/${playbackId}/high.mp4`;
+            console.log("Transcribing from URL:", mp4Url);
+
             const transcriptData = await transcribeFromUrlWithTimestamps(mp4Url);
 
             if (transcriptData) {
+              console.log(
+                "Transcription complete:",
+                transcriptData.words.length,
+                "words"
+              );
               await supabase
                 .from("updates")
                 .update({
@@ -100,10 +108,15 @@ export async function POST(req: Request) {
                   transcript_data: transcriptData,
                 })
                 .eq("id", update.id);
+              console.log("Transcript saved to database for update:", update.id);
+            } else {
+              console.warn("Transcription returned null for update:", update.id);
             }
           } catch (error) {
             console.error("Error transcribing video:", error);
           }
+        } else {
+          console.log("DEEPGRAM_API_KEY not configured, skipping transcription");
         }
       }
       break;

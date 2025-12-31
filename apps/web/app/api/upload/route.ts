@@ -33,10 +33,12 @@ export async function POST() {
 
   try {
     // Create a direct upload in Mux
+    // Enable static MP4 renditions for Deepgram transcription
     const upload = await mux.video.uploads.create({
       cors_origin: process.env.NEXT_PUBLIC_APP_URL || "*",
       new_asset_settings: {
         playback_policy: ["public"],
+        mp4_support: "capped-1080p", // Enable MP4 downloads for transcription
       },
     });
 
