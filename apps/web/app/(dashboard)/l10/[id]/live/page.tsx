@@ -26,6 +26,16 @@ interface AgendaItem {
   notes: string | null;
 }
 
+interface Attendee {
+  id: string;
+  profile: {
+    id: string;
+    full_name: string;
+    avatar_url: string | null;
+    role: string;
+  };
+}
+
 interface Meeting {
   id: string;
   title: string;
@@ -54,6 +64,7 @@ interface Meeting {
     created_at: string;
   }>;
   agenda_items: AgendaItem[];
+  attendees: Attendee[];
 }
 
 interface Profile {
@@ -251,11 +262,21 @@ export default function LiveMeetingPage() {
     });
   };
 
-  const handleRateMeeting = async (rating: number, notes?: string) => {
+  const handleRateMeeting = async (ratings: Record<string, number>, cascadingMessages?: string) => {
+    // Calculate average rating
+    const ratingValues = Object.values(ratings);
+    const averageRating = ratingValues.length > 0
+      ? Math.round(ratingValues.reduce((a, b) => a + b, 0) / ratingValues.length)
+      : null;
+
     await fetch(`/api/l10/${meetingId}/end`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rating, notes }),
+      body: JSON.stringify({
+        rating: averageRating,
+        ratings, // Per-attendee ratings
+        cascading_messages: cascadingMessages,
+      }),
     });
     router.push(`/l10/${meetingId}`);
   };
@@ -357,7 +378,12 @@ export default function LiveMeetingPage() {
         );
 
       case "conclude":
-        return <MeetingRating onRate={handleRateMeeting} />;
+        return (
+          <MeetingRating
+            attendees={meeting.attendees || []}
+            onRate={handleRateMeeting}
+          />
+        );
 
       default:
         return (

@@ -33,13 +33,15 @@ export async function POST(
     );
   }
 
-  // Parse request body for rating and notes
+  // Parse request body for ratings and cascading messages
   let rating: number | null = null;
-  let notes: string | null = null;
+  let ratings: Record<string, number> | null = null;
+  let cascadingMessages: string | null = null;
   try {
     const body = await req.json();
-    rating = body.rating;
-    notes = body.notes;
+    rating = body.rating; // Average rating
+    ratings = body.ratings; // Per-attendee ratings { profileId: rating }
+    cascadingMessages = body.cascading_messages;
   } catch {
     // No body provided
   }
@@ -66,8 +68,10 @@ export async function POST(
       status: "completed",
       ended_at: endedAt.toISOString(),
       duration_minutes: durationMinutes,
-      rating,
-      notes: notes || summary,
+      rating, // Average rating
+      ratings, // Per-attendee ratings as JSONB
+      cascading_messages: cascadingMessages,
+      notes: summary,
     })
     .eq("id", id)
     .select(`
