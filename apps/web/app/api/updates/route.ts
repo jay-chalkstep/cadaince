@@ -107,7 +107,7 @@ export async function POST(req: Request) {
   // Get current user's profile
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id")
+    .select("id, organization_id")
     .eq("clerk_id", userId)
     .single();
 
@@ -142,6 +142,7 @@ export async function POST(req: Request) {
     .from("updates")
     .insert({
       author_id: profile.id,
+      organization_id: profile.organization_id,
       type: type || "general",
       format: format || "text",
       content: content || null,
