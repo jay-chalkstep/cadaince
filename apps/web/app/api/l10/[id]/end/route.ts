@@ -139,8 +139,12 @@ async function generateMeetingSummary(
   // Headlines
   if (headlines.length > 0) {
     summary += `## Headlines\n`;
-    headlines.forEach((h: { title: string; created_by_profile: { full_name: string } | null }) => {
-      const author = h.created_by_profile?.full_name || "Unknown";
+    headlines.forEach((h) => {
+      // Supabase returns related data as array for single relations
+      const profile = Array.isArray(h.created_by_profile)
+        ? h.created_by_profile[0]
+        : h.created_by_profile;
+      const author = profile?.full_name || "Unknown";
       summary += `- ${h.title} — ${author}\n`;
     });
     summary += `\n`;
