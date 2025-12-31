@@ -70,10 +70,10 @@ export async function POST(
     .limit(20);
 
   // Prepare context for AI
-  // Supabase returns single-relation results as objects, but TypeScript may infer arrays
-  const author = update.author as { id: string; full_name: string } | null;
-  const linkedRock = update.linked_rock as { id: string; title: string } | null;
-  const linkedMetric = update.linked_metric as { id: string; name: string } | null;
+  // Supabase returns single-relation results as objects, but TypeScript infers arrays
+  const author = update.author as unknown as { id: string; full_name: string } | null;
+  const linkedRock = update.linked_rock as unknown as { id: string; title: string } | null;
+  const linkedMetric = update.linked_metric as unknown as { id: string; name: string } | null;
 
   const updateContext: UpdateContext = {
     content: update.content,
