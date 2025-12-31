@@ -7,6 +7,20 @@ Aicomplice is a Leadership Alignment Engine implementing the EOS (Entrepreneuria
 **App URL:** app.aicomplice.com
 **Marketing URL:** aicomplice.com
 
+## Supabase Project
+
+**IMPORTANT:** The Supabase project for this codebase is named **"Cadaince"** (not "Aicomplice").
+
+| Property | Value |
+|----------|-------|
+| Project Name | Cadaince |
+| Project ID | `nlvjiksutojrdgnqhytd` |
+| Region | us-west-2 |
+| Database Host | `db.nlvjiksutojrdgnqhytd.supabase.co` |
+| PostgreSQL Version | 17 |
+
+> **Note:** The naming discrepancy (Aicomplice codebase → Cadaince Supabase project) is historical. Always use the Cadaince project when working with this codebase.
+
 ## Multi-Tenant Architecture
 This is a multi-tenant SaaS application. Every data table includes organization_id and uses Row Level Security to isolate tenants.
 

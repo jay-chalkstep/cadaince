@@ -42,6 +42,15 @@ Cadence is a leadership alignment engine for Choice Digital's Senior Leadership 
 | Charts | Recharts |
 | Icons | Lucide |
 
+### Supabase Project Details
+
+**Project Name:** Cadaince
+**Project ID:** `nlvjiksutojrdgnqhytd`
+**Region:** us-west-2
+**Database Host:** `db.nlvjiksutojrdgnqhytd.supabase.co`
+
+> Note: The Supabase project is named "Cadaince" — use this when accessing via Supabase dashboard or MCP tools.
+
 ---
 
 ## Project Structure
