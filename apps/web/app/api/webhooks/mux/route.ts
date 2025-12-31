@@ -90,39 +90,7 @@ export async function POST(req: Request) {
           })
           .eq("id", update.id);
 
-        // Trigger transcription if Deepgram is configured
-        if (process.env.DEEPGRAM_API_KEY) {
-          console.log("Starting Deepgram transcription for update:", update.id);
-          try {
-            // Get MP4 URL for transcription (requires mp4_support enabled on asset)
-            const mp4Url = `https://stream.mux.com/${playbackId}/high.mp4`;
-            console.log("Transcribing from URL:", mp4Url);
-
-            const transcriptData = await transcribeFromUrlWithTimestamps(mp4Url);
-
-            if (transcriptData) {
-              console.log(
-                "Transcription complete:",
-                transcriptData.words.length,
-                "words"
-              );
-              await supabase
-                .from("updates")
-                .update({
-                  transcript: transcriptData.text,
-                  transcript_data: transcriptData,
-                })
-                .eq("id", update.id);
-              console.log("Transcript saved to database for update:", update.id);
-            } else {
-              console.warn("Transcription returned null for update:", update.id);
-            }
-          } catch (error) {
-            console.error("Error transcribing video:", error);
-          }
-        } else {
-          console.log("DEEPGRAM_API_KEY not configured, skipping transcription");
-        }
+        console.log("Video ready, URLs saved. Transcription will run when static_renditions.ready fires.");
       }
       break;
     }
@@ -148,6 +116,74 @@ export async function POST(req: Request) {
         console.error("Failed to update video_asset_id:", error);
       } else {
         console.log("Updated video_asset_id from", uploadId, "to", asset_id);
+      }
+      break;
+    }
+
+    case "video.asset.static_renditions.ready": {
+      // Static MP4 renditions are ready - now we can transcribe
+      const { id: assetId, upload_id: uploadId, playback_ids } = data;
+      const playbackId = playback_ids?.[0]?.id;
+
+      console.log("Static renditions ready for asset:", assetId, "upload:", uploadId);
+
+      if (!playbackId) {
+        console.error("No playback ID found for static renditions:", assetId);
+        return NextResponse.json({ received: true });
+      }
+
+      // Find the update - try asset_id first, then fall back to upload_id
+      let update = await supabase
+        .from("updates")
+        .select("id, video_asset_id")
+        .eq("video_asset_id", assetId)
+        .single();
+
+      if (!update.data && uploadId) {
+        console.log("Asset ID not found, trying upload_id:", uploadId);
+        update = await supabase
+          .from("updates")
+          .select("id, video_asset_id")
+          .eq("video_asset_id", uploadId)
+          .single();
+      }
+
+      if (update.data) {
+        // Trigger transcription if Deepgram is configured
+        if (process.env.DEEPGRAM_API_KEY) {
+          console.log("Starting Deepgram transcription for update:", update.data.id);
+          try {
+            // Get MP4 URL for transcription - use capped-1080p since that's what we requested
+            const mp4Url = `https://stream.mux.com/${playbackId}/capped-1080p.mp4`;
+            console.log("Transcribing from URL:", mp4Url);
+
+            const transcriptData = await transcribeFromUrlWithTimestamps(mp4Url);
+
+            if (transcriptData) {
+              console.log(
+                "Transcription complete:",
+                transcriptData.words.length,
+                "words"
+              );
+              await supabase
+                .from("updates")
+                .update({
+                  transcript: transcriptData.text,
+                  transcript_data: transcriptData,
+                })
+                .eq("id", update.data.id);
+              console.log("Transcript saved to database for update:", update.data.id);
+            } else {
+              console.warn("Transcription returned null for update:", update.data.id);
+            }
+          } catch (error) {
+            console.error("Error transcribing video:", error);
+          }
+        } else {
+          console.log("DEEPGRAM_API_KEY not configured, skipping transcription");
+        }
+      } else {
+        console.error("No update found for asset:", assetId, "or upload:", uploadId);
       }
       break;
     }
