@@ -66,7 +66,7 @@ export async function GET(
     belowGoalMetricsResult,
     carryoverTodosResult,
   ] = await Promise.all([
-    // Queued issues for this meeting
+    // All open issues for the organization (they all need to be addressed)
     supabase
       .from("issues")
       .select(`
@@ -76,10 +76,14 @@ export async function GET(
         priority,
         queue_order,
         created_at,
+        status,
+        queued_for_meeting_id,
         raised_by_profile:profiles!issues_raised_by_fkey(id, full_name, avatar_url)
       `)
-      .eq("queued_for_meeting_id", id)
+      .eq("organization_id", profile.organization_id)
+      .eq("status", "open")
       .order("queue_order", { ascending: true, nullsFirst: false })
+      .order("priority", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: true }),
 
     // Off-track and at-risk rocks for the organization

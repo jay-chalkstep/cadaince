@@ -387,7 +387,6 @@ export default function MeetingDetailPage() {
             <QueuedIssuesList
               issues={previewData.queuedIssues}
               meetingId={meetingId}
-              onRemove={handleRemoveFromQueue}
             />
           )}
 

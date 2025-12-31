@@ -24,7 +24,7 @@ interface QueuedIssue {
 interface QueuedIssuesListProps {
   issues: QueuedIssue[];
   meetingId: string;
-  onRemove: (issueId: string) => Promise<void>;
+  onRemove?: (issueId: string) => Promise<void>;
 }
 
 export function QueuedIssuesList({
@@ -35,6 +35,7 @@ export function QueuedIssuesList({
   const [removingId, setRemovingId] = useState<string | null>(null);
 
   const handleRemove = async (issueId: string) => {
+    if (!onRemove) return;
     setRemovingId(issueId);
     try {
       await onRemove(issueId);
@@ -81,7 +82,7 @@ export function QueuedIssuesList({
 
   return (
     <PreviewSection
-      title="Issues Queued for IDS"
+      title="Open Issues for IDS"
       count={issues.length}
       icon={<AlertCircle className="h-4 w-4 text-red-600" />}
       defaultExpanded={true}
@@ -124,19 +125,21 @@ export function QueuedIssuesList({
                   <span>{formatTimeAgo(issue.created_at)}</span>
                 </div>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0 shrink-0"
-                onClick={() => handleRemove(issue.id)}
-                disabled={isRemoving}
-              >
-                {isRemoving ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <X className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                )}
-              </Button>
+              {onRemove && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0 shrink-0"
+                  onClick={() => handleRemove(issue.id)}
+                  disabled={isRemoving}
+                >
+                  {isRemoving ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <X className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                  )}
+                </Button>
+              )}
             </div>
           );
         })}
