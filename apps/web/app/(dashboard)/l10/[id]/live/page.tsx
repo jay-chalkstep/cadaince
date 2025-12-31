@@ -103,6 +103,13 @@ export default function LiveMeetingPage() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [todos, setTodos] = useState<Todo[]>([]);
   const [issues, setIssues] = useState<Issue[]>([]);
+  const [headlines, setHeadlines] = useState<Array<{
+    id: string;
+    text: string;
+    author_id: string;
+    author_name: string;
+    created_at: string;
+  }>>([]);
   const [reviewedTodos, setReviewedTodos] = useState<Record<string, string>>({});
   const [segueNotes, setSegueNotes] = useState("");
 
@@ -130,15 +137,33 @@ export default function LiveMeetingPage() {
 
   const fetchSupportingData = useCallback(async () => {
     try {
-      const [profilesRes, todosRes, issuesRes] = await Promise.all([
+      const [profilesRes, todosRes, issuesRes, headlinesRes] = await Promise.all([
         fetch("/api/profiles"),
         fetch("/api/todos?status=pending"),
         fetch("/api/issues?status=open"),
+        fetch("/api/headlines?limit=50"),
       ]);
 
       if (profilesRes.ok) setProfiles(await profilesRes.json());
       if (todosRes.ok) setTodos(await todosRes.json());
       if (issuesRes.ok) setIssues(await issuesRes.json());
+      if (headlinesRes.ok) {
+        const headlinesData = await headlinesRes.json();
+        // Transform headlines to match HeadlineCapture interface
+        const transformed = headlinesData.map((h: {
+          id: string;
+          title: string;
+          created_by_profile: { id: string; full_name: string } | null;
+          created_at: string;
+        }) => ({
+          id: h.id,
+          text: h.title,
+          author_id: h.created_by_profile?.id || "",
+          author_name: h.created_by_profile?.full_name || "Unknown",
+          created_at: h.created_at,
+        }));
+        setHeadlines(transformed);
+      }
     } catch (error) {
       console.error("Failed to fetch supporting data:", error);
     }
@@ -181,19 +206,19 @@ export default function LiveMeetingPage() {
   };
 
   const handleAddHeadline = async (text: string) => {
-    await fetch(`/api/l10/${meetingId}/headlines`, {
+    await fetch("/api/headlines", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
+      body: JSON.stringify({ title: text, headline_type: "general" }),
     });
-    fetchMeeting();
+    fetchSupportingData();
   };
 
   const handleRemoveHeadline = async (headlineId: string) => {
-    await fetch(`/api/l10/${meetingId}/headlines?headline_id=${headlineId}`, {
+    await fetch(`/api/headlines/${headlineId}`, {
       method: "DELETE",
     });
-    fetchMeeting();
+    fetchSupportingData();
   };
 
   const handleReviewTodo = async (todoId: string, status: "done" | "not_done" | "pushed") => {
@@ -305,7 +330,7 @@ export default function LiveMeetingPage() {
       case "headlines":
         return (
           <HeadlineCapture
-            headlines={meeting.headlines || []}
+            headlines={headlines}
             onAdd={handleAddHeadline}
             onRemove={handleRemoveHeadline}
           />
