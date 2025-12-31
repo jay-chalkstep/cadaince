@@ -31,7 +31,9 @@ export async function GET(req: Request) {
     .from("issues")
     .select(`
       *,
+      queued_for_meeting_id,
       owner:profiles!issues_owner_id_fkey(id, full_name, avatar_url),
+      raised_by_profile:profiles!issues_raised_by_fkey(id, full_name, avatar_url),
       created_by_profile:profiles!issues_created_by_fkey(id, full_name, avatar_url)
     `)
     .eq("organization_id", profile.organization_id)

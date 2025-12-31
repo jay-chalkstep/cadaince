@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Calendar, Clock, Play, Users, Star } from "lucide-react";
+import { Calendar, Clock, Play, Users, Star, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -120,10 +120,18 @@ export function MeetingCard({ meeting, variant = "default", onStart }: MeetingCa
             <div className="text-2xl font-bold text-primary">{getTimeUntil()}</div>
             <div className="flex gap-2">
               {meeting.status === "scheduled" && (
-                <Button onClick={onStart}>
-                  <Play className="mr-2 h-4 w-4" />
-                  Start Meeting
-                </Button>
+                <>
+                  <Button variant="outline" asChild>
+                    <Link href={`/l10/${meeting.id}`}>
+                      <Eye className="mr-2 h-4 w-4" />
+                      Preview Meeting
+                    </Link>
+                  </Button>
+                  <Button onClick={onStart}>
+                    <Play className="mr-2 h-4 w-4" />
+                    Start Meeting
+                  </Button>
+                </>
               )}
               {meeting.status === "in_progress" && (
                 <Button asChild>
@@ -133,9 +141,6 @@ export function MeetingCard({ meeting, variant = "default", onStart }: MeetingCa
                   </Link>
                 </Button>
               )}
-              <Button variant="outline" asChild>
-                <Link href={`/l10/${meeting.id}`}>View Details</Link>
-              </Button>
             </div>
           </div>
         </CardContent>
