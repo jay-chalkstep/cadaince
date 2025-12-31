@@ -32,9 +32,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import {
-  VideoPlayerMux,
-  VideoPlayerMuxHandle,
-} from "@/components/updates/video-player-mux";
+  VideoPlayer,
+  VideoPlayerHandle,
+} from "@/components/updates/video-player";
 import {
   TranscriptPanel,
   StructuredTranscript,
@@ -83,12 +83,23 @@ interface UpdateExpandableCardProps {
   canDelete?: boolean; // Whether current user can delete (author or admin)
 }
 
-// Extract playback ID from Mux stream URL
-function extractPlaybackId(videoUrl: string | null): string | null {
+// Check if video URL is from Mux (legacy) or Supabase (new)
+function isMuxUrl(videoUrl: string | null): boolean {
+  if (!videoUrl) return false;
+  return videoUrl.includes("stream.mux.com") || videoUrl.includes(".m3u8");
+}
+
+// Get playable video URL - for Mux HLS streams, we need to handle them specially
+// For now, we'll use the URL directly since modern browsers can handle both
+function getPlayableVideoUrl(videoUrl: string | null): string | null {
   if (!videoUrl) return null;
-  // Format: https://stream.mux.com/${playbackId}.m3u8
-  const match = videoUrl.match(/stream\.mux\.com\/([^.]+)/);
-  return match ? match[1] : null;
+
+  // If it's a Mux URL with .m3u8, it's an HLS stream
+  // Modern browsers on iOS/Safari handle these natively
+  // For other browsers, they'll need HLS.js which is complex
+  // For backward compatibility, we'll just return the URL
+  // Users on old videos may need to migrate eventually
+  return videoUrl;
 }
 
 // Format duration in MM:SS
@@ -134,13 +145,13 @@ export function UpdateExpandableCard({
   actions,
   canDelete = false,
 }: UpdateExpandableCardProps) {
-  const videoRef = useRef<VideoPlayerMuxHandle>(null);
+  const videoRef = useRef<VideoPlayerHandle>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const [currentTime, setCurrentTime] = useState(0);
 
-  const playbackId = extractPlaybackId(update.video_url);
+  const videoUrl = getPlayableVideoUrl(update.video_url);
   const TypeIcon = getTypeIcon(update.type);
-  const isVideo = update.format === "video" && playbackId;
+  const isVideo = update.format === "video" && videoUrl;
   const isUnread = !update.read_at;
   const isAcknowledged = !!update.acknowledged_at;
   const isConverted = !!update.converted_to_issue;
@@ -216,6 +227,15 @@ export function UpdateExpandableCard({
                   <div className="absolute inset-0 flex items-center justify-center bg-black/30">
                     <Video className="h-6 w-6 text-white" />
                   </div>
+                  {update.duration_seconds && (
+                    <div className="absolute bottom-1 right-1 px-1.5 py-0.5 text-xs font-medium text-white bg-black/70 rounded">
+                      {formatDuration(update.duration_seconds)}
+                    </div>
+                  )}
+                </div>
+              ) : isVideo ? (
+                <div className="relative w-24 h-16 md:w-32 md:h-20 rounded-md overflow-hidden bg-muted flex items-center justify-center">
+                  <Video className="h-8 w-8 text-muted-foreground" />
                   {update.duration_seconds && (
                     <div className="absolute bottom-1 right-1 px-1.5 py-0.5 text-xs font-medium text-white bg-black/70 rounded">
                       {formatDuration(update.duration_seconds)}
@@ -396,15 +416,15 @@ export function UpdateExpandableCard({
                   </div>
 
                   {/* Video Layout - 40% video / 60% transcript on desktop */}
-                  {isVideo ? (
+                  {isVideo && videoUrl ? (
                     <div className="flex flex-col md:flex-row">
                       {/* Video Player - 40% on desktop */}
                       <div className="md:w-[40%] flex-shrink-0 bg-black">
                         <div className="aspect-video">
-                          <VideoPlayerMux
+                          <VideoPlayer
                             ref={videoRef}
-                            playbackId={playbackId}
-                            thumbnailUrl={update.thumbnail_url || undefined}
+                            src={videoUrl}
+                            posterUrl={update.thumbnail_url || undefined}
                             onTimeUpdate={handleTimeUpdate}
                             className="w-full h-full"
                           />

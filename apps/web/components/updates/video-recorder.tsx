@@ -3,9 +3,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import {
   Video,
-  VideoOff,
-  Mic,
-  MicOff,
   Circle,
   Square,
   RotateCcw,
@@ -21,14 +18,24 @@ import { cn } from "@/lib/utils";
 
 type RecorderState = "idle" | "previewing" | "recording" | "review" | "uploading";
 
+export interface VideoUploadResult {
+  video_url: string;
+  transcript: string;
+  transcript_data: {
+    text: string;
+    words: { word: string; start: number; end: number }[];
+  } | null;
+  duration_seconds: number | null;
+}
+
 interface VideoRecorderProps {
-  maxDuration?: number; // Default 180 seconds (3 min)
-  onComplete: (uploadId: string) => void;
+  maxDuration?: number; // Default 120 seconds (2 min)
+  onComplete: (result: VideoUploadResult) => void;
   onCancel: () => void;
 }
 
 export function VideoRecorder({
-  maxDuration = 180,
+  maxDuration = 120,
   onComplete,
   onCancel,
 }: VideoRecorderProps) {
@@ -37,6 +44,7 @@ export function VideoRecorder({
   const [elapsedTime, setElapsedTime] = useState(0);
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStage, setUploadStage] = useState<"uploading" | "transcribing">("uploading");
   const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
   const [hasMultipleCameras, setHasMultipleCameras] = useState(false);
 
@@ -234,47 +242,63 @@ export function VideoRecorder({
 
     setState("uploading");
     setUploadProgress(0);
+    setUploadStage("uploading");
     setError(null);
 
     try {
-      // Get upload URL from our API
-      const response = await fetch("/api/upload", { method: "POST" });
-      if (!response.ok) {
-        throw new Error("Failed to get upload URL");
-      }
+      // Create FormData with the video blob
+      const formData = new FormData();
+      const extension = recordedBlob.type.includes("mp4") ? "mp4" : "webm";
+      formData.append("video", recordedBlob, `recording.${extension}`);
 
-      const { uploadUrl, uploadId } = await response.json();
-
-      // Upload directly to Mux
+      // Upload to our API (which handles Supabase storage + Whisper transcription)
       const xhr = new XMLHttpRequest();
 
       xhr.upload.addEventListener("progress", (e) => {
         if (e.lengthComputable) {
-          setUploadProgress(Math.round((e.loaded / e.total) * 100));
+          const progress = Math.round((e.loaded / e.total) * 100);
+          setUploadProgress(progress);
+          if (progress === 100) {
+            setUploadStage("transcribing");
+          }
         }
       });
 
-      await new Promise<void>((resolve, reject) => {
+      const result = await new Promise<VideoUploadResult>((resolve, reject) => {
         xhr.onload = () => {
           if (xhr.status >= 200 && xhr.status < 300) {
-            resolve();
+            try {
+              const response = JSON.parse(xhr.responseText);
+              resolve({
+                video_url: response.video_url,
+                transcript: response.transcript || "",
+                transcript_data: response.transcript_data || null,
+                duration_seconds: elapsedTime, // Use actual recorded duration
+              });
+            } catch {
+              reject(new Error("Failed to parse response"));
+            }
           } else {
-            reject(new Error(`Upload failed with status ${xhr.status}`));
+            try {
+              const errorData = JSON.parse(xhr.responseText);
+              reject(new Error(errorData.error || "Upload failed"));
+            } catch {
+              reject(new Error(`Upload failed with status ${xhr.status}`));
+            }
           }
         };
         xhr.onerror = () => reject(new Error("Upload failed"));
-        xhr.open("PUT", uploadUrl);
-        xhr.setRequestHeader("Content-Type", recordedBlob.type);
-        xhr.send(recordedBlob);
+        xhr.open("POST", "/api/upload");
+        xhr.send(formData);
       });
 
-      onComplete(uploadId);
+      onComplete(result);
     } catch (err) {
       console.error("Upload error:", err);
-      setError("Upload failed. Please try again.");
+      setError(err instanceof Error ? err.message : "Upload failed. Please try again.");
       setState("review");
     }
-  }, [recordedBlob, onComplete]);
+  }, [recordedBlob, elapsedTime, onComplete]);
 
   const handleCancel = useCallback(() => {
     stopStream();
@@ -467,9 +491,11 @@ export function VideoRecorder({
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
           <div className="space-y-2">
-            <Progress value={uploadProgress} className="h-2" />
+            <Progress value={uploadStage === "transcribing" ? 100 : uploadProgress} className="h-2" />
             <p className="text-sm text-center text-muted-foreground">
-              Uploading video... {uploadProgress}%
+              {uploadStage === "uploading"
+                ? `Uploading video... ${uploadProgress}%`
+                : "Generating transcript..."}
             </p>
           </div>
         </div>
