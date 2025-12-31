@@ -94,8 +94,14 @@ export async function POST(
   const extraction = await extractIssueFromUpdate(updateContext, teamContext);
 
   if (!extraction) {
+    // Check if the API key is configured
+    const hasApiKey = !!process.env.ANTHROPIC_API_KEY;
     return NextResponse.json(
-      { error: "Failed to extract issue. AI service may be unavailable." },
+      {
+        error: hasApiKey
+          ? "Failed to extract issue. Please try again."
+          : "AI service not configured. Please add ANTHROPIC_API_KEY to environment variables."
+      },
       { status: 500 }
     );
   }

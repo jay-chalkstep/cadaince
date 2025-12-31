@@ -82,7 +82,7 @@ export async function extractIssueFromUpdate(
 ): Promise<IssueExtractionResult | null> {
   const client = getAnthropicClient();
   if (!client) {
-    console.log("Anthropic not configured, skipping issue extraction");
+    console.error("Anthropic not configured - ANTHROPIC_API_KEY is missing");
     return null;
   }
 
