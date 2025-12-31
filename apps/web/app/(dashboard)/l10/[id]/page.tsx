@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -22,6 +22,14 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import ReactMarkdown from "react-markdown";
+import {
+  MeetingPreviewCard,
+  QueuedIssuesList,
+  OffTrackRocksList,
+  BelowGoalMetricsList,
+  CarryoverTodosList,
+  AddIssueDialog,
+} from "@/components/l10/preview";
 
 interface Meeting {
   id: string;
@@ -83,6 +91,57 @@ interface Meeting {
   };
 }
 
+interface PreviewData {
+  queuedIssues: Array<{
+    id: string;
+    title: string;
+    description: string | null;
+    priority: number | null;
+    queue_order: number | null;
+    created_at: string;
+    raised_by_profile: {
+      id: string;
+      full_name: string;
+      avatar_url: string | null;
+    } | null;
+  }>;
+  offTrackRocks: Array<{
+    id: string;
+    title: string;
+    status: string;
+    due_date: string;
+    owner: {
+      id: string;
+      full_name: string;
+      avatar_url: string | null;
+    } | null;
+  }>;
+  belowGoalMetrics: Array<{
+    id: string;
+    name: string;
+    goal: number;
+    unit: string | null;
+    current_value: number | null;
+    threshold_red: number | null;
+    threshold_yellow: number | null;
+    owner: {
+      id: string;
+      full_name: string;
+      avatar_url: string | null;
+    } | null;
+  }>;
+  carryoverTodos: Array<{
+    id: string;
+    title: string;
+    due_date: string;
+    owner: {
+      id: string;
+      full_name: string;
+      avatar_url: string | null;
+    } | null;
+  }>;
+}
+
 export default function MeetingDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -91,10 +150,19 @@ export default function MeetingDetailPage() {
   const [meeting, setMeeting] = useState<Meeting | null>(null);
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
+  const [previewData, setPreviewData] = useState<PreviewData | null>(null);
+  const [loadingPreview, setLoadingPreview] = useState(false);
+  const [addIssueDialogOpen, setAddIssueDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchMeeting();
   }, [meetingId]);
+
+  useEffect(() => {
+    if (meeting?.status === "scheduled") {
+      fetchPreview();
+    }
+  }, [meeting?.status, meetingId]);
 
   const fetchMeeting = async () => {
     setLoading(true);
@@ -109,6 +177,38 @@ export default function MeetingDetailPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchPreview = useCallback(async () => {
+    setLoadingPreview(true);
+    try {
+      const response = await fetch(`/api/l10/${meetingId}/preview`);
+      if (response.ok) {
+        const data = await response.json();
+        setPreviewData(data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch preview:", error);
+    } finally {
+      setLoadingPreview(false);
+    }
+  }, [meetingId]);
+
+  const handleRemoveFromQueue = async (issueId: string): Promise<void> => {
+    try {
+      const response = await fetch(`/api/l10/${meetingId}/queue/${issueId}`, {
+        method: "DELETE",
+      });
+      if (response.ok) {
+        await fetchPreview();
+      }
+    } catch (error) {
+      console.error("Failed to remove issue from queue:", error);
+    }
+  };
+
+  const handleIssueAdded = () => {
+    fetchPreview();
   };
 
   const handleStartMeeting = async () => {
@@ -271,6 +371,46 @@ export default function MeetingDetailPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Preview for scheduled meetings */}
+      {meeting.status === "scheduled" && previewData && (
+        <>
+          <MeetingPreviewCard
+            queuedIssuesCount={previewData.queuedIssues.length}
+            offTrackRocksCount={previewData.offTrackRocks.length}
+            belowGoalMetricsCount={previewData.belowGoalMetrics.length}
+            carryoverTodosCount={previewData.carryoverTodos.length}
+            onAddIssue={() => setAddIssueDialogOpen(true)}
+          />
+
+          {previewData.queuedIssues.length > 0 && (
+            <QueuedIssuesList
+              issues={previewData.queuedIssues}
+              meetingId={meetingId}
+              onRemove={handleRemoveFromQueue}
+            />
+          )}
+
+          {previewData.offTrackRocks.length > 0 && (
+            <OffTrackRocksList rocks={previewData.offTrackRocks} />
+          )}
+
+          {previewData.belowGoalMetrics.length > 0 && (
+            <BelowGoalMetricsList metrics={previewData.belowGoalMetrics} />
+          )}
+
+          {previewData.carryoverTodos.length > 0 && (
+            <CarryoverTodosList todos={previewData.carryoverTodos} />
+          )}
+
+          <AddIssueDialog
+            open={addIssueDialogOpen}
+            onOpenChange={setAddIssueDialogOpen}
+            meetingId={meetingId}
+            onIssueAdded={handleIssueAdded}
+          />
+        </>
+      )}
 
       {/* Stats for completed meetings */}
       {meeting.status === "completed" && (

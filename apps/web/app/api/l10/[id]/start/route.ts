@@ -113,5 +113,14 @@ export async function POST(
       .eq("id", firstAgendaItem.id);
   }
 
+  // Clear queue_for_meeting_id on queued issues - they're now active for IDS
+  await supabase
+    .from("issues")
+    .update({
+      queued_for_meeting_id: null,
+      queue_order: null,
+    })
+    .eq("queued_for_meeting_id", id);
+
   return NextResponse.json(updatedMeeting);
 }

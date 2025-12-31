@@ -58,7 +58,7 @@ export async function POST(req: Request) {
   // Get current user's profile
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, access_level, is_elt")
+    .select("id, organization_id, access_level, is_elt")
     .eq("clerk_id", userId)
     .single();
 
@@ -89,6 +89,7 @@ export async function POST(req: Request) {
       meeting_type: meeting_type || "leadership",
       scheduled_at,
       created_by: profile.id,
+      organization_id: profile.organization_id,
     })
     .select(`
       *,
