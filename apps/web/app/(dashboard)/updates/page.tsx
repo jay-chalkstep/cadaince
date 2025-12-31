@@ -8,7 +8,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { useToast } from "@/components/ui/use-toast";
 import { CreateUpdateDialog } from "@/components/updates/create-update-dialog";
 import {
   UpdateExpandableCard,
@@ -32,7 +31,6 @@ export default function UpdatesPage() {
   const [convertDialogOpen, setConvertDialogOpen] = useState(false);
   const [updateToConvert, setUpdateToConvert] = useState<Update | null>(null);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
-  const { toast } = useToast();
 
   // Fetch current user profile
   useEffect(() => {
@@ -87,10 +85,9 @@ export default function UpdatesPage() {
             u.id === id ? { ...u, read_at: new Date().toISOString() } : u
           )
         );
-        toast({ title: "Marked as read" });
       }
     } catch (error) {
-      toast({ title: "Failed to mark as read", variant: "destructive" });
+      console.error("Failed to mark as read:", error);
     }
   };
 
@@ -104,10 +101,9 @@ export default function UpdatesPage() {
             u.id === id ? { ...u, read_at: u.read_at || now, acknowledged_at: now } : u
           )
         );
-        toast({ title: "Acknowledged" });
       }
     } catch (error) {
-      toast({ title: "Failed to acknowledge", variant: "destructive" });
+      console.error("Failed to acknowledge:", error);
     }
   };
 
@@ -117,10 +113,9 @@ export default function UpdatesPage() {
       if (response.ok) {
         // Remove from current list (archived updates are hidden by default)
         setUpdates((prev) => prev.filter((u) => u.id !== id));
-        toast({ title: "Archived" });
       }
     } catch (error) {
-      toast({ title: "Failed to archive", variant: "destructive" });
+      console.error("Failed to archive:", error);
     }
   };
 
@@ -131,10 +126,9 @@ export default function UpdatesPage() {
       const response = await fetch(`/api/updates/${id}`, { method: "DELETE" });
       if (response.ok) {
         setUpdates((prev) => prev.filter((u) => u.id !== id));
-        toast({ title: "Deleted" });
       }
     } catch (error) {
-      toast({ title: "Failed to delete", variant: "destructive" });
+      console.error("Failed to delete:", error);
     }
   };
 
@@ -146,7 +140,6 @@ export default function UpdatesPage() {
   const handleConverted = () => {
     // Refresh the list to show the converted badge
     fetchUpdates(activeTab === "all" ? undefined : activeTab, unreadOnly);
-    toast({ title: "Issue created", description: "The update has been converted to an issue." });
   };
 
   const actions: UpdateActions = {
