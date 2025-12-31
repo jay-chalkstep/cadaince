@@ -27,11 +27,26 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { contentType } = body;
 
-    // Validate content type
-    const validTypes = ["video/mp4", "video/webm", "video/quicktime"];
-    if (!validTypes.includes(contentType)) {
+    // Validate content type - support various video MIME types
+    // Different browsers/devices report different MIME types for the same format
+    const validTypes = [
+      "video/mp4",
+      "video/webm",
+      "video/quicktime",
+      "video/x-m4v",        // iPhone/iPad videos
+      "video/x-quicktime",  // Alternative QuickTime
+      "video/3gpp",         // Some mobile videos
+      "video/3gpp2",        // Some mobile videos
+      "video/mpeg",         // MPEG videos
+      "video/ogg",          // OGG videos
+    ];
+
+    // Check if it starts with "video/" as a fallback
+    const isVideoType = contentType?.startsWith("video/");
+    if (!isVideoType) {
+      console.error("Invalid content type received:", contentType);
       return NextResponse.json(
-        { error: "Invalid file type. Supported formats: MP4, WebM, MOV" },
+        { error: "Invalid file type. Please upload a video file." },
         { status: 400 }
       );
     }
@@ -41,6 +56,12 @@ export async function POST(req: Request) {
       "video/mp4": "mp4",
       "video/webm": "webm",
       "video/quicktime": "mov",
+      "video/x-m4v": "m4v",
+      "video/x-quicktime": "mov",
+      "video/3gpp": "3gp",
+      "video/3gpp2": "3g2",
+      "video/mpeg": "mpeg",
+      "video/ogg": "ogv",
     };
     const extension = extensionMap[contentType] || "mp4";
 
