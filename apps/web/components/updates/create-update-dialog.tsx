@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import { Loader2, Video, FileText, Upload, X, Camera } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 import {
   Dialog,
   DialogContent,
@@ -88,32 +89,22 @@ export function CreateUpdateDialog({
         throw new Error(errorData.error || "Failed to get upload URL");
       }
 
-      const { signedUrl, storagePath } = await signedUrlResponse.json();
+      const { storagePath, token } = await signedUrlResponse.json();
 
-      // Step 2: Upload directly to Supabase Storage using XHR for progress
-      await new Promise<void>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
+      // Step 2: Upload using Supabase client's uploadToSignedUrl
+      const supabase = createClient();
 
-        xhr.upload.addEventListener("progress", (e) => {
-          if (e.lengthComputable) {
-            const progress = Math.round((e.loaded / e.total) * 100);
-            setUploadProgress(progress);
-          }
+      const { error: uploadError } = await supabase.storage
+        .from("update-videos")
+        .uploadToSignedUrl(storagePath, token, file, {
+          contentType: file.type,
         });
 
-        xhr.onload = () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            resolve();
-          } else {
-            reject(new Error(`Upload failed with status ${xhr.status}`));
-          }
-        };
-        xhr.onerror = () => reject(new Error("Upload failed"));
+      if (uploadError) {
+        throw new Error(uploadError.message || "Upload failed");
+      }
 
-        xhr.open("PUT", signedUrl);
-        xhr.setRequestHeader("Content-Type", file.type);
-        xhr.send(file);
-      });
+      setUploadProgress(100);
 
       // Step 3: Call our API to get the public URL and transcription
       setUploadStage("transcribing");

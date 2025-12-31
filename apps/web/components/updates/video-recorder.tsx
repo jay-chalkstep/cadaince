@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
 
 type RecorderState = "idle" | "previewing" | "recording" | "review" | "uploading";
 
@@ -258,32 +259,28 @@ export function VideoRecorder({
         throw new Error(errorData.error || "Failed to get upload URL");
       }
 
-      const { signedUrl, storagePath } = await signedUrlResponse.json();
+      const { storagePath, token } = await signedUrlResponse.json();
 
-      // Step 2: Upload directly to Supabase Storage using XHR for progress
-      await new Promise<void>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
+      // Step 2: Upload using Supabase client's uploadToSignedUrl
+      const supabase = createClient();
 
-        xhr.upload.addEventListener("progress", (e) => {
-          if (e.lengthComputable) {
-            const progress = Math.round((e.loaded / e.total) * 100);
-            setUploadProgress(progress);
-          }
+      // Convert Blob to File for Supabase SDK
+      const extension = storagePath.split(".").pop() || "webm";
+      const file = new File([recordedBlob], `video.${extension}`, {
+        type: recordedBlob.type,
+      });
+
+      const { error: uploadError } = await supabase.storage
+        .from("update-videos")
+        .uploadToSignedUrl(storagePath, token, file, {
+          contentType: recordedBlob.type,
         });
 
-        xhr.onload = () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            resolve();
-          } else {
-            reject(new Error(`Upload failed with status ${xhr.status}`));
-          }
-        };
-        xhr.onerror = () => reject(new Error("Upload failed"));
+      if (uploadError) {
+        throw new Error(uploadError.message || "Upload failed");
+      }
 
-        xhr.open("PUT", signedUrl);
-        xhr.setRequestHeader("Content-Type", recordedBlob.type);
-        xhr.send(recordedBlob);
-      });
+      setUploadProgress(100);
 
       // Step 3: Call our API to get the public URL and transcription
       setUploadStage("transcribing");
