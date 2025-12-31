@@ -13,8 +13,29 @@ function getDeepgramClient(): DeepgramClient | null {
   return deepgramClient;
 }
 
-// Transcribe audio/video from URL
+// Word-level timestamp data for clickable transcript seeking
+export interface TranscriptWord {
+  word: string;
+  start: number; // seconds
+  end: number; // seconds
+}
+
+// Structured transcript with both plain text and word-level timestamps
+export interface StructuredTranscript {
+  text: string;
+  words: TranscriptWord[];
+}
+
+// Transcribe audio/video from URL (plain text only - legacy)
 export async function transcribeFromUrl(url: string): Promise<string | null> {
+  const result = await transcribeFromUrlWithTimestamps(url);
+  return result?.text || null;
+}
+
+// Transcribe audio/video from URL with word-level timestamps
+export async function transcribeFromUrlWithTimestamps(
+  url: string
+): Promise<StructuredTranscript | null> {
   const client = getDeepgramClient();
   if (!client) {
     console.log("Deepgram not configured, skipping transcription");
@@ -39,9 +60,24 @@ export async function transcribeFromUrl(url: string): Promise<string | null> {
       return null;
     }
 
-    // Extract the transcript text
-    const transcript = result?.results?.channels?.[0]?.alternatives?.[0]?.transcript;
-    return transcript || null;
+    const alternative = result?.results?.channels?.[0]?.alternatives?.[0];
+    if (!alternative) {
+      return null;
+    }
+
+    // Extract plain text transcript
+    const text = alternative.transcript || "";
+
+    // Extract word-level timestamps
+    const words: TranscriptWord[] = (alternative.words || []).map(
+      (w: { word: string; start: number; end: number }) => ({
+        word: w.word,
+        start: w.start,
+        end: w.end,
+      })
+    );
+
+    return { text, words };
   } catch (error) {
     console.error("Error calling Deepgram:", error);
     return null;

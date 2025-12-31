@@ -1,6 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/server";
 import { getThumbnailUrl, getPlaybackUrl } from "@/lib/mux/client";
-import { transcribeFromUrl } from "@/lib/deepgram/client";
+import { transcribeFromUrlWithTimestamps } from "@/lib/deepgram/client";
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import crypto from "crypto";
@@ -90,12 +90,15 @@ export async function POST(req: Request) {
           try {
             // Get MP4 URL for transcription
             const mp4Url = `https://stream.mux.com/${playbackId}/high.mp4`;
-            const transcript = await transcribeFromUrl(mp4Url);
+            const transcriptData = await transcribeFromUrlWithTimestamps(mp4Url);
 
-            if (transcript) {
+            if (transcriptData) {
               await supabase
                 .from("updates")
-                .update({ transcript })
+                .update({
+                  transcript: transcriptData.text,
+                  transcript_data: transcriptData,
+                })
                 .eq("id", update.id);
             }
           } catch (error) {
