@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
+import { emitIntegrationEvent } from "@/lib/inngest/emit";
 
 // GET /api/rocks/:id - Get single rock with cascade info
 export async function GET(
@@ -153,7 +154,7 @@ export async function PATCH(
   // Get the rock to check ownership and org
   const { data: rock } = await supabase
     .from("rocks")
-    .select("owner_id, organization_id, rock_level, pillar_id")
+    .select("owner_id, organization_id, rock_level, pillar_id, status")
     .eq("id", id)
     .single();
 
@@ -232,6 +233,19 @@ export async function PATCH(
   if (error) {
     console.error("Error updating rock:", error);
     return NextResponse.json({ error: "Failed to update rock" }, { status: 500 });
+  }
+
+  // Emit integration event for status change (for Slack notifications, etc.)
+  if (status !== undefined && status !== rock.status) {
+    await emitIntegrationEvent("rock/status.changed", {
+      organization_id: profile.organization_id,
+      rock_id: id,
+      title: updated.title,
+      old_status: rock.status,
+      new_status: status,
+      owner_id: updated.owner_id,
+      rock_level: updated.rock_level,
+    });
   }
 
   return NextResponse.json(updated);

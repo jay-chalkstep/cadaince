@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
+import { emitIntegrationEvent } from "@/lib/inngest/emit";
 
 // POST /api/l10/[id]/end - End a L10 meeting
 export async function POST(
@@ -83,6 +84,18 @@ export async function POST(
   if (updateError) {
     console.error("Error ending meeting:", updateError);
     return NextResponse.json({ error: "Failed to end meeting" }, { status: 500 });
+  }
+
+  // Emit integration event for meeting completed
+  if (updatedMeeting.organization_id) {
+    await emitIntegrationEvent("l10/meeting.completed", {
+      organization_id: updatedMeeting.organization_id,
+      meeting_id: id,
+      title: updatedMeeting.title,
+      duration_minutes: durationMinutes,
+      rating: rating || undefined,
+      ended_at: updatedMeeting.ended_at,
+    });
   }
 
   return NextResponse.json(updatedMeeting);

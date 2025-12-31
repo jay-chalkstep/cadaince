@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
+import { emitIntegrationEvent } from "@/lib/inngest/emit";
 
 // GET /api/l10/[id] - Get a single L10 meeting with details
 export async function GET(
@@ -90,7 +91,7 @@ export async function PUT(
   // Check if user is admin or creator
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, access_level")
+    .select("id, organization_id, access_level")
     .eq("clerk_id", userId)
     .single();
 
@@ -151,6 +152,18 @@ export async function PUT(
   if (error) {
     console.error("Error updating L10 meeting:", error);
     return NextResponse.json({ error: "Failed to update meeting" }, { status: 500 });
+  }
+
+  // Emit integration event for calendar updates, notifications, etc.
+  if (profile.organization_id) {
+    await emitIntegrationEvent("l10/meeting.updated", {
+      organization_id: profile.organization_id,
+      meeting_id: id,
+      updated_fields: Object.keys(updates),
+      title: updatedMeeting.title,
+      scheduled_at: updatedMeeting.scheduled_at,
+      status: updatedMeeting.status,
+    });
   }
 
   return NextResponse.json(updatedMeeting);

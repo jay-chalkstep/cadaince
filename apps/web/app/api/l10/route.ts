@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
+import { emitIntegrationEvent } from "@/lib/inngest/emit";
 
 // GET /api/l10 - List all L10 meetings
 export async function GET(req: Request) {
@@ -141,6 +142,17 @@ export async function POST(req: Request) {
   }));
 
   await supabase.from("l10_agenda_items").insert(agendaRecords);
+
+  // Emit integration event for calendar sync, notifications, etc.
+  await emitIntegrationEvent("l10/meeting.created", {
+    organization_id: profile.organization_id,
+    meeting_id: meeting.id,
+    title: meeting.title,
+    meeting_type: meeting.meeting_type,
+    scheduled_at: meeting.scheduled_at,
+    created_by: profile.id,
+    attendee_ids: attendee_ids || [],
+  });
 
   return NextResponse.json(meeting, { status: 201 });
 }

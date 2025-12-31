@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
+import { emitIntegrationEvent } from "@/lib/inngest/emit";
 
 // GET /api/l10/[id]/queue - Get queued issues for a meeting
 export async function GET(
@@ -187,6 +188,15 @@ export async function POST(
       { status: 400 }
     );
   }
+
+  // Emit integration event for issue queued
+  await emitIntegrationEvent("issue/queued", {
+    organization_id: profile.organization_id,
+    issue_id: issue.id,
+    meeting_id: meetingId,
+    title: issue.title,
+    queued_by: profile.id,
+  });
 
   return NextResponse.json(issue, { status: 201 });
 }

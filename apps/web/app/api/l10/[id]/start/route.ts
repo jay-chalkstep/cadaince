@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
+import { emitIntegrationEvent } from "@/lib/inngest/emit";
 
 // POST /api/l10/[id]/start - Start a L10 meeting
 export async function POST(
@@ -121,6 +122,16 @@ export async function POST(
       queue_order: null,
     })
     .eq("queued_for_meeting_id", id);
+
+  // Emit integration event for meeting started
+  if (updatedMeeting.organization_id) {
+    await emitIntegrationEvent("l10/meeting.started", {
+      organization_id: updatedMeeting.organization_id,
+      meeting_id: id,
+      title: updatedMeeting.title,
+      started_at: updatedMeeting.started_at,
+    });
+  }
 
   return NextResponse.json(updatedMeeting);
 }

@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
+import { emitIntegrationEvent } from "@/lib/inngest/emit";
 
 // GET /api/rocks - List all rocks with cascade support
 export async function GET(req: Request) {
@@ -358,6 +359,18 @@ export async function POST(req: Request) {
       { status: 500 }
     );
   }
+
+  // Emit integration event for rock creation
+  await emitIntegrationEvent("rock/created", {
+    organization_id: profile.organization_id,
+    rock_id: rock.id,
+    title: rock.title,
+    owner_id: rock.owner_id,
+    status: rock.status,
+    rock_level: rock.rock_level,
+    parent_rock_id: rock.parent_rock_id || undefined,
+    pillar_id: rock.pillar_id || undefined,
+  });
 
   return NextResponse.json(rock, { status: 201 });
 }

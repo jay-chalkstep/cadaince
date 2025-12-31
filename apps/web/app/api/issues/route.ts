@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
+import { emitIntegrationEvent } from "@/lib/inngest/emit";
 
 // GET /api/issues - List all issues
 export async function GET(req: Request) {
@@ -123,6 +124,16 @@ export async function POST(req: Request) {
     console.error("Error creating issue:", error);
     return NextResponse.json({ error: "Failed to create issue" }, { status: 500 });
   }
+
+  // Emit integration event for issue creation
+  await emitIntegrationEvent("issue/created", {
+    organization_id: profile.organization_id,
+    issue_id: issue.id,
+    title: issue.title,
+    owner_id: issue.owner_id,
+    priority: issue.priority,
+    created_by: profile.id,
+  });
 
   return NextResponse.json(issue, { status: 201 });
 }
