@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import ReactMarkdown from "react-markdown";
 
 interface Meeting {
   id: string;
@@ -392,8 +393,8 @@ export default function MeetingDetailPage() {
               <CardTitle className="text-base">Meeting Notes</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="prose prose-sm max-w-none">
-                <pre className="whitespace-pre-wrap font-sans text-sm">{meeting.notes}</pre>
+              <div className="prose prose-sm max-w-none dark:prose-invert prose-headings:text-foreground prose-p:text-foreground prose-li:text-foreground prose-strong:text-foreground">
+                <ReactMarkdown>{meeting.notes}</ReactMarkdown>
               </div>
             </CardContent>
           </Card>
