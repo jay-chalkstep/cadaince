@@ -2,7 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
-// GET /api/metrics - List all metrics with current values
+// GET /api/metrics - List all metrics with current values for user's organization
 export async function GET() {
   const { userId } = await auth();
   if (!userId) {
@@ -11,13 +11,25 @@ export async function GET() {
 
   const supabase = createAdminClient();
 
-  // Get all metrics with owner info
+  // Get user's organization
+  const { data: currentUser } = await supabase
+    .from("profiles")
+    .select("organization_id")
+    .eq("clerk_id", userId)
+    .single();
+
+  if (!currentUser?.organization_id) {
+    return NextResponse.json([]);
+  }
+
+  // Get all metrics with owner info for user's organization
   const { data: metrics, error } = await supabase
     .from("metrics")
     .select(`
       *,
       owner:profiles!metrics_owner_id_fkey(id, full_name, avatar_url)
     `)
+    .eq("organization_id", currentUser.organization_id)
     .order("display_order", { ascending: true, nullsFirst: false })
     .order("created_at", { ascending: true });
 
@@ -165,15 +177,19 @@ export async function POST(req: Request) {
 
   const supabase = createAdminClient();
 
-  // Check if user is admin
+  // Check if user is admin and get organization
   const { data: profile } = await supabase
     .from("profiles")
-    .select("access_level")
+    .select("access_level, organization_id")
     .eq("clerk_id", userId)
     .single();
 
   if (!profile || profile.access_level !== "admin") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  if (!profile.organization_id) {
+    return NextResponse.json({ error: "No organization" }, { status: 403 });
   }
 
   const body = await req.json();
@@ -258,6 +274,7 @@ export async function POST(req: Request) {
     frequency: frequency || "weekly",
     display_order,
     metric_type: effectiveMetricType,
+    organization_id: profile.organization_id,
   };
 
   // Add fields based on metric type
