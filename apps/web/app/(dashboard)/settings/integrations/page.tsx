@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Database, AlertCircle, Calendar, Check, MessageSquare } from "lucide-react";
+import { Database, AlertCircle, Calendar, Check, MessageSquare, Tablet } from "lucide-react";
 import { IntegrationCard, IntegrationCardSkeleton } from "@/components/integrations/integration-card";
 import { SyncLogsTable } from "@/components/integrations/sync-logs-table";
 import { CalendarConnectButton } from "@/components/integrations/calendar-connect-button";
 import { SlackConnectButton } from "@/components/integrations/slack-connect-button";
+import { RemarkablePairing } from "@/components/integrations/remarkable-pairing";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
@@ -35,6 +36,24 @@ interface SlackWorkspace {
   is_active: boolean;
 }
 
+interface RemarkableStatus {
+  connected: boolean;
+  status: string;
+  settings: {
+    push_meeting_agendas: boolean;
+    push_briefings: boolean;
+    minutes_before_meeting: number;
+    folder_path: string;
+  };
+  recent_documents: Array<{
+    id: string;
+    title: string;
+    document_type: string;
+    status: string;
+    pushed_at: string;
+  }>;
+}
+
 const INTEGRATION_META: Record<string, { description: string; icon: React.ReactNode }> = {
   hubspot: {
     description: "Pipeline, CSAT, support tickets",
@@ -52,9 +71,11 @@ export default function IntegrationsPage() {
   const [integrations, setIntegrations] = useState<Integration[]>([]);
   const [calendarIntegrations, setCalendarIntegrations] = useState<Record<string, CalendarIntegration>>({});
   const [slackWorkspace, setSlackWorkspace] = useState<SlackWorkspace | null>(null);
+  const [remarkableStatus, setRemarkableStatus] = useState<RemarkableStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [calendarLoading, setCalendarLoading] = useState(true);
   const [slackLoading, setSlackLoading] = useState(true);
+  const [remarkableLoading, setRemarkableLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -152,6 +173,51 @@ export default function IntegrationsPage() {
     }
   };
 
+  // Fetch reMarkable status
+  const fetchRemarkableStatus = async () => {
+    try {
+      setRemarkableLoading(true);
+      const response = await fetch("/api/integrations/remarkable/status");
+      if (response.ok) {
+        const data = await response.json();
+        setRemarkableStatus(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch reMarkable status:", err);
+    } finally {
+      setRemarkableLoading(false);
+    }
+  };
+
+  // Disconnect reMarkable
+  const handleRemarkableDisconnect = async () => {
+    const response = await fetch("/api/integrations/remarkable", {
+      method: "DELETE",
+    });
+
+    if (response.ok) {
+      await fetchRemarkableStatus();
+      setSuccessMessage("reMarkable disconnected.");
+    } else {
+      throw new Error("Failed to disconnect");
+    }
+  };
+
+  // Update reMarkable settings
+  const handleRemarkableSettingsChange = async (settings: Record<string, unknown>) => {
+    const response = await fetch("/api/integrations/remarkable/settings", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(settings),
+    });
+
+    if (response.ok) {
+      await fetchRemarkableStatus();
+    } else {
+      throw new Error("Failed to update settings");
+    }
+  };
+
   // Disconnect calendar integration
   const handleCalendarDisconnect = async (provider: "google" | "outlook") => {
     const response = await fetch(`/api/integrations/calendar/${provider}`, {
@@ -190,6 +256,7 @@ export default function IntegrationsPage() {
     fetchIntegrations();
     fetchCalendarIntegrations();
     fetchSlackWorkspace();
+    fetchRemarkableStatus();
   }, []);
 
   if (error) {
@@ -291,6 +358,32 @@ export default function IntegrationsPage() {
               workspaceIcon={slackWorkspace?.team_icon_url ?? undefined}
               onDisconnect={handleSlackDisconnect}
               onResync={handleSlackResync}
+            />
+          )}
+        </CardContent>
+      </Card>
+
+      {/* reMarkable Integration */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center text-base">
+            <Tablet className="h-5 w-5 mr-2" />
+            reMarkable
+          </CardTitle>
+          <CardDescription>
+            Push meeting agendas and briefings to your tablet
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {remarkableLoading ? (
+            <div className="h-16 bg-muted animate-pulse rounded-lg" />
+          ) : (
+            <RemarkablePairing
+              isConnected={remarkableStatus?.connected ?? false}
+              settings={remarkableStatus?.settings}
+              recentDocuments={remarkableStatus?.recent_documents}
+              onDisconnect={handleRemarkableDisconnect}
+              onSettingsChange={handleRemarkableSettingsChange}
             />
           )}
         </CardContent>

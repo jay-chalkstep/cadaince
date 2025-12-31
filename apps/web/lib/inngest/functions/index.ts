@@ -6,12 +6,12 @@ import { calendarFunctions } from "./calendar";
 // Slack functions
 import { slackFunctions } from "./slack";
 
-// reMarkable functions (Phase 4)
-// import { remarkableFunctions } from './remarkable';
+// reMarkable functions
+import { remarkableFunctions } from "./remarkable";
 
 // Export all functions for Inngest
 export const functions = [
   ...calendarFunctions,
   ...slackFunctions,
-  // ...remarkableFunctions,
+  ...remarkableFunctions,
 ];
