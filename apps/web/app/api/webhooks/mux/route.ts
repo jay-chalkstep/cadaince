@@ -149,6 +149,22 @@ export async function POST(req: Request) {
       }
 
       if (update.data) {
+        // Also set video URLs here in case video.asset.ready fired before we had the asset_id
+        const { duration } = data;
+        const videoUrl = getPlaybackUrl(playbackId);
+        const thumbnailUrl = getThumbnailUrl(playbackId, { width: 640 });
+
+        await supabase
+          .from("updates")
+          .update({
+            video_url: videoUrl,
+            thumbnail_url: thumbnailUrl,
+            duration_seconds: Math.round(duration || 0),
+          })
+          .eq("id", update.data.id);
+
+        console.log("Video URLs saved for update:", update.data.id);
+
         // Trigger transcription if Deepgram is configured
         if (process.env.DEEPGRAM_API_KEY) {
           console.log("Starting Deepgram transcription for update:", update.data.id);
