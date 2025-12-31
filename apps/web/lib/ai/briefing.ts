@@ -215,8 +215,15 @@ Generate the briefing JSON:`;
       return { success: false, reason: "api_error", error: "Unexpected response type" };
     }
 
-    // Parse the JSON response
-    const briefing = JSON.parse(content.text) as BriefingContent;
+    // Parse the JSON response - strip markdown code fences if present
+    let jsonText = content.text.trim();
+    if (jsonText.startsWith("```")) {
+      // Remove opening fence (```json or ```)
+      jsonText = jsonText.replace(/^```(?:json)?\s*\n?/, "");
+      // Remove closing fence
+      jsonText = jsonText.replace(/\n?```\s*$/, "");
+    }
+    const briefing = JSON.parse(jsonText) as BriefingContent;
     return { success: true, content: briefing };
   } catch (error) {
     console.error("Error generating briefing:", error);
