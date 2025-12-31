@@ -15,11 +15,12 @@ export async function GET(req: Request) {
 
   const supabase = createAdminClient();
 
-  // Get current user's profile
+  // Get current user's profile with organization_id
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select(`
       id,
+      organization_id,
       full_name,
       role,
       access_level,
@@ -69,6 +70,26 @@ export async function GET(req: Request) {
     });
   }
 
+  // Check if profile has an organization - required for multi-tenant data access
+  if (!profile.organization_id) {
+    const today = new Date().toISOString().split("T")[0];
+    return NextResponse.json({
+      profile_id: profile.id,
+      briefing_date: today,
+      content: {
+        greeting: `Good morning, ${profile.full_name}!`,
+        summary: "Complete onboarding to see your personalized briefing.",
+        highlights: [],
+        attention_needed: [],
+        opportunities: [],
+        meeting_prep: null,
+      },
+      generated_at: new Date().toISOString(),
+      is_fallback: true,
+      fallback_reason: "no_organization",
+    });
+  }
+
   const today = new Date().toISOString().split("T")[0];
 
   // Check for existing briefing today
@@ -96,8 +117,8 @@ export async function GET(req: Request) {
     }
   }
 
-  // Gather context for briefing generation
-  const context = await gatherBriefingContext(supabase, profile.id);
+  // Gather context for briefing generation (scoped to user's organization)
+  const context = await gatherBriefingContext(supabase, profile.id, profile.organization_id);
 
   // Add user info to context
   // Supabase returns relations as arrays when not using .single()
@@ -166,7 +187,11 @@ export async function GET(req: Request) {
   return NextResponse.json(newBriefing);
 }
 
-async function gatherBriefingContext(supabase: ReturnType<typeof createAdminClient>, profileId: string) {
+async function gatherBriefingContext(
+  supabase: ReturnType<typeof createAdminClient>,
+  profileId: string,
+  organizationId: string
+) {
   const now = new Date();
   const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
   const currentQuarter = Math.ceil((now.getMonth() + 1) / 3);
@@ -175,7 +200,7 @@ async function gatherBriefingContext(supabase: ReturnType<typeof createAdminClie
   // Fetch all context data in parallel
   const [metricsResult, rocksResult, issuesResult, updatesResult, alertsResult, todosResult, meetingResult, vtoResult, anomaliesResult, mentionsResult] =
     await Promise.all([
-      // Metrics with latest values
+      // Metrics with latest values (scoped to organization)
       supabase
         .from("metrics")
         .select(`
@@ -185,12 +210,13 @@ async function gatherBriefingContext(supabase: ReturnType<typeof createAdminClie
           owner:profiles!metrics_owner_id_fkey(full_name),
           metric_values(value, recorded_at)
         `)
+        .eq("organization_id", organizationId)
         .eq("is_active", true)
         .order("recorded_at", { foreignTable: "metric_values", ascending: false })
         .limit(1, { foreignTable: "metric_values" })
         .limit(20),
 
-      // Current quarter rocks
+      // Current quarter rocks (scoped to organization)
       supabase
         .from("rocks")
         .select(`
@@ -200,12 +226,14 @@ async function gatherBriefingContext(supabase: ReturnType<typeof createAdminClie
           due_date,
           owner:profiles!owner_id(full_name)
         `)
+        .eq("organization_id", organizationId)
         .ilike("quarter", `%Q${currentQuarter}%`),
 
       // Open issues (not resolved)
       supabase
         .from("issues")
         .select("title, priority, created_at, raised_by:profiles!issues_raised_by_fkey(full_name)")
+        .eq("organization_id", organizationId)
         .neq("status", "resolved")
         .order("priority", { ascending: true })
         .limit(10),
@@ -220,6 +248,7 @@ async function gatherBriefingContext(supabase: ReturnType<typeof createAdminClie
           published_at,
           author:profiles!updates_author_id_fkey(full_name)
         `)
+        .eq("organization_id", organizationId)
         .gte("published_at", yesterday)
         .order("published_at", { ascending: false })
         .limit(10),
@@ -234,6 +263,7 @@ async function gatherBriefingContext(supabase: ReturnType<typeof createAdminClie
           created_at,
           acknowledgments:alert_acknowledgments(profile_id)
         `)
+        .eq("organization_id", organizationId)
         .gte("created_at", yesterday)
         .order("created_at", { ascending: false })
         .limit(10),
@@ -242,6 +272,7 @@ async function gatherBriefingContext(supabase: ReturnType<typeof createAdminClie
       supabase
         .from("todos")
         .select("id", { count: "exact", head: true })
+        .eq("organization_id", organizationId)
         .eq("owner_id", profileId)
         .is("completed_at", null),
 
@@ -249,6 +280,7 @@ async function gatherBriefingContext(supabase: ReturnType<typeof createAdminClie
       supabase
         .from("meetings")
         .select("type, scheduled_at")
+        .eq("organization_id", organizationId)
         .gte("scheduled_at", now.toISOString())
         .lte("scheduled_at", new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString())
         .order("scheduled_at", { ascending: true })
@@ -268,11 +300,12 @@ async function gatherBriefingContext(supabase: ReturnType<typeof createAdminClie
           one_year_target_date,
           one_year_goals
         `)
+        .eq("organization_id", organizationId)
         .order("created_at", { ascending: false })
         .limit(1)
         .single(),
 
-      // Recent anomalies
+      // Recent anomalies (filter through metrics which has org_id)
       supabase
         .from("metric_anomalies")
         .select(`
@@ -280,8 +313,9 @@ async function gatherBriefingContext(supabase: ReturnType<typeof createAdminClie
           anomaly_type,
           severity,
           message,
-          metric:metrics(name)
+          metric:metrics!inner(name, organization_id)
         `)
+        .eq("metric.organization_id", organizationId)
         .is("resolved_at", null)
         .order("detected_at", { ascending: false })
         .limit(10),
