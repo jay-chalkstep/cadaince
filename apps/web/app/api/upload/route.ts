@@ -16,7 +16,9 @@ function getOpenAIClient(): OpenAI | null {
   return openaiClient;
 }
 
-// POST /api/upload - Upload video to Supabase Storage and transcribe with Whisper
+// POST /api/upload - Transcribe a video that was uploaded directly to Supabase Storage
+// The client uploads directly to storage (to avoid Vercel's 4.5MB body limit),
+// then calls this endpoint with the storage path to get the transcript
 export async function POST(req: Request) {
   const { userId } = await auth();
   if (!userId) {
@@ -37,68 +39,17 @@ export async function POST(req: Request) {
   }
 
   try {
-    const formData = await req.formData();
-    const file = formData.get("video") as File | null;
+    const body = await req.json();
+    const { storagePath } = body;
 
-    if (!file) {
-      return NextResponse.json({ error: "No video file provided" }, { status: 400 });
-    }
-
-    // Validate file size (50MB max)
-    const MAX_SIZE = 50 * 1024 * 1024;
-    if (file.size > MAX_SIZE) {
-      return NextResponse.json(
-        { error: "File too large. Maximum size is 50MB." },
-        { status: 400 }
-      );
-    }
-
-    // Validate file type
-    const validTypes = ["video/mp4", "video/webm", "video/quicktime"];
-    if (!validTypes.includes(file.type)) {
-      return NextResponse.json(
-        { error: "Invalid file type. Supported formats: MP4, WebM, MOV" },
-        { status: 400 }
-      );
-    }
-
-    // Determine file extension from MIME type
-    const extensionMap: Record<string, string> = {
-      "video/mp4": "mp4",
-      "video/webm": "webm",
-      "video/quicktime": "mov",
-    };
-    const extension = extensionMap[file.type] || "mp4";
-
-    // Generate unique filename: userId/timestamp.ext
-    const timestamp = Date.now();
-    const filename = `${userId}/${timestamp}.${extension}`;
-
-    // Convert File to ArrayBuffer for upload
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
-    // Upload to Supabase Storage
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from("update-videos")
-      .upload(filename, buffer, {
-        contentType: file.type,
-        cacheControl: "3600",
-        upsert: false,
-      });
-
-    if (uploadError) {
-      console.error("Storage upload error:", uploadError);
-      return NextResponse.json(
-        { error: "Failed to upload video" },
-        { status: 500 }
-      );
+    if (!storagePath) {
+      return NextResponse.json({ error: "No storage path provided" }, { status: 400 });
     }
 
     // Get public URL for the video
     const { data: urlData } = supabase.storage
       .from("update-videos")
-      .getPublicUrl(filename);
+      .getPublicUrl(storagePath);
 
     const videoUrl = urlData.publicUrl;
 
@@ -109,57 +60,60 @@ export async function POST(req: Request) {
     const openai = getOpenAIClient();
     if (openai) {
       try {
-        // Create a File object from the buffer for Whisper API
-        const audioFile = new File([buffer], `video.${extension}`, {
-          type: file.type,
-        });
+        // Download the video from storage for transcription
+        const { data: videoData, error: downloadError } = await supabase.storage
+          .from("update-videos")
+          .download(storagePath);
 
-        // Whisper API accepts video files directly - it extracts the audio
-        const transcription = await openai.audio.transcriptions.create({
-          file: audioFile,
-          model: "whisper-1",
-          response_format: "verbose_json",
-          timestamp_granularities: ["word"],
-        });
+        if (downloadError) {
+          console.error("Failed to download video for transcription:", downloadError);
+        } else if (videoData) {
+          // Determine file extension from path
+          const extension = storagePath.split(".").pop() || "webm";
 
-        transcript = transcription.text || "";
+          // Create a File object from the blob for Whisper API
+          const audioFile = new File([videoData], `video.${extension}`, {
+            type: videoData.type || `video/${extension}`,
+          });
 
-        // Build structured transcript with word-level timestamps
-        if (transcription.words && transcription.words.length > 0) {
-          transcriptData = {
-            text: transcript,
-            words: transcription.words.map((w) => ({
-              word: w.word,
-              start: w.start,
-              end: w.end,
-            })),
-          };
-        } else {
-          // Fallback: structured transcript without word timing
-          transcriptData = {
-            text: transcript,
-            words: [],
-          };
+          // Whisper API accepts video files directly - it extracts the audio
+          const transcription = await openai.audio.transcriptions.create({
+            file: audioFile,
+            model: "whisper-1",
+            response_format: "verbose_json",
+            timestamp_granularities: ["word"],
+          });
+
+          transcript = transcription.text || "";
+
+          // Build structured transcript with word-level timestamps
+          if (transcription.words && transcription.words.length > 0) {
+            transcriptData = {
+              text: transcript,
+              words: transcription.words.map((w) => ({
+                word: w.word,
+                start: w.start,
+                end: w.end,
+              })),
+            };
+          } else {
+            // Fallback: structured transcript without word timing
+            transcriptData = {
+              text: transcript,
+              words: [],
+            };
+          }
         }
       } catch (whisperError) {
-        // Log error but don't fail the upload - video is still usable without transcript
+        // Log error but don't fail - video is still usable without transcript
         console.error("Whisper transcription error:", whisperError);
-        // Continue with empty transcript
       }
     }
-
-    // Estimate duration from file size (rough approximation: ~1MB per 10 seconds at 2.5Mbps)
-    // The actual duration will be determined when the video plays
-    // For now we'll return null and let the frontend calculate it
-    const estimatedDuration = null;
 
     return NextResponse.json({
       video_url: videoUrl,
       transcript,
       transcript_data: transcriptData,
-      duration_seconds: estimatedDuration,
-      // Include filename for potential cleanup
-      filename,
     });
   } catch (error) {
     console.error("Upload error:", error);

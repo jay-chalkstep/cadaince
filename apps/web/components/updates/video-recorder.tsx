@@ -246,53 +246,67 @@ export function VideoRecorder({
     setError(null);
 
     try {
-      // Create FormData with the video blob
-      const formData = new FormData();
-      const extension = recordedBlob.type.includes("mp4") ? "mp4" : "webm";
-      formData.append("video", recordedBlob, `recording.${extension}`);
-
-      // Upload to our API (which handles Supabase storage + Whisper transcription)
-      const xhr = new XMLHttpRequest();
-
-      xhr.upload.addEventListener("progress", (e) => {
-        if (e.lengthComputable) {
-          const progress = Math.round((e.loaded / e.total) * 100);
-          setUploadProgress(progress);
-          if (progress === 100) {
-            setUploadStage("transcribing");
-          }
-        }
+      // Step 1: Get a signed URL for direct upload to Supabase Storage
+      const signedUrlResponse = await fetch("/api/upload/signed-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contentType: recordedBlob.type }),
       });
 
-      const result = await new Promise<VideoUploadResult>((resolve, reject) => {
+      if (!signedUrlResponse.ok) {
+        const errorData = await signedUrlResponse.json();
+        throw new Error(errorData.error || "Failed to get upload URL");
+      }
+
+      const { signedUrl, storagePath } = await signedUrlResponse.json();
+
+      // Step 2: Upload directly to Supabase Storage using XHR for progress
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+
+        xhr.upload.addEventListener("progress", (e) => {
+          if (e.lengthComputable) {
+            const progress = Math.round((e.loaded / e.total) * 100);
+            setUploadProgress(progress);
+          }
+        });
+
         xhr.onload = () => {
           if (xhr.status >= 200 && xhr.status < 300) {
-            try {
-              const response = JSON.parse(xhr.responseText);
-              resolve({
-                video_url: response.video_url,
-                transcript: response.transcript || "",
-                transcript_data: response.transcript_data || null,
-                duration_seconds: elapsedTime, // Use actual recorded duration
-              });
-            } catch {
-              reject(new Error("Failed to parse response"));
-            }
+            resolve();
           } else {
-            try {
-              const errorData = JSON.parse(xhr.responseText);
-              reject(new Error(errorData.error || "Upload failed"));
-            } catch {
-              reject(new Error(`Upload failed with status ${xhr.status}`));
-            }
+            reject(new Error(`Upload failed with status ${xhr.status}`));
           }
         };
         xhr.onerror = () => reject(new Error("Upload failed"));
-        xhr.open("POST", "/api/upload");
-        xhr.send(formData);
+
+        xhr.open("PUT", signedUrl);
+        xhr.setRequestHeader("Content-Type", recordedBlob.type);
+        xhr.send(recordedBlob);
       });
 
-      onComplete(result);
+      // Step 3: Call our API to get the public URL and transcription
+      setUploadStage("transcribing");
+
+      const transcribeResponse = await fetch("/api/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ storagePath }),
+      });
+
+      if (!transcribeResponse.ok) {
+        const errorData = await transcribeResponse.json();
+        throw new Error(errorData.error || "Failed to process video");
+      }
+
+      const result = await transcribeResponse.json();
+
+      onComplete({
+        video_url: result.video_url,
+        transcript: result.transcript || "",
+        transcript_data: result.transcript_data || null,
+        duration_seconds: elapsedTime,
+      });
     } catch (err) {
       console.error("Upload error:", err);
       setError(err instanceof Error ? err.message : "Upload failed. Please try again.");
