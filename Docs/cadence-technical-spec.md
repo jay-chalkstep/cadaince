@@ -49,7 +49,14 @@ Cadence is a leadership alignment engine for Choice Digital's Senior Leadership 
 **Region:** us-west-2
 **Database Host:** `db.nlvjiksutojrdgnqhytd.supabase.co`
 
-> Note: The Supabase project is named "Cadaince" — use this when accessing via Supabase dashboard or MCP tools.
+### Vercel Project Details
+
+**Project Name:** cadaince
+**Project ID:** `prj_bABaxRTUQVugHuIU5DiWSobUCrBt`
+**Team:** Jay Grinde's projects (`team_3XGff8KA2WVp5K5JdBz37FCG`)
+**Production URL:** app.aicomplice.com
+
+> Note: Both Supabase and Vercel projects are named "Cadaince" — use this when accessing via dashboards or MCP tools.
 
 ---
 

@@ -19,7 +19,21 @@ Aicomplice is a Leadership Alignment Engine implementing the EOS (Entrepreneuria
 | Database Host | `db.nlvjiksutojrdgnqhytd.supabase.co` |
 | PostgreSQL Version | 17 |
 
-> **Note:** The naming discrepancy (Aicomplice codebase → Cadaince Supabase project) is historical. Always use the Cadaince project when working with this codebase.
+> **Note:** The naming discrepancy (Aicomplice codebase → Cadaince projects) is historical. Always use the Cadaince project when working with this codebase.
+
+## Vercel Project
+
+The Vercel project is also named **"cadaince"**.
+
+| Property | Value |
+|----------|-------|
+| Project Name | cadaince |
+| Project ID | `prj_bABaxRTUQVugHuIU5DiWSobUCrBt` |
+| Team | Jay Grinde's projects |
+| Team ID | `team_3XGff8KA2WVp5K5JdBz37FCG` |
+| Production URL | app.aicomplice.com |
+| Vercel URL | cadaince.vercel.app |
+| Framework | Next.js |
 
 ## Multi-Tenant Architecture
 This is a multi-tenant SaaS application. Every data table includes organization_id and uses Row Level Security to isolate tenants.
