@@ -11,10 +11,10 @@ export async function GET() {
 
   const supabase = createAdminClient();
 
-  // Check if user is admin
+  // Check if user is admin and get organization
   const { data: profile } = await supabase
     .from("profiles")
-    .select("access_level")
+    .select("organization_id, access_level")
     .eq("clerk_id", userId)
     .single();
 
@@ -22,9 +22,14 @@ export async function GET() {
     return NextResponse.json({ error: "Forbidden - Admin access required" }, { status: 403 });
   }
 
+  if (!profile.organization_id) {
+    return NextResponse.json([]);
+  }
+
   const { data: integrations, error } = await supabase
     .from("integrations")
     .select("*")
+    .eq("organization_id", profile.organization_id)
     .order("type", { ascending: true });
 
   if (error) {
@@ -53,15 +58,19 @@ export async function POST(req: Request) {
 
   const supabase = createAdminClient();
 
-  // Check if user is admin
+  // Check if user is admin and get organization
   const { data: profile } = await supabase
     .from("profiles")
-    .select("access_level")
+    .select("organization_id, access_level")
     .eq("clerk_id", userId)
     .single();
 
   if (!profile || profile.access_level !== "admin") {
     return NextResponse.json({ error: "Forbidden - Admin access required" }, { status: 403 });
+  }
+
+  if (!profile.organization_id) {
+    return NextResponse.json({ error: "No organization" }, { status: 403 });
   }
 
   const body = await req.json();
@@ -83,18 +92,19 @@ export async function POST(req: Request) {
     );
   }
 
-  // Upsert integration (one per type)
+  // Upsert integration (one per type per organization)
   const { data: integration, error } = await supabase
     .from("integrations")
     .upsert(
       {
+        organization_id: profile.organization_id,
         type,
         name,
         is_active: is_active ?? false,
         config: config || {},
       },
       {
-        onConflict: "type",
+        onConflict: "organization_id,type",
       }
     )
     .select()

@@ -70,15 +70,19 @@ export async function POST(req: Request) {
 
   const supabase = createAdminClient();
 
-  // Get current user's profile
+  // Get current user's profile and organization
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id")
+    .select("id, organization_id")
     .eq("clerk_id", userId)
     .single();
 
   if (!profile) {
     return NextResponse.json({ error: "Profile not found" }, { status: 404 });
+  }
+
+  if (!profile.organization_id) {
+    return NextResponse.json({ error: "No organization" }, { status: 403 });
   }
 
   const body = await req.json();
@@ -91,11 +95,12 @@ export async function POST(req: Request) {
     );
   }
 
-  // Verify recipient exists
+  // Verify recipient exists in the same organization
   const { data: recipient } = await supabase
     .from("profiles")
     .select("id")
     .eq("id", recipient_id)
+    .eq("organization_id", profile.organization_id)
     .single();
 
   if (!recipient) {

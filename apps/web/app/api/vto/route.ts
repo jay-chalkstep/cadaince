@@ -11,12 +11,24 @@ export async function GET() {
 
   const supabase = createAdminClient();
 
+  // Get user's organization
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("organization_id")
+    .eq("clerk_id", userId)
+    .single();
+
+  if (!profile?.organization_id) {
+    return NextResponse.json({ error: "Organization not found" }, { status: 404 });
+  }
+
   const { data: vto, error } = await supabase
     .from("vto")
     .select(`
       *,
       updated_by_profile:profiles!vto_updated_by_fkey(id, full_name, avatar_url)
     `)
+    .eq("organization_id", profile.organization_id)
     .single();
 
   if (error && error.code !== "PGRST116") {
@@ -61,15 +73,19 @@ export async function PUT(req: Request) {
 
   const supabase = createAdminClient();
 
-  // Check if user is admin
+  // Check if user is admin and get organization
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, access_level")
+    .select("id, organization_id, access_level")
     .eq("clerk_id", userId)
     .single();
 
   if (!profile || profile.access_level !== "admin") {
     return NextResponse.json({ error: "Forbidden - Admin access required" }, { status: 403 });
+  }
+
+  if (!profile.organization_id) {
+    return NextResponse.json({ error: "No organization" }, { status: 403 });
   }
 
   const body = await req.json();
@@ -79,6 +95,7 @@ export async function PUT(req: Request) {
   const { data: existingVto } = await supabase
     .from("vto")
     .select("*")
+    .eq("organization_id", profile.organization_id)
     .single();
 
   let vtoId = existingVto?.id;
@@ -119,6 +136,7 @@ export async function PUT(req: Request) {
     const { data: vto, error } = await supabase
       .from("vto")
       .insert({
+        organization_id: profile.organization_id,
         ...updates,
         updated_by: profile.id,
       })

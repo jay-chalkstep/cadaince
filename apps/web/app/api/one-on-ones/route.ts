@@ -11,15 +11,19 @@ export async function GET(req: Request) {
 
   const supabase = createAdminClient();
 
-  // Get current user's profile
+  // Get current user's profile and organization
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id")
+    .select("id, organization_id")
     .eq("clerk_id", userId)
     .single();
 
   if (!profile) {
     return NextResponse.json({ error: "Profile not found" }, { status: 404 });
+  }
+
+  if (!profile.organization_id) {
+    return NextResponse.json([]);
   }
 
   const { searchParams } = new URL(req.url);
@@ -33,6 +37,7 @@ export async function GET(req: Request) {
       manager:profiles!one_on_one_meetings_manager_id_fkey(id, full_name, avatar_url, title, email),
       direct:profiles!one_on_one_meetings_direct_id_fkey(id, full_name, avatar_url, title, email)
     `)
+    .eq("organization_id", profile.organization_id)
     .order("created_at", { ascending: false });
 
   // Filter by role
@@ -68,15 +73,19 @@ export async function POST(req: Request) {
 
   const supabase = createAdminClient();
 
-  // Get current user's profile
+  // Get current user's profile and organization
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, access_level, full_name")
+    .select("id, organization_id, access_level, full_name")
     .eq("clerk_id", userId)
     .single();
 
   if (!profile) {
     return NextResponse.json({ error: "Profile not found" }, { status: 404 });
+  }
+
+  if (!profile.organization_id) {
+    return NextResponse.json({ error: "No organization" }, { status: 403 });
   }
 
   const body = await req.json();
@@ -129,6 +138,7 @@ export async function POST(req: Request) {
   const { data: meeting, error } = await supabase
     .from("one_on_one_meetings")
     .insert({
+      organization_id: profile.organization_id,
       manager_id,
       direct_id,
       title: meetingTitle,

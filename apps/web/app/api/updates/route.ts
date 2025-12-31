@@ -19,15 +19,19 @@ export async function GET(req: Request) {
 
   const supabase = createAdminClient();
 
-  // Get current user's profile for read state lookup
+  // Get current user's profile for read state lookup and organization
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id")
+    .select("id, organization_id")
     .eq("clerk_id", userId)
     .single();
 
   if (!profile) {
     return NextResponse.json({ error: "Profile not found" }, { status: 404 });
+  }
+
+  if (!profile.organization_id) {
+    return NextResponse.json([]);
   }
 
   // Build the query with read state and converted issue
@@ -40,6 +44,7 @@ export async function GET(req: Request) {
       linked_metric:metrics(id, name),
       converted_to_issue:issues!updates_converted_to_issue_id_fkey(id, title, status)
     `)
+    .eq("organization_id", profile.organization_id)
     .eq("is_draft", false)
     .not("published_at", "is", null)
     .order("published_at", { ascending: false })

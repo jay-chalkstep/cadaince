@@ -16,12 +16,24 @@ export async function GET(req: Request) {
 
   const supabase = createAdminClient();
 
+  // Get user's organization
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("organization_id")
+    .eq("clerk_id", userId)
+    .single();
+
+  if (!profile?.organization_id) {
+    return NextResponse.json([]);
+  }
+
   let query = supabase
     .from("l10_meetings")
     .select(`
       *,
       created_by_profile:profiles!l10_meetings_created_by_fkey(id, full_name, avatar_url)
     `)
+    .eq("organization_id", profile.organization_id)
     .order("scheduled_at", { ascending: upcoming });
 
   if (status) {
