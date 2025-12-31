@@ -97,13 +97,17 @@ export interface BriefingContent {
   meeting_prep: string | null;
 }
 
+export type BriefingResult =
+  | { success: true; content: BriefingContent }
+  | { success: false; reason: "no_api_key" | "api_error"; error?: string };
+
 export async function generateMorningBriefing(
   context: BriefingContext
-): Promise<BriefingContent | null> {
+): Promise<BriefingResult> {
   const client = getAnthropicClient();
   if (!client) {
     console.log("Anthropic not configured, skipping briefing generation");
-    return null;
+    return { success: false, reason: "no_api_key" };
   }
 
   const systemPrompt = `You are an executive assistant helping a senior leader prepare for their day.
@@ -208,15 +212,16 @@ Generate the briefing JSON:`;
     const content = response.content[0];
     if (content.type !== "text") {
       console.error("Unexpected response type from Claude");
-      return null;
+      return { success: false, reason: "api_error", error: "Unexpected response type" };
     }
 
     // Parse the JSON response
     const briefing = JSON.parse(content.text) as BriefingContent;
-    return briefing;
+    return { success: true, content: briefing };
   } catch (error) {
     console.error("Error generating briefing:", error);
-    return null;
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    return { success: false, reason: "api_error", error: errorMessage };
   }
 }
 

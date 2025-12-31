@@ -144,16 +144,20 @@ export async function GET(req: Request) {
   };
 
   // Generate briefing with Claude
-  const briefingContent = await generateMorningBriefing(fullContext);
+  const briefingResult = await generateMorningBriefing(fullContext);
 
-  if (!briefingContent) {
-    // Return a fallback briefing if AI is not available
+  if (!briefingResult.success) {
+    // Return a fallback briefing with specific error reason
+    const errorMessage = briefingResult.reason === "no_api_key"
+      ? "AI briefing generation is not configured. Please add your ANTHROPIC_API_KEY to your environment and redeploy."
+      : `AI briefing generation failed: ${briefingResult.error || "Unknown error"}`;
+
     return NextResponse.json({
       profile_id: profile.id,
       briefing_date: today,
       content: {
         greeting: `Good morning, ${profile.full_name}!`,
-        summary: "AI briefing generation is not configured. Please add your ANTHROPIC_API_KEY to your environment and redeploy.",
+        summary: errorMessage,
         highlights: [],
         attention_needed: context.alerts.filter((a) => !a.acknowledged).map((a) => a.title),
         opportunities: [],
@@ -161,7 +165,7 @@ export async function GET(req: Request) {
       },
       generated_at: new Date().toISOString(),
       is_fallback: true,
-      fallback_reason: "api_key_missing",
+      fallback_reason: briefingResult.reason === "no_api_key" ? "api_key_missing" : "api_error",
     });
   }
 
@@ -172,7 +176,7 @@ export async function GET(req: Request) {
       {
         profile_id: profile.id,
         briefing_date: today,
-        content: briefingContent,
+        content: briefingResult.content,
         generated_at: new Date().toISOString(),
         viewed_at: new Date().toISOString(),
       },
@@ -189,7 +193,7 @@ export async function GET(req: Request) {
     return NextResponse.json({
       profile_id: profile.id,
       briefing_date: today,
-      content: briefingContent,
+      content: briefingResult.content,
       generated_at: new Date().toISOString(),
     });
   }

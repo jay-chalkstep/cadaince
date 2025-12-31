@@ -34,7 +34,7 @@ interface Briefing {
   viewed_at?: string;
   is_cached?: boolean;
   is_fallback?: boolean;
-  fallback_reason?: "profile_not_found" | "no_organization" | "api_key_missing";
+  fallback_reason?: "profile_not_found" | "no_organization" | "api_key_missing" | "api_error";
 }
 
 export default function BriefingPage() {
