@@ -4,11 +4,15 @@ import { useState, useEffect } from "react";
 import {
   Loader2,
   ChevronRight,
+  ChevronUp,
+  ChevronDown,
   Check,
   X,
   ArrowRight,
   Plus,
   AlertCircle,
+  ListOrdered,
+  Play,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -66,8 +70,11 @@ interface IDSWorkflowProps {
 }
 
 type IDSStep = "identify" | "discuss" | "solve";
+type Phase = "prioritize" | "ids";
 
 export function IDSWorkflow({ issues, meetingId, profiles, onResolve }: IDSWorkflowProps) {
+  const [phase, setPhase] = useState<Phase>("prioritize");
+  const [prioritizedIssues, setPrioritizedIssues] = useState<Issue[]>(issues);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [step, setStep] = useState<IDSStep>("identify");
   const [decisionNotes, setDecisionNotes] = useState("");
@@ -77,8 +84,28 @@ export function IDSWorkflow({ issues, meetingId, profiles, onResolve }: IDSWorkf
   const [resolving, setResolving] = useState(false);
   const [resolvedIssues, setResolvedIssues] = useState<Set<string>>(new Set());
 
-  const currentIssue = issues[currentIndex];
-  const remainingIssues = issues.filter((i) => !resolvedIssues.has(i.id));
+  // Sync prioritized issues when issues prop changes
+  useEffect(() => {
+    setPrioritizedIssues(issues);
+  }, [issues]);
+
+  const currentIssue = prioritizedIssues[currentIndex];
+  const remainingIssues = prioritizedIssues.filter((i) => !resolvedIssues.has(i.id));
+
+  const moveIssue = (index: number, direction: "up" | "down") => {
+    const newIndex = direction === "up" ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= prioritizedIssues.length) return;
+
+    const newList = [...prioritizedIssues];
+    [newList[index], newList[newIndex]] = [newList[newIndex], newList[index]];
+    setPrioritizedIssues(newList);
+  };
+
+  const startIDS = () => {
+    setPhase("ids");
+    setCurrentIndex(0);
+    setStep("identify");
+  };
 
   useEffect(() => {
     // Set default due date to next Friday
@@ -104,7 +131,7 @@ export function IDSWorkflow({ issues, meetingId, profiles, onResolve }: IDSWorkf
       resetForm();
 
       // Move to next unresolved issue
-      const nextIndex = issues.findIndex(
+      const nextIndex = prioritizedIssues.findIndex(
         (i, idx) => idx > currentIndex && !resolvedIssues.has(i.id)
       );
       if (nextIndex !== -1) {
@@ -134,7 +161,17 @@ export function IDSWorkflow({ issues, meetingId, profiles, onResolve }: IDSWorkf
     else if (step === "discuss") setStep("identify");
   };
 
-  if (remainingIssues.length === 0) {
+  // No issues at all
+  if (issues.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-64 text-muted-foreground">
+        No issues to process
+      </div>
+    );
+  }
+
+  // All resolved (only show in IDS phase)
+  if (phase === "ids" && remainingIssues.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-64 text-center">
         <Check className="h-12 w-12 text-green-600 mb-4" />
@@ -142,6 +179,89 @@ export function IDSWorkflow({ issues, meetingId, profiles, onResolve }: IDSWorkf
         <p className="text-muted-foreground mt-2">
           Great work! You&apos;ve processed all {resolvedIssues.size} issues.
         </p>
+      </div>
+    );
+  }
+
+  // Prioritization phase - show all issues for team to order
+  if (phase === "prioritize") {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-medium flex items-center gap-2">
+              <ListOrdered className="h-5 w-5" />
+              Prioritize Issues
+            </h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              Vote on which issues to tackle first. Use arrows to reorder.
+            </p>
+          </div>
+          <Badge variant="outline">{prioritizedIssues.length} issues</Badge>
+        </div>
+
+        <div className="space-y-2">
+          {prioritizedIssues.map((issue, index) => (
+            <Card key={issue.id} className="hover:border-primary/50 transition-colors">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  {/* Priority position */}
+                  <div className="flex flex-col items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => moveIssue(index, "up")}
+                      disabled={index === 0}
+                    >
+                      <ChevronUp className="h-4 w-4" />
+                    </Button>
+                    <span className="text-sm font-medium text-muted-foreground w-6 text-center">
+                      {index + 1}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => moveIssue(index, "down")}
+                      disabled={index === prioritizedIssues.length - 1}
+                    >
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </div>
+
+                  {/* Issue details */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-medium truncate">{issue.title}</h4>
+                      {issue.priority && (
+                        <Badge variant="outline" className="shrink-0">
+                          P{issue.priority}
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-0.5">
+                      Raised by {issue.raised_by?.full_name || "Unknown"} •{" "}
+                      {new Date(issue.created_at).toLocaleDateString()}
+                    </p>
+                    {issue.description && (
+                      <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                        {issue.description}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        <div className="flex justify-end">
+          <Button onClick={startIDS} size="lg">
+            <Play className="mr-2 h-4 w-4" />
+            Start IDS
+          </Button>
+        </div>
       </div>
     );
   }
@@ -159,7 +279,7 @@ export function IDSWorkflow({ issues, meetingId, profiles, onResolve }: IDSWorkf
       {/* Progress */}
       <div className="flex items-center justify-between">
         <div className="text-sm text-muted-foreground">
-          Issue {currentIndex + 1} of {issues.length}
+          Issue {currentIndex + 1} of {prioritizedIssues.length}
           {resolvedIssues.size > 0 && (
             <span className="ml-2 text-green-600">
               ({resolvedIssues.size} resolved)
@@ -381,13 +501,26 @@ export function IDSWorkflow({ issues, meetingId, profiles, onResolve }: IDSWorkf
 
       {/* Navigation */}
       <div className="flex justify-between">
-        <Button
-          variant="outline"
-          onClick={prevStep}
-          disabled={step === "identify" || resolving}
-        >
-          Back
-        </Button>
+        <div className="flex gap-2">
+          {step === "identify" ? (
+            <Button
+              variant="outline"
+              onClick={() => setPhase("prioritize")}
+              disabled={resolving}
+            >
+              <ListOrdered className="mr-1 h-4 w-4" />
+              Back to List
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              onClick={prevStep}
+              disabled={resolving}
+            >
+              Back
+            </Button>
+          )}
+        </div>
         {step !== "solve" && (
           <Button onClick={nextStep} disabled={resolving}>
             Continue

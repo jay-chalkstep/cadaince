@@ -15,15 +15,19 @@ export async function POST(
   const { id } = await params;
   const supabase = createAdminClient();
 
-  // Get user profile
+  // Get user profile with organization
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id")
+    .select("id, organization_id")
     .eq("clerk_id", userId)
     .single();
 
   if (!profile) {
     return NextResponse.json({ error: "Profile not found" }, { status: 404 });
+  }
+
+  if (!profile.organization_id) {
+    return NextResponse.json({ error: "No organization" }, { status: 403 });
   }
 
   const body = await req.json();
@@ -71,6 +75,11 @@ export async function POST(
         title: todo_title,
         owner_id: todo_owner_id,
         due_date: todo_due_date,
+        organization_id: profile.organization_id,
+        linked_issue_id: issue_id,
+        created_by: profile.id,
+        visibility: "team",
+        meeting_id: id,
       })
       .select()
       .single();
