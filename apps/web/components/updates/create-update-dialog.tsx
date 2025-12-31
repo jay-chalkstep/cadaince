@@ -60,6 +60,53 @@ export function CreateUpdateDialog({
     setUploadStage("uploading");
   };
 
+  // Generate thumbnail from video file
+  const generateThumbnail = async (file: File): Promise<Blob | null> => {
+    return new Promise((resolve) => {
+      const video = document.createElement("video");
+      video.preload = "metadata";
+      video.muted = true;
+      video.playsInline = true;
+
+      video.onloadeddata = () => {
+        // Seek to 1 second or 10% of duration, whichever is less
+        video.currentTime = Math.min(1, video.duration * 0.1);
+      };
+
+      video.onseeked = () => {
+        try {
+          const canvas = document.createElement("canvas");
+          canvas.width = video.videoWidth || 640;
+          canvas.height = video.videoHeight || 360;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) {
+            resolve(null);
+            return;
+          }
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          canvas.toBlob(
+            (blob) => {
+              URL.revokeObjectURL(video.src);
+              resolve(blob);
+            },
+            "image/jpeg",
+            0.8
+          );
+        } catch {
+          URL.revokeObjectURL(video.src);
+          resolve(null);
+        }
+      };
+
+      video.onerror = () => {
+        URL.revokeObjectURL(video.src);
+        resolve(null);
+      };
+
+      video.src = URL.createObjectURL(file);
+    });
+  };
+
   const handleVideoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -77,7 +124,40 @@ export function CreateUpdateDialog({
     setUploadStage("uploading");
 
     try {
-      // Step 1: Get a signed URL for direct upload to Supabase Storage
+      const supabase = createClient();
+      let thumbnailUrl: string | null = null;
+
+      // Step 1: Generate and upload thumbnail
+      const thumbnailBlob = await generateThumbnail(file);
+      if (thumbnailBlob) {
+        const thumbSignedUrlResponse = await fetch("/api/upload/signed-url", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contentType: "image/jpeg" }),
+        });
+
+        if (thumbSignedUrlResponse.ok) {
+          const { storagePath: thumbPath, token: thumbToken } = await thumbSignedUrlResponse.json();
+          const thumbFile = new File([thumbnailBlob], "thumbnail.jpg", { type: "image/jpeg" });
+
+          const { error: thumbUploadError } = await supabase.storage
+            .from("update-videos")
+            .uploadToSignedUrl(thumbPath, thumbToken, thumbFile, {
+              contentType: "image/jpeg",
+            });
+
+          if (!thumbUploadError) {
+            const { data: thumbUrlData } = supabase.storage
+              .from("update-videos")
+              .getPublicUrl(thumbPath);
+            thumbnailUrl = thumbUrlData.publicUrl;
+          }
+        }
+      }
+
+      setUploadProgress(20);
+
+      // Step 2: Get a signed URL for video upload
       const signedUrlResponse = await fetch("/api/upload/signed-url", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -91,9 +171,7 @@ export function CreateUpdateDialog({
 
       const { storagePath, token } = await signedUrlResponse.json();
 
-      // Step 2: Upload using Supabase client's uploadToSignedUrl
-      const supabase = createClient();
-
+      // Step 3: Upload video using Supabase client's uploadToSignedUrl
       const { error: uploadError } = await supabase.storage
         .from("update-videos")
         .uploadToSignedUrl(storagePath, token, file, {
@@ -106,7 +184,7 @@ export function CreateUpdateDialog({
 
       setUploadProgress(100);
 
-      // Step 3: Call our API to get the public URL and transcription
+      // Step 4: Call our API to get the public URL and transcription
       setUploadStage("transcribing");
 
       const transcribeResponse = await fetch("/api/upload", {
@@ -124,6 +202,7 @@ export function CreateUpdateDialog({
 
       setVideoResult({
         video_url: result.video_url,
+        thumbnail_url: thumbnailUrl,
         transcript: result.transcript || "",
         transcript_data: result.transcript_data || null,
         duration_seconds: result.duration_seconds || null,
@@ -153,6 +232,7 @@ export function CreateUpdateDialog({
           format,
           content: format === "text" ? content : null,
           video_url: format === "video" ? videoResult?.video_url : null,
+          thumbnail_url: format === "video" ? videoResult?.thumbnail_url : null,
           transcript: format === "video" ? videoResult?.transcript : null,
           transcript_data: format === "video" ? videoResult?.transcript_data : null,
           duration_seconds: format === "video" ? videoResult?.duration_seconds : null,

@@ -85,8 +85,8 @@ export function AppSidebar() {
     };
 
     fetchCount();
-    // Poll every 60 seconds
-    const interval = setInterval(fetchCount, 60000);
+    // Poll every 10 seconds for responsive unread badge updates
+    const interval = setInterval(fetchCount, 10000);
     return () => clearInterval(interval);
   }, []);
 

@@ -27,32 +27,21 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { contentType } = body;
 
-    // Validate content type - support various video MIME types
-    // Different browsers/devices report different MIME types for the same format
-    const validTypes = [
-      "video/mp4",
-      "video/webm",
-      "video/quicktime",
-      "video/x-m4v",        // iPhone/iPad videos
-      "video/x-quicktime",  // Alternative QuickTime
-      "video/3gpp",         // Some mobile videos
-      "video/3gpp2",        // Some mobile videos
-      "video/mpeg",         // MPEG videos
-      "video/ogg",          // OGG videos
-    ];
-
-    // Check if it starts with "video/" as a fallback
+    // Validate content type - support video and image (for thumbnails) MIME types
     const isVideoType = contentType?.startsWith("video/");
-    if (!isVideoType) {
+    const isImageType = contentType?.startsWith("image/");
+
+    if (!isVideoType && !isImageType) {
       console.error("Invalid content type received:", contentType);
       return NextResponse.json(
-        { error: "Invalid file type. Please upload a video file." },
+        { error: "Invalid file type. Please upload a video or image file." },
         { status: 400 }
       );
     }
 
     // Determine file extension from MIME type
     const extensionMap: Record<string, string> = {
+      // Video types
       "video/mp4": "mp4",
       "video/webm": "webm",
       "video/quicktime": "mov",
@@ -62,8 +51,12 @@ export async function POST(req: Request) {
       "video/3gpp2": "3g2",
       "video/mpeg": "mpeg",
       "video/ogg": "ogv",
+      // Image types (for thumbnails)
+      "image/jpeg": "jpg",
+      "image/png": "png",
+      "image/webp": "webp",
     };
-    const extension = extensionMap[contentType] || "mp4";
+    const extension = extensionMap[contentType] || (isImageType ? "jpg" : "mp4");
 
     // Generate unique filename: clerkUserId/timestamp.ext
     const timestamp = Date.now();

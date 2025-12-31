@@ -21,6 +21,7 @@ type RecorderState = "idle" | "previewing" | "recording" | "review" | "uploading
 
 export interface VideoUploadResult {
   video_url: string;
+  thumbnail_url: string | null;
   transcript: string;
   transcript_data: {
     text: string;
@@ -238,6 +239,30 @@ export function VideoRecorder({
     setState("idle");
   }, []);
 
+  // Capture thumbnail from video element
+  const captureThumbnail = useCallback(async (videoElement: HTMLVideoElement): Promise<Blob | null> => {
+    return new Promise((resolve) => {
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = videoElement.videoWidth || 640;
+        canvas.height = videoElement.videoHeight || 360;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          resolve(null);
+          return;
+        }
+        ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob(
+          (blob) => resolve(blob),
+          "image/jpeg",
+          0.8
+        );
+      } catch {
+        resolve(null);
+      }
+    });
+  }, []);
+
   const uploadVideo = useCallback(async () => {
     if (!recordedBlob) return;
 
@@ -247,7 +272,43 @@ export function VideoRecorder({
     setError(null);
 
     try {
-      // Step 1: Get a signed URL for direct upload to Supabase Storage
+      const supabase = createClient();
+      let thumbnailUrl: string | null = null;
+
+      // Step 1: Capture and upload thumbnail from video playback element
+      if (videoPlaybackRef.current) {
+        const thumbnailBlob = await captureThumbnail(videoPlaybackRef.current);
+        if (thumbnailBlob) {
+          // Get signed URL for thumbnail
+          const thumbSignedUrlResponse = await fetch("/api/upload/signed-url", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ contentType: "image/jpeg" }),
+          });
+
+          if (thumbSignedUrlResponse.ok) {
+            const { storagePath: thumbPath, token: thumbToken } = await thumbSignedUrlResponse.json();
+            const thumbFile = new File([thumbnailBlob], "thumbnail.jpg", { type: "image/jpeg" });
+
+            const { error: thumbUploadError } = await supabase.storage
+              .from("update-videos")
+              .uploadToSignedUrl(thumbPath, thumbToken, thumbFile, {
+                contentType: "image/jpeg",
+              });
+
+            if (!thumbUploadError) {
+              const { data: thumbUrlData } = supabase.storage
+                .from("update-videos")
+                .getPublicUrl(thumbPath);
+              thumbnailUrl = thumbUrlData.publicUrl;
+            }
+          }
+        }
+      }
+
+      setUploadProgress(20);
+
+      // Step 2: Get a signed URL for video upload
       const signedUrlResponse = await fetch("/api/upload/signed-url", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -261,10 +322,7 @@ export function VideoRecorder({
 
       const { storagePath, token } = await signedUrlResponse.json();
 
-      // Step 2: Upload using Supabase client's uploadToSignedUrl
-      const supabase = createClient();
-
-      // Convert Blob to File for Supabase SDK
+      // Step 3: Upload video using Supabase client's uploadToSignedUrl
       const extension = storagePath.split(".").pop() || "webm";
       const file = new File([recordedBlob], `video.${extension}`, {
         type: recordedBlob.type,
@@ -282,7 +340,7 @@ export function VideoRecorder({
 
       setUploadProgress(100);
 
-      // Step 3: Call our API to get the public URL and transcription
+      // Step 4: Call our API to get the public URL and transcription
       setUploadStage("transcribing");
 
       const transcribeResponse = await fetch("/api/upload", {
@@ -300,6 +358,7 @@ export function VideoRecorder({
 
       onComplete({
         video_url: result.video_url,
+        thumbnail_url: thumbnailUrl,
         transcript: result.transcript || "",
         transcript_data: result.transcript_data || null,
         duration_seconds: elapsedTime,
@@ -309,7 +368,7 @@ export function VideoRecorder({
       setError(err instanceof Error ? err.message : "Upload failed. Please try again.");
       setState("review");
     }
-  }, [recordedBlob, elapsedTime, onComplete]);
+  }, [recordedBlob, elapsedTime, onComplete, captureThumbnail]);
 
   const handleCancel = useCallback(() => {
     stopStream();
