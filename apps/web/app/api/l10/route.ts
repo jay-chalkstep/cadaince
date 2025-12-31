@@ -29,7 +29,9 @@ export async function GET(req: Request) {
   }
 
   if (upcoming) {
-    query = query.gte("scheduled_at", new Date().toISOString());
+    // Show meetings that are scheduled or in_progress (exclude completed/cancelled)
+    // Also include past in_progress meetings that haven't been ended yet
+    query = query.in("status", ["scheduled", "in_progress"]);
   }
 
   query = query.limit(limit);

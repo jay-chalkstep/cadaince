@@ -59,7 +59,7 @@ export async function POST(
     .is("completed_at", null);
 
   // Generate meeting summary
-  const summary = await generateMeetingSummary(supabase, id, meeting);
+  const summary = await generateMeetingSummary(supabase, id, meeting, durationMinutes);
 
   // Update meeting
   const { data: updatedMeeting, error: updateError } = await supabase
@@ -91,10 +91,11 @@ export async function POST(
 async function generateMeetingSummary(
   supabase: ReturnType<typeof createAdminClient>,
   meetingId: string,
-  meeting: Record<string, unknown>
+  meeting: Record<string, unknown>,
+  durationMinutes: number
 ): Promise<string> {
-  // Get meeting data
-  const [issuesResult, todosResult, agendaResult] = await Promise.all([
+  // Get meeting data including headlines from the headlines table
+  const [issuesResult, todosResult, agendaResult, headlinesResult] = await Promise.all([
     supabase
       .from("l10_issues_discussed")
       .select(`
@@ -115,22 +116,32 @@ async function generateMeetingSummary(
       .select("*")
       .eq("meeting_id", meetingId)
       .order("sort_order"),
+    supabase
+      .from("headlines")
+      .select(`
+        id,
+        title,
+        created_by_profile:profiles!headlines_created_by_fkey(full_name)
+      `)
+      .gte("created_at", new Date(new Date().setHours(0, 0, 0, 0)).toISOString())
+      .order("created_at", { ascending: false }),
   ]);
 
-  const headlines = (meeting.headlines as Array<{ text: string }>) || [];
+  const headlines = headlinesResult.data || [];
   const issuesDiscussed = issuesResult.data || [];
   const todosReviewed = todosResult.data || [];
 
   // Build summary markdown
   let summary = `# L10 Meeting Summary\n\n`;
   summary += `**Date:** ${new Date(meeting.scheduled_at as string).toLocaleDateString()}\n`;
-  summary += `**Duration:** ${meeting.duration_minutes || 0} minutes\n\n`;
+  summary += `**Duration:** ${durationMinutes} minutes\n\n`;
 
   // Headlines
   if (headlines.length > 0) {
     summary += `## Headlines\n`;
-    headlines.forEach((h) => {
-      summary += `- ${h.text}\n`;
+    headlines.forEach((h: { title: string; created_by_profile: { full_name: string } | null }) => {
+      const author = h.created_by_profile?.full_name || "Unknown";
+      summary += `- ${h.title} — ${author}\n`;
     });
     summary += `\n`;
   }
