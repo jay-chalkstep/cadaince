@@ -149,7 +149,7 @@ function TeamNode({
               <TooltipTrigger asChild>
                 <Avatar className="h-6 w-6">
                   <AvatarImage
-                    src={anchorMember.avatar_url}
+                    src={anchorMember.avatar_url || undefined}
                     alt={anchorMember.full_name}
                   />
                   <AvatarFallback className="text-[10px]">
