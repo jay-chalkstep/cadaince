@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/server";
 
 // GET - Fetch settings
 export async function GET() {
@@ -10,7 +10,7 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const supabase = await createClient();
+    const supabase = createAdminClient();
 
     const { data: profile } = await supabase
       .from("profiles")
@@ -58,7 +58,7 @@ export async function PATCH(request: Request) {
       folder_path,
     } = body;
 
-    const supabase = await createClient();
+    const supabase = createAdminClient();
 
     const { data: profile } = await supabase
       .from("profiles")

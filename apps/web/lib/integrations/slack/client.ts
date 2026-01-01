@@ -43,9 +43,14 @@ export interface SlackBlock {
     text: string;
     emoji?: boolean;
   };
+  fields?: Array<{
+    type: string;
+    text: string;
+    emoji?: boolean;
+  }>;
   elements?: Array<{
     type: string;
-    text?: { type: string; text: string; emoji?: boolean };
+    text?: string | { type: string; text: string; emoji?: boolean };
     action_id?: string;
     value?: string;
     url?: string;

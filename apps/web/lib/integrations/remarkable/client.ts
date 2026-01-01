@@ -261,13 +261,13 @@ export class RemarkableClient {
     const { createRemarkableArchive } = await import("./archive");
     const archiveBuffer = await createRemarkableArchive(documentId, pdfBuffer);
 
-    // Upload the archive
+    // Upload the archive (convert Buffer to Uint8Array for fetch compatibility)
     const putResponse = await fetch(uploadData.BlobURLPut, {
       method: "PUT",
       headers: {
         "Content-Type": "application/octet-stream",
       },
-      body: archiveBuffer,
+      body: new Uint8Array(archiveBuffer),
     });
 
     if (!putResponse.ok) {

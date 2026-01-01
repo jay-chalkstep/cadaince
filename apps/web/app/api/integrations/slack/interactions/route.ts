@@ -103,12 +103,18 @@ async function handleBlockActions(
         if (!profileId) {
           return sendEphemeralResponse(responseUrl, "Your Slack account is not linked.");
         }
+        if (!entityId) {
+          return sendEphemeralResponse(responseUrl, "Could not determine issue ID.");
+        }
         await handleResolveIssue(entityId, profileId, organizationId, responseUrl, supabase);
         break;
 
       case "complete:todo":
         if (!profileId) {
           return sendEphemeralResponse(responseUrl, "Your Slack account is not linked.");
+        }
+        if (!entityId) {
+          return sendEphemeralResponse(responseUrl, "Could not determine todo ID.");
         }
         await handleCompleteTodo(entityId, profileId, organizationId, responseUrl, supabase);
         break;

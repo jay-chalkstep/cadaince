@@ -9,9 +9,13 @@ import { slackFunctions } from "./slack";
 // reMarkable functions
 import { remarkableFunctions } from "./remarkable";
 
+// Automations framework
+import { automationFunctions } from "./automations";
+
 // Export all functions for Inngest
 export const functions = [
   ...calendarFunctions,
   ...slackFunctions,
   ...remarkableFunctions,
+  ...automationFunctions,
 ];

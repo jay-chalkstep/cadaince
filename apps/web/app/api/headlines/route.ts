@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
+import { emitIntegrationEvent } from "@/lib/inngest/emit";
 
 // GET /api/headlines - List headlines
 export async function GET(req: Request) {
@@ -139,6 +140,17 @@ export async function POST(req: Request) {
     console.error("Error creating headline:", error);
     return NextResponse.json({ error: "Failed to create headline" }, { status: 500 });
   }
+
+  // Emit integration event for headline creation
+  await emitIntegrationEvent("headline/created", {
+    organization_id: profile.organization_id,
+    headline_id: headline.id,
+    title: headline.title,
+    headline_type: headline.headline_type,
+    created_by: profile.id,
+    mentioned_member_id: headline.mentioned_member_id,
+    mentioned_member_name: headline.mentioned_member?.full_name,
+  });
 
   return NextResponse.json(headline, { status: 201 });
 }

@@ -42,6 +42,7 @@ export async function generateMeetingAgendaPDF(meetingId: string): Promise<Buffe
       id,
       title,
       scheduled_at,
+      organization_id,
       organization:organizations(name)
     `)
     .eq("id", meetingId)
@@ -50,6 +51,8 @@ export async function generateMeetingAgendaPDF(meetingId: string): Promise<Buffe
   if (meetingError || !meeting) {
     throw new Error("Meeting not found");
   }
+
+  const organizationId = meeting.organization_id;
 
   // Fetch attendees
   const { data: attendees } = await supabase
@@ -75,12 +78,19 @@ export async function generateMeetingAgendaPDF(meetingId: string): Promise<Buffe
       status,
       owner:profiles(full_name)
     `)
-    .eq("organization_id", (meeting.organization as { name: string })?.name ? meeting.organization : null)
+    .eq("organization_id", organizationId)
     .eq("status", "on_track")
     .limit(10);
 
   // Fetch pending todos for attendees
-  const attendeeIds = attendees?.map((a) => (a.profile as { full_name: string })?.full_name) || [];
+  // Note: profile comes as array from Supabase relation select
+  const attendeeNames = attendees?.map((a) => {
+    const profileData = a.profile as Array<{ full_name: string }> | { full_name: string } | null;
+    if (Array.isArray(profileData)) {
+      return profileData[0]?.full_name;
+    }
+    return profileData?.full_name;
+  }).filter(Boolean) || [];
   const { data: todos } = await supabase
     .from("todos")
     .select(`
@@ -97,12 +107,42 @@ export async function generateMeetingAgendaPDF(meetingId: string): Promise<Buffe
     .select("id, name, current_value, goal, unit")
     .limit(10);
 
+  // Transform meeting data to expected format (Supabase returns organization as array)
+  const orgData = meeting.organization as Array<{ name: string }> | { name: string } | null;
+  const organizationName = Array.isArray(orgData) ? orgData[0]?.name : orgData?.name;
+
+  // Transform attendee profiles (Supabase returns profile as array)
+  const transformedAttendees = (attendees || []).map((a) => {
+    const profileData = a.profile as Array<{ full_name: string }> | { full_name: string } | null;
+    const fullName = Array.isArray(profileData) ? profileData[0]?.full_name : profileData?.full_name;
+    return { full_name: fullName || "Unknown" };
+  });
+
+  // Transform rocks (owner is a relation)
+  const transformedRocks = (rocks || []).map((r) => {
+    const ownerData = r.owner as Array<{ full_name: string }> | { full_name: string } | null;
+    const ownerName = Array.isArray(ownerData) ? ownerData[0]?.full_name : ownerData?.full_name;
+    return { title: r.title, owner: { full_name: ownerName || "Unassigned" }, status: r.status };
+  });
+
+  // Transform todos (owner is a relation)
+  const transformedTodos = (todos || []).map((t) => {
+    const ownerData = t.owner as Array<{ full_name: string }> | { full_name: string } | null;
+    const ownerName = Array.isArray(ownerData) ? ownerData[0]?.full_name : ownerData?.full_name;
+    return { title: t.title, owner: { full_name: ownerName || "Unassigned" } };
+  });
+
   const agendaData: MeetingAgendaData = {
-    meeting: meeting as MeetingAgendaData["meeting"],
-    attendees: (attendees?.map((a) => a.profile) || []) as { full_name: string }[],
-    rocks: (rocks || []) as MeetingAgendaData["rocks"],
+    meeting: {
+      id: meeting.id,
+      title: meeting.title,
+      scheduled_at: meeting.scheduled_at,
+      organization: { name: organizationName || "Organization" },
+    },
+    attendees: transformedAttendees,
+    rocks: transformedRocks,
     issues: (issues || []) as MeetingAgendaData["issues"],
-    todos: (todos || []) as MeetingAgendaData["todos"],
+    todos: transformedTodos,
     metrics: (metrics || []) as MeetingAgendaData["metrics"],
   };
 
@@ -325,8 +365,11 @@ export async function generateBriefingPDF(briefingId: string): Promise<Buffer> {
 
     doc.fontSize(STYLES.fonts.body).font("Helvetica").text(dateStr, { align: "center" });
 
-    if ((briefing.profile as { full_name: string })?.full_name) {
-      doc.text(`Prepared for ${(briefing.profile as { full_name: string }).full_name}`, { align: "center" });
+    // Handle profile which may come as array from Supabase relation
+    const profileData = briefing.profile as Array<{ full_name: string }> | { full_name: string } | null;
+    const profileName = Array.isArray(profileData) ? profileData[0]?.full_name : profileData?.full_name;
+    if (profileName) {
+      doc.text(`Prepared for ${profileName}`, { align: "center" });
     }
 
     doc.moveDown(1.5);

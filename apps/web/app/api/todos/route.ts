@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
+import { emitIntegrationEvent } from "@/lib/inngest/emit";
 
 // GET /api/todos - List todos
 export async function GET(req: Request) {
@@ -158,6 +159,19 @@ export async function POST(req: Request) {
   if (error) {
     console.error("Error creating todo:", error);
     return NextResponse.json({ error: "Failed to create todo" }, { status: 500 });
+  }
+
+  // Emit integration event for todo creation (team visibility only)
+  if (profileWithOrg?.organization_id && todo.visibility === "team") {
+    await emitIntegrationEvent("todo/created", {
+      organization_id: profileWithOrg.organization_id,
+      todo_id: todo.id,
+      title: todo.title,
+      owner_id: todo.owner_id,
+      owner_name: todo.owner?.full_name,
+      due_date: todo.due_date,
+      created_by: profile.id,
+    });
   }
 
   return NextResponse.json(todo, { status: 201 });

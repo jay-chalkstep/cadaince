@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
+import { emitIntegrationEvent } from "@/lib/inngest/emit";
 
 // GET /api/issues/:id - Get single issue
 export async function GET(
@@ -108,6 +109,19 @@ export async function PATCH(
   if (error) {
     console.error("Error updating issue:", error);
     return NextResponse.json({ error: "Failed to update issue" }, { status: 500 });
+  }
+
+  // Emit event when issue is resolved
+  if (status === "resolved" && updated.organization_id) {
+    await emitIntegrationEvent("issue/resolved", {
+      organization_id: updated.organization_id,
+      issue_id: updated.id,
+      title: updated.title,
+      owner_id: updated.owner_id,
+      owner_name: updated.owner?.full_name,
+      resolved_by: profile.id,
+      priority: updated.priority,
+    });
   }
 
   return NextResponse.json(updated);

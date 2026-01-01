@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/server";
 
 export async function POST() {
   try {
@@ -9,7 +9,7 @@ export async function POST() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const supabase = await createClient();
+    const supabase = createAdminClient();
 
     // Get user's profile
     const { data: profile, error: profileError } = await supabase
@@ -18,7 +18,7 @@ export async function POST() {
       .eq("clerk_id", userId)
       .single();
 
-    if (profileError || !profile) {
+    if (profileError || !profile?.organization_id) {
       return NextResponse.json({ error: "Profile not found" }, { status: 404 });
     }
 
