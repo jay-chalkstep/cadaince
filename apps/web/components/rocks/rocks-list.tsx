@@ -24,7 +24,7 @@ interface Rock {
   name: string;
   title?: string;
   description: string | null;
-  status: "not_started" | "on_track" | "off_track" | "complete";
+  status: "not_started" | "on_track" | "off_track" | "at_risk" | "complete";
   quarter: number;
   year: number;
   rock_level?: string;
@@ -56,6 +56,7 @@ const statusConfig = {
   not_started: { label: "Not Started", color: "bg-gray-500" },
   on_track: { label: "On Track", color: "bg-green-600" },
   off_track: { label: "Off Track", color: "bg-red-600" },
+  at_risk: { label: "At Risk", color: "bg-yellow-600" },
   complete: { label: "Complete", color: "bg-blue-600" },
 };
 

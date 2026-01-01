@@ -24,7 +24,7 @@ interface FullRock {
   name: string;
   title?: string;
   description: string | null;
-  status: "not_started" | "on_track" | "off_track" | "complete";
+  status: "not_started" | "on_track" | "off_track" | "at_risk" | "complete";
   quarter: number;
   year: number;
   milestone_count?: number;

@@ -35,7 +35,7 @@ interface Rock {
   name: string;
   title?: string;
   description: string | null;
-  status: "not_started" | "on_track" | "off_track" | "complete";
+  status: "not_started" | "on_track" | "off_track" | "at_risk" | "complete";
   quarter: number;
   year: number;
   milestone_count?: number;
@@ -63,6 +63,7 @@ const statusConfig = {
   not_started: { label: "Not Started", color: "bg-gray-100 text-gray-700 hover:bg-gray-200" },
   on_track: { label: "On Track", color: "bg-green-100 text-green-700 hover:bg-green-200" },
   off_track: { label: "Off Track", color: "bg-red-100 text-red-700 hover:bg-red-200" },
+  at_risk: { label: "At Risk", color: "bg-yellow-100 text-yellow-700 hover:bg-yellow-200" },
   complete: { label: "Complete", color: "bg-blue-100 text-blue-700 hover:bg-blue-200" },
 };
 
