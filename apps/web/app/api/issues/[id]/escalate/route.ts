@@ -247,11 +247,12 @@ export async function GET(
 
     if (!fromIssue) break;
 
+    const fromTeamData = Array.isArray(fromIssue.team) ? fromIssue.team[0] : fromIssue.team;
     fromIssues.unshift({
       id: fromIssue.id,
       title: fromIssue.title,
       status: fromIssue.status,
-      team: fromIssue.team as { id: string; name: string; level: number } | null,
+      team: fromTeamData as { id: string; name: string; level: number } | null,
       direction: "from",
     });
 
@@ -261,11 +262,12 @@ export async function GET(
   chain.push(...fromIssues);
 
   // Add current issue
+  const currentTeamData = Array.isArray(issue.team) ? issue.team[0] : issue.team;
   chain.push({
     id: issue.id,
     title: issue.title,
     status: issue.status,
-    team: issue.team as { id: string; name: string; level: number } | null,
+    team: currentTeamData as { id: string; name: string; level: number } | null,
     direction: "current",
   });
 
@@ -287,21 +289,23 @@ export async function GET(
 
     if (!toIssue) break;
 
+    const toTeamData = Array.isArray(toIssue.team) ? toIssue.team[0] : toIssue.team;
     chain.push({
       id: toIssue.id,
       title: toIssue.title,
       status: toIssue.status,
-      team: toIssue.team as { id: string; name: string; level: number } | null,
+      team: toTeamData as { id: string; name: string; level: number } | null,
       direction: "to",
     });
 
     currentToId = toIssue.escalated_to_issue_id;
   }
 
+  const originalTeamData = Array.isArray(issue.original_team) ? issue.original_team[0] : issue.original_team;
   return NextResponse.json({
     issue_id: id,
     chain,
-    original_team: issue.original_team,
+    original_team: originalTeamData,
     escalated_at: issue.escalated_at,
   });
 }
