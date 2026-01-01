@@ -28,7 +28,7 @@ import {
 export interface CascadeRock {
   id: string;
   title: string;
-  status: "on_track" | "off_track" | "at_risk" | "complete";
+  status: "not_started" | "on_track" | "off_track" | "at_risk" | "complete";
   rock_level: "company" | "pillar" | "individual";
   owner?: {
     id: string;
