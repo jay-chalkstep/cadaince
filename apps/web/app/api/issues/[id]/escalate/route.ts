@@ -79,8 +79,18 @@ export async function POST(
     );
   }
 
-  // Get parent team
-  const team = issue.team as { id: string; parent_team_id: string | null; parent_team: { id: string; name: string } | null };
+  // Get parent team - handle both array and object formats from Supabase
+  const teamData = Array.isArray(issue.team) ? issue.team[0] : issue.team;
+  const parentTeamData = teamData?.parent_team
+    ? (Array.isArray(teamData.parent_team) ? teamData.parent_team[0] : teamData.parent_team)
+    : null;
+
+  const team = {
+    id: teamData?.id as string,
+    parent_team_id: teamData?.parent_team_id as string | null,
+    parent_team: parentTeamData as { id: string; name: string } | null,
+  };
+
   if (!team.parent_team_id || !team.parent_team) {
     return NextResponse.json(
       { error: "Cannot escalate: no parent team exists" },
