@@ -33,6 +33,13 @@ export interface Team {
       name: string;
       color: string;
     } | null;
+    assignments?: Array<{
+      team_member: {
+        id: string;
+        full_name: string;
+        avatar_url: string | null;
+      };
+    }>;
   };
   parent_team?: {
     id: string;
