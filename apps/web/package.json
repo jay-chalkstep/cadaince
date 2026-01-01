@@ -44,7 +44,8 @@
     "react-markdown": "^10.1.0",
     "recharts": "^3.6.0",
     "svix": "^1.82.0",
-    "tailwind-merge": "^3.4.0"
+    "tailwind-merge": "^3.4.0",
+    "inngest": "^3.48.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
