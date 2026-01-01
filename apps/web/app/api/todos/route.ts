@@ -16,6 +16,7 @@ export async function GET(req: Request) {
   const mine = searchParams.get("mine");
   const visibility = searchParams.get("visibility"); // private, team, or all
   const meetingId = searchParams.get("meeting_id");
+  const teamId = searchParams.get("team_id");
 
   const supabase = createAdminClient();
 
@@ -35,7 +36,8 @@ export async function GET(req: Request) {
     .select(`
       *,
       owner:profiles!todos_owner_id_fkey(id, full_name, avatar_url),
-      created_by_profile:profiles!todos_created_by_fkey(id, full_name, avatar_url)
+      created_by_profile:profiles!todos_created_by_fkey(id, full_name, avatar_url),
+      team:teams!todos_team_id_fkey(id, name)
     `)
     .eq("organization_id", profile.organization_id)
     .order("due_date", { ascending: true, nullsFirst: false })
@@ -73,6 +75,11 @@ export async function GET(req: Request) {
   // Filter by meeting
   if (meetingId) {
     query = query.eq("meeting_id", meetingId);
+  }
+
+  // Filter by team
+  if (teamId) {
+    query = query.eq("team_id", teamId);
   }
 
   const { data: todos, error } = await query;
@@ -121,7 +128,7 @@ export async function POST(req: Request) {
     .single();
 
   const body = await req.json();
-  const { title, description, owner_id, due_date, linked_rock_id, linked_issue_id, visibility, meeting_id } = body;
+  const { title, description, owner_id, due_date, linked_rock_id, linked_issue_id, visibility, meeting_id, team_id } = body;
 
   if (!title) {
     return NextResponse.json(
@@ -148,6 +155,7 @@ export async function POST(req: Request) {
       visibility: visibility || "team", // Default to team visibility
       meeting_id: meeting_id || null,
       organization_id: profileWithOrg?.organization_id,
+      team_id: team_id || null,
     })
     .select(`
       *,

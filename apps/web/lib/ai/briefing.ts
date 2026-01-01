@@ -22,6 +22,18 @@ export interface BriefingContext {
     pillar: string | null;
     access_level: string;
   };
+  // Team context for cascade awareness
+  team?: {
+    id: string;
+    name: string;
+    level: number; // 1 = ELT, 2 = Pillar, 3 = Department, 4 = Team
+    is_elt: boolean;
+    child_teams?: Array<{
+      id: string;
+      name: string;
+      level: number;
+    }>;
+  } | null;
   // V/TO Strategic Context
   vto: {
     purpose: string | null;
@@ -61,6 +73,14 @@ export interface BriefingContext {
     priority: number;
     owner: string | null;
     created_at: string;
+    team_name?: string | null;
+  }>;
+  // Issues escalated from child teams
+  escalatedIssues?: Array<{
+    title: string;
+    priority: number;
+    from_team: string;
+    escalated_at: string;
   }>;
   updates: Array<{
     author: string;
@@ -133,7 +153,9 @@ Guidelines:
 - Focus on actionable insights, not just status updates
 - For ELT members, emphasize strategic posture and decisions needed
 - For pillar leads, emphasize domain-specific items plus cross-functional awareness
-- Highlight progress toward 1-Year Plan goals when data is available`;
+- Highlight progress toward 1-Year Plan goals when data is available
+- For leaders with direct report teams, highlight escalated issues that need attention
+- Consider the team cascade when prioritizing - issues escalated up require prompt action`;
 
   // Build strategic context from V/TO
   const strategicContext = context.vto
@@ -144,6 +166,15 @@ STRATEGIC CONTEXT (V/TO):
 ${context.vto.one_year_revenue ? `- 1-Year Revenue Goal: $${context.vto.one_year_revenue.toLocaleString()}${context.vto.one_year_target_date ? ` (by ${new Date(context.vto.one_year_target_date).toLocaleDateString()})` : ""}` : ""}
 ${context.vto.one_year_profit ? `- 1-Year Profit Goal: $${context.vto.one_year_profit.toLocaleString()}` : ""}
 ${context.vto.one_year_goals?.length > 0 ? `- Key Goals: ${context.vto.one_year_goals.map((g) => g.goal).join("; ")}` : ""}
+`
+    : "";
+
+  // Build team context
+  const teamContext = context.team
+    ? `
+TEAM CONTEXT:
+- Your Team: ${context.team.name} (Level ${context.team.level}${context.team.is_elt ? ", ELT" : ""})
+${context.team.child_teams?.length ? `- Direct Reports: ${context.team.child_teams.map((t) => t.name).join(", ")}` : "- No direct report teams"}
 `
     : "";
 
@@ -166,8 +197,15 @@ ${context.anomalies.slice(0, 5).map((a) => `- [${a.severity.toUpperCase()}] ${a.
     return daysUntilDue <= 14 && daysUntilDue > 0;
   });
 
+  // Build escalated issues section
+  const escalatedSection = context.escalatedIssues?.length
+    ? `
+ESCALATED ISSUES FROM CHILD TEAMS (${context.escalatedIssues.length}):
+${context.escalatedIssues.slice(0, 5).map((i) => `- [Priority ${i.priority}] ${i.title} (from ${i.from_team}, escalated ${new Date(i.escalated_at).toLocaleDateString()})`).join("\n")}`
+    : "";
+
   const userPrompt = `Generate a morning briefing for ${context.user.name} (${context.user.role}${context.user.pillar ? `, ${context.user.pillar}` : ""}, ${context.user.access_level}).
-${strategicContext}
+${strategicContext}${teamContext}
 CURRENT STATE:
 
 Metrics (${context.metrics.length} tracked):
@@ -179,7 +217,8 @@ ${context.rocks.map((r) => `- ${r.name}: ${r.status} (Owner: ${r.owner}${r.due_d
 ${rocksDueSoon.length > 0 ? `\nRocks due in next 14 days: ${rocksDueSoon.map((r) => r.name).join(", ")}` : ""}
 
 Open Issues (${context.issues.length}):
-${context.issues.slice(0, 5).map((i) => `- [Priority ${i.priority}] ${i.title} (Owner: ${i.owner || "Unassigned"})`).join("\n") || "No open issues"}
+${context.issues.slice(0, 5).map((i) => `- [Priority ${i.priority}] ${i.title} (Owner: ${i.owner || "Unassigned"}${i.team_name ? `, Team: ${i.team_name}` : ""})`).join("\n") || "No open issues"}
+${escalatedSection}
 
 Recent Updates (last 24h):
 ${context.updates.slice(0, 5).map((u) => `- ${u.author} (${u.type}): ${u.content?.slice(0, 100) || u.transcript?.slice(0, 100) || "Video update"}...`).join("\n") || "No recent updates"}

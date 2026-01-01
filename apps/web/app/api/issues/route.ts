@@ -14,6 +14,7 @@ export async function GET(req: Request) {
   const status = searchParams.get("status");
   const priority = searchParams.get("priority");
   const ownerId = searchParams.get("owner_id");
+  const teamId = searchParams.get("team_id");
 
   const supabase = createAdminClient();
 
@@ -35,7 +36,8 @@ export async function GET(req: Request) {
       queued_for_meeting_id,
       owner:profiles!issues_owner_id_fkey(id, full_name, avatar_url),
       raised_by_profile:profiles!issues_raised_by_fkey(id, full_name, avatar_url),
-      created_by_profile:profiles!issues_created_by_fkey(id, full_name, avatar_url)
+      created_by_profile:profiles!issues_created_by_fkey(id, full_name, avatar_url),
+      team:teams!issues_team_id_fkey(id, name, parent_team_id)
     `)
     .eq("organization_id", profile.organization_id)
     .order("priority", { ascending: true })
@@ -53,6 +55,10 @@ export async function GET(req: Request) {
   }
   if (ownerId) {
     query = query.eq("owner_id", ownerId);
+  }
+
+  if (teamId) {
+    query = query.eq("team_id", teamId);
   }
 
   const { data: issues, error } = await query;
@@ -90,7 +96,7 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json();
-  const { title, description, owner_id, priority, linked_rock_id } = body;
+  const { title, description, owner_id, priority, linked_rock_id, team_id } = body;
 
   if (!title) {
     return NextResponse.json(
@@ -112,6 +118,7 @@ export async function POST(req: Request) {
       priority: priority || 2, // Default to medium priority
       status: "open",
       linked_rock_id: linked_rock_id || null,
+      team_id: team_id || null,
     })
     .select(`
       *,

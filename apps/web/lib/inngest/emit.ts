@@ -28,7 +28,9 @@ export type IntegrationEventType =
   | "headline/created"
   // Scorecard events
   | "scorecard/below_goal"
-  | "scorecard/entry.created";
+  | "scorecard/entry.created"
+  // Accountability Chart events (triggers team sync)
+  | "accountability-chart/changed";
 
 /**
  * Base payload structure for integration events.

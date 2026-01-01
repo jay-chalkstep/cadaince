@@ -32,6 +32,7 @@ interface CreateIssueDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreated: () => void;
+  defaultTeamId?: string;
 }
 
 const priorityConfig = {
@@ -44,6 +45,7 @@ export function CreateIssueDialog({
   open,
   onOpenChange,
   onCreated,
+  defaultTeamId,
 }: CreateIssueDialogProps) {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(false);
@@ -96,6 +98,7 @@ export function CreateIssueDialog({
           description: description || null,
           owner_id: ownerId || null,
           priority: parseInt(priority),
+          team_id: defaultTeamId || null,
         }),
       });
 

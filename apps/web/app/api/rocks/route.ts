@@ -19,6 +19,7 @@ export async function GET(req: Request) {
   const level = searchParams.get("level"); // company, pillar, individual
   const parentId = searchParams.get("parent_id");
   const pillarId = searchParams.get("pillar_id");
+  const teamId = searchParams.get("team_id");
   const includeChildren = searchParams.get("include") === "children";
 
   const supabase = createAdminClient();
@@ -72,7 +73,8 @@ export async function GET(req: Request) {
       owner:profiles!owner_id(id, full_name, avatar_url, title),
       pillar:pillars!pillar_id(id, name, color),
       parent:rocks!parent_rock_id(id, title, rock_level),
-      quarter:quarters!quarter_id(id, year, quarter, planning_status)
+      quarter:quarters!quarter_id(id, year, quarter, planning_status),
+      team:teams!rocks_team_id_fkey(id, name, level)
     `)
     .eq("organization_id", profile.organization_id)
     .order("rock_level", { ascending: true })
@@ -103,6 +105,10 @@ export async function GET(req: Request) {
 
   if (pillarId) {
     query = query.eq("pillar_id", pillarId);
+  }
+
+  if (teamId) {
+    query = query.eq("team_id", teamId);
   }
 
   const { data: rocks, error } = await query;
@@ -187,6 +193,7 @@ export async function POST(req: Request) {
     parent_rock_id,
     pillar_id,
     linked_metric_id,
+    team_id,
   } = body;
 
   // Handle quarter/year conversion
@@ -333,6 +340,7 @@ export async function POST(req: Request) {
       parent_rock_id,
       pillar_id,
       linked_metric_id,
+      team_id: team_id || null,
     })
     .select(`
       *,

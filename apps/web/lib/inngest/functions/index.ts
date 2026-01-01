@@ -12,10 +12,14 @@ import { remarkableFunctions } from "./remarkable";
 // Automations framework
 import { automationFunctions } from "./automations";
 
+// Team sync (from Accountability Chart)
+import { teamSyncFunctions } from "./team-sync";
+
 // Export all functions for Inngest
 export const functions = [
   ...calendarFunctions,
   ...slackFunctions,
   ...remarkableFunctions,
   ...automationFunctions,
+  ...teamSyncFunctions,
 ];

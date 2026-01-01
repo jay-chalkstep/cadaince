@@ -3,11 +3,15 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
 // GET /api/metrics - List all metrics with current values for user's organization
-export async function GET() {
+export async function GET(req: Request) {
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const { searchParams } = new URL(req.url);
+  const teamId = searchParams.get("team_id");
+  const ownerId = searchParams.get("owner_id");
 
   const supabase = createAdminClient();
 
@@ -23,15 +27,26 @@ export async function GET() {
   }
 
   // Get all metrics with owner info for user's organization
-  const { data: metrics, error } = await supabase
+  let query = supabase
     .from("metrics")
     .select(`
       *,
-      owner:profiles!metrics_owner_id_fkey(id, full_name, avatar_url)
+      owner:profiles!metrics_owner_id_fkey(id, full_name, avatar_url),
+      team:teams!metrics_team_id_fkey(id, name, level)
     `)
     .eq("organization_id", currentUser.organization_id)
     .order("display_order", { ascending: true, nullsFirst: false })
     .order("created_at", { ascending: true });
+
+  if (teamId) {
+    query = query.eq("team_id", teamId);
+  }
+
+  if (ownerId) {
+    query = query.eq("owner_id", ownerId);
+  }
+
+  const { data: metrics, error } = await query;
 
   if (error) {
     console.error("Error fetching metrics:", error);
@@ -214,6 +229,8 @@ export async function POST(req: Request) {
     // For calculated metrics
     formula,
     formula_references,
+    // For team scoping
+    team_id,
   } = body;
 
   if (!name || !owner_id) {
@@ -275,6 +292,7 @@ export async function POST(req: Request) {
     display_order,
     metric_type: effectiveMetricType,
     organization_id: profile.organization_id,
+    team_id: team_id || null,
   };
 
   // Add fields based on metric type

@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
+import { emitIntegrationEvent } from "@/lib/inngest/emit";
 
 // POST /api/accountability-chart/seats - Create a new seat
 export async function POST(req: Request) {
@@ -100,6 +101,13 @@ export async function POST(req: Request) {
     console.error("Error creating seat:", error);
     return NextResponse.json({ error: "Failed to create seat" }, { status: 500 });
   }
+
+  // Emit event to trigger team sync
+  await emitIntegrationEvent("accountability-chart/changed", {
+    organization_id: profile.organization_id,
+    action: "seat_created",
+    seat_id: seat.id,
+  });
 
   return NextResponse.json(seat, { status: 201 });
 }

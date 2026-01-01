@@ -23,12 +23,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { CommentThread } from "@/components/comments/comment-thread";
+import { EscalateButton, EscalationChain } from "@/components/issues/escalate-button";
 
 interface Issue {
   id: string;
   title: string;
   description: string | null;
-  status: "open" | "resolved";
+  status: "open" | "resolved" | "escalated";
   priority: number;
   created_at: string;
   resolved_at: string | null;
@@ -43,6 +44,15 @@ interface Issue {
     full_name: string;
     avatar_url: string | null;
   } | null;
+  team?: {
+    id: string;
+    name: string;
+    parent_team?: {
+      id: string;
+      name: string;
+    } | null;
+  } | null;
+  escalated_to_issue_id?: string | null;
 }
 
 interface IssueDetailSheetProps {
@@ -184,14 +194,46 @@ export function IssueDetailSheet({
         </SheetHeader>
 
         <div className="mt-6 space-y-6">
-          {/* Status Badge */}
-          <div className="flex items-center gap-2">
-            {issue.status === "resolved" ? (
-              <Badge variant="default" className="bg-green-600">Resolved</Badge>
-            ) : (
-              <Badge variant="outline">Open</Badge>
+          {/* Status and Actions */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {issue.status === "resolved" ? (
+                <Badge variant="default" className="bg-green-600">Resolved</Badge>
+              ) : issue.status === "escalated" ? (
+                <Badge variant="default" className="bg-amber-600">Escalated</Badge>
+              ) : (
+                <Badge variant="outline">Open</Badge>
+              )}
+              {issue.team && (
+                <Badge variant="secondary">{issue.team.name}</Badge>
+              )}
+            </div>
+
+            {/* Escalation */}
+            {issue.status === "open" && issue.team?.parent_team && (
+              <EscalateButton
+                issueId={issue.id}
+                issueTitle={issue.title}
+                currentTeamName={issue.team.name}
+                parentTeamName={issue.team.parent_team.name}
+                canEscalate={true}
+                isEscalated={false}
+                onEscalated={() => onUpdate()}
+              />
+            )}
+            {issue.status === "escalated" && (
+              <EscalateButton
+                issueId={issue.id}
+                issueTitle={issue.title}
+                isEscalated={true}
+              />
             )}
           </div>
+
+          {/* Escalation Chain */}
+          {(issue.status === "escalated" || issue.escalated_to_issue_id) && (
+            <EscalationChain issueId={issue.id} />
+          )}
 
           {/* Priority */}
           <div className="space-y-2">

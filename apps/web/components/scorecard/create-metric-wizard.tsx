@@ -42,6 +42,7 @@ interface CreateMetricWizardProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreated: () => void;
+  defaultTeamId?: string;
 }
 
 type Step = "path" | "manual" | "select-source" | "configure-windows" | "set-goals" | "preview";
@@ -62,6 +63,7 @@ export function CreateMetricWizard({
   open,
   onOpenChange,
   onCreated,
+  defaultTeamId,
 }: CreateMetricWizardProps) {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [dataSources, setDataSources] = useState<DataSource[]>([]);
@@ -198,6 +200,7 @@ export function CreateMetricWizard({
           threshold_red: thresholdRed ? parseFloat(thresholdRed) : null,
           threshold_yellow: thresholdYellow ? parseFloat(thresholdYellow) : null,
           metric_type: "manual",
+          team_id: defaultTeamId || null,
         }),
       });
 
@@ -264,6 +267,7 @@ export function CreateMetricWizard({
           threshold_red: windowType === "single" && thresholdsByWindow[singleWindow]?.red ? parseFloat(thresholdsByWindow[singleWindow].red) : null,
           threshold_yellow: windowType === "single" && thresholdsByWindow[singleWindow]?.yellow ? parseFloat(thresholdsByWindow[singleWindow].yellow) : null,
           sync_frequency: syncFrequency,
+          team_id: defaultTeamId || null,
         }),
       });
 

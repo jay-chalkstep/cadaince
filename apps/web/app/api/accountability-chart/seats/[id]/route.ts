@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
+import { emitIntegrationEvent } from "@/lib/inngest/emit";
 
 // GET /api/accountability-chart/seats/:id - Get single seat
 export async function GET(
@@ -170,6 +171,17 @@ export async function PATCH(
     return NextResponse.json({ error: "Failed to update seat" }, { status: 500 });
   }
 
+  // Emit event to trigger team sync (only for hierarchy-affecting changes)
+  const hierarchyFields = ["name", "parent_seat_id", "eos_role", "pillar_id"];
+  const hasHierarchyChanges = hierarchyFields.some((f) => f in updateData);
+  if (hasHierarchyChanges) {
+    await emitIntegrationEvent("accountability-chart/changed", {
+      organization_id: profile.organization_id,
+      action: "seat_updated",
+      seat_id: id,
+    });
+  }
+
   return NextResponse.json(seat);
 }
 
@@ -225,6 +237,13 @@ export async function DELETE(
     console.error("Error deleting seat:", error);
     return NextResponse.json({ error: "Failed to delete seat" }, { status: 500 });
   }
+
+  // Emit event to trigger team sync
+  await emitIntegrationEvent("accountability-chart/changed", {
+    organization_id: profile.organization_id,
+    action: "seat_deleted",
+    seat_id: id,
+  });
 
   return NextResponse.json({ success: true });
 }

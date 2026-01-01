@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ParentRockSelector } from "./parent-rock-selector";
 
 interface Profile {
   id: string;
@@ -38,6 +39,7 @@ interface CreateRockDialogProps {
   onCreated: () => void;
   defaultQuarter: number;
   defaultYear: number;
+  defaultTeamId?: string;
 }
 
 export function CreateRockDialog({
@@ -46,6 +48,7 @@ export function CreateRockDialog({
   onCreated,
   defaultQuarter,
   defaultYear,
+  defaultTeamId,
 }: CreateRockDialogProps) {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [pillars, setPillars] = useState<Pillar[]>([]);
@@ -58,6 +61,8 @@ export function CreateRockDialog({
   const [pillarId, setPillarId] = useState("");
   const [quarter, setQuarter] = useState(defaultQuarter.toString());
   const [year, setYear] = useState(defaultYear.toString());
+  const [rockLevel, setRockLevel] = useState<"company" | "pillar" | "individual">("company");
+  const [parentRockId, setParentRockId] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -97,6 +102,8 @@ export function CreateRockDialog({
     setPillarId("");
     setQuarter(defaultQuarter.toString());
     setYear(defaultYear.toString());
+    setRockLevel("company");
+    setParentRockId(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -115,6 +122,9 @@ export function CreateRockDialog({
           pillar_id: pillarId || null,
           quarter: parseInt(quarter),
           year: parseInt(year),
+          rock_level: rockLevel,
+          parent_rock_id: parentRockId,
+          team_id: defaultTeamId || null,
         }),
       });
 
@@ -185,6 +195,40 @@ export function CreateRockDialog({
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="rock_level">Rock Level</Label>
+              <Select
+                value={rockLevel}
+                onValueChange={(v) => {
+                  setRockLevel(v as "company" | "pillar" | "individual");
+                  // Reset parent when changing level
+                  setParentRockId(null);
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="company">Company Rock</SelectItem>
+                  <SelectItem value="pillar">Pillar Rock</SelectItem>
+                  <SelectItem value="individual">Individual Rock</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {rockLevel !== "company" && (
+              <div className="space-y-2">
+                <Label htmlFor="parent_rock">
+                  Parent {rockLevel === "pillar" ? "Company" : "Pillar"} Rock
+                </Label>
+                <ParentRockSelector
+                  value={parentRockId}
+                  onChange={setParentRockId}
+                  rockLevel={rockLevel}
+                />
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="pillar">Pillar</Label>

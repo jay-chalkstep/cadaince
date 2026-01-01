@@ -32,6 +32,7 @@ interface CreateTodoDialogProps {
   onOpenChange: (open: boolean) => void;
   onCreated: () => void;
   defaultVisibility?: "private" | "team";
+  defaultTeamId?: string;
 }
 
 export function CreateTodoDialog({
@@ -39,6 +40,7 @@ export function CreateTodoDialog({
   onOpenChange,
   onCreated,
   defaultVisibility = "team",
+  defaultTeamId,
 }: CreateTodoDialogProps) {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(false);
@@ -99,6 +101,7 @@ export function CreateTodoDialog({
           owner_id: ownerId && ownerId !== "__me__" ? ownerId : null,
           due_date: dueDate || null,
           visibility,
+          team_id: defaultTeamId || null,
         }),
       });
 

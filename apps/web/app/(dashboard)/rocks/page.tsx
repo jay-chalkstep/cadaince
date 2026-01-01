@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Mountain, Loader2 } from "lucide-react";
+import { Plus, Mountain, Loader2, LayoutList, GitBranch } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,8 +14,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RockDetailSheet } from "@/components/rocks/rock-detail-sheet";
 import { CreateRockDialog } from "@/components/rocks/create-rock-dialog";
+import { RockCascadeTree, CascadeRock } from "@/components/rocks/rock-cascade-tree";
+import { RockChildrenIndicator } from "@/components/rocks/rock-cascade-tree";
 
 interface Rock {
   id: string;
@@ -52,6 +55,7 @@ export default function RocksPage() {
   const [selectedRock, setSelectedRock] = useState<Rock | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [view, setView] = useState<"list" | "cascade">("list");
 
   // Default to current quarter/year
   const now = new Date();
@@ -103,6 +107,22 @@ export default function RocksPage() {
 
   const statusOrder: Rock["status"][] = ["on_track", "not_started", "off_track", "complete"];
 
+  const handleCascadeRockClick = (rock: CascadeRock) => {
+    // Convert CascadeRock to Rock format for the detail sheet
+    setSelectedRock({
+      id: rock.id,
+      name: rock.title,
+      title: rock.title,
+      description: null,
+      status: rock.status,
+      quarter: parseInt(quarter),
+      year: parseInt(year),
+      owner: rock.owner || null,
+      pillar: null,
+    });
+    setSheetOpen(true);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -143,6 +163,24 @@ export default function RocksPage() {
         </div>
       </div>
 
+      {/* View Toggle */}
+      <Tabs value={view} onValueChange={(v) => setView(v as "list" | "cascade")}>
+        <TabsList>
+          <TabsTrigger value="list" className="gap-2">
+            <LayoutList className="h-4 w-4" />
+            List View
+          </TabsTrigger>
+          <TabsTrigger value="cascade" className="gap-2">
+            <GitBranch className="h-4 w-4" />
+            Cascade View
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="cascade" className="mt-6">
+          <RockCascadeTree onRockClick={handleCascadeRockClick} />
+        </TabsContent>
+
+        <TabsContent value="list" className="mt-6">
       {loading ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
@@ -234,6 +272,8 @@ export default function RocksPage() {
           })}
         </div>
       )}
+        </TabsContent>
+      </Tabs>
 
       <RockDetailSheet
         rock={selectedRock}
