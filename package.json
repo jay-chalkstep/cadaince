@@ -12,5 +12,11 @@
   },
   "devDependencies": {
     "typescript": "^5"
+  },
+  "dependencies": {
+    "@tisoap/react-flow-smart-edge": "^4.0.1",
+    "@types/dagre": "^0.7.53",
+    "@xyflow/react": "^12.10.0",
+    "dagre": "^0.8.5"
   }
 }
