@@ -25,14 +25,24 @@ import {
 
 /**
  * Custom handle style for visible connection points (like Visio)
- * Always visible with proper z-index to ensure handles are clickable
+ * Using bright colors and large size for visibility debugging
  */
-const handleStyle = {
-  width: 10,
-  height: 10,
-  background: "hsl(var(--primary))",
-  border: "2px solid hsl(var(--background))",
-  zIndex: 10,
+const topHandleStyle: React.CSSProperties = {
+  width: 16,
+  height: 16,
+  background: "#22c55e", // Bright green - target handle
+  border: "3px solid #ffffff",
+  borderRadius: "50%",
+  zIndex: 100,
+};
+
+const bottomHandleStyle: React.CSSProperties = {
+  width: 16,
+  height: 16,
+  background: "#3b82f6", // Bright blue - source handle
+  border: "3px solid #ffffff",
+  borderRadius: "50%",
+  zIndex: 100,
 };
 
 /**
@@ -91,8 +101,7 @@ function SeatNodeComponent({ data, selected }: NodeProps<SeatNodeType>) {
         isConnectable={true}
         isConnectableStart={false}
         isConnectableEnd={true}
-        style={handleStyle}
-        className="hover:!bg-green-500 hover:scale-125 transition-transform cursor-crosshair"
+        style={topHandleStyle}
       />
 
       <Card
@@ -341,8 +350,7 @@ function SeatNodeComponent({ data, selected }: NodeProps<SeatNodeType>) {
         isConnectable={true}
         isConnectableStart={true}
         isConnectableEnd={false}
-        style={handleStyle}
-        className="hover:!bg-blue-500 hover:scale-125 transition-transform cursor-crosshair"
+        style={bottomHandleStyle}
       />
     </div>
   );

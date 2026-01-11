@@ -221,11 +221,11 @@ export function seatsToEdges(seats: Seat[]): ChartEdge[] {
         targetHandle: "top",
         type: "smoothstep",
         style: {
-          stroke: "hsl(var(--border))",
-          strokeWidth: 2,
+          stroke: "#ff0000", // BRIGHT RED for debugging
+          strokeWidth: 4,   // THICK for visibility
         },
         data: { type: "solid" },
-        animated: false,
+        animated: true, // Enable animation to make it obvious
       });
     }
 

@@ -141,43 +141,48 @@
    React Flow - Accountability Chart Styles
    ============================================ */
 
+/* Force edge visibility - DEBUG */
+.react-flow__edges {
+  z-index: 1 !important;
+}
+
+.react-flow__edge {
+  pointer-events: all !important;
+}
+
+.react-flow__edge-path {
+  stroke: #ff0000 !important;
+  stroke-width: 4px !important;
+  stroke-opacity: 1 !important;
+}
+
 /* Handle visibility - always visible */
 .react-flow__handle {
   visibility: visible !important;
   opacity: 1 !important;
+  pointer-events: all !important;
 }
 
-.react-flow__handle-top,
+.react-flow__handle-top {
+  width: 16px !important;
+  height: 16px !important;
+  background: #22c55e !important;
+  border: 3px solid #ffffff !important;
+  border-radius: 50% !important;
+  z-index: 100 !important;
+}
+
 .react-flow__handle-bottom {
-  width: 10px;
-  height: 10px;
-  background: hsl(var(--primary));
-  border: 2px solid hsl(var(--background));
-  border-radius: 50%;
-  z-index: 10;
+  width: 16px !important;
+  height: 16px !important;
+  background: #3b82f6 !important;
+  border: 3px solid #ffffff !important;
+  border-radius: 50% !important;
+  z-index: 100 !important;
 }
 
 .react-flow__handle:hover {
   transform: scale(1.25);
-}
-
-.react-flow__handle-top:hover {
-  background: hsl(142 76% 36%); /* green */
-}
-
-.react-flow__handle-bottom:hover {
-  background: hsl(217 91% 60%); /* blue */
-}
-
-/* Edge visibility */
-.react-flow__edge-path {
-  stroke: hsl(var(--border));
-  stroke-width: 2;
-}
-
-.react-flow__edge.selected .react-flow__edge-path {
-  stroke: hsl(var(--primary));
-  stroke-width: 3;
 }
 
 /* Connection line (while dragging) */
