@@ -19,7 +19,8 @@ export async function GET(req: Request) {
   const level = searchParams.get("level"); // company, pillar, individual
   const parentId = searchParams.get("parent_id");
   const pillarId = searchParams.get("pillar_id");
-  const teamId = searchParams.get("team_id");
+  const governanceBodyId = searchParams.get("governance_body_id"); // For company rocks
+  const teamId = searchParams.get("team_id"); // DEPRECATED: use pillar_id or governance_body_id
   const includeChildren = searchParams.get("include") === "children";
 
   const supabase = createAdminClient();
@@ -74,6 +75,7 @@ export async function GET(req: Request) {
       pillar:pillars!pillar_id(id, name, color),
       parent:rocks!parent_rock_id(id, title, rock_level),
       quarter:quarters!quarter_id(id, year, quarter, planning_status),
+      governance_body:governance_bodies!rocks_governance_body_id_fkey(id, name, body_type),
       team:teams!rocks_team_id_fkey(id, name, level)
     `)
     .eq("organization_id", profile.organization_id)
@@ -107,6 +109,11 @@ export async function GET(req: Request) {
     query = query.eq("pillar_id", pillarId);
   }
 
+  if (governanceBodyId) {
+    query = query.eq("governance_body_id", governanceBodyId);
+  }
+
+  // DEPRECATED: team_id filter - use pillar_id or governance_body_id instead
   if (teamId) {
     query = query.eq("team_id", teamId);
   }
@@ -192,8 +199,9 @@ export async function POST(req: Request) {
     rock_level,
     parent_rock_id,
     pillar_id,
+    governance_body_id, // For company rocks owned by ELT/SLT
     linked_metric_id,
-    team_id,
+    team_id, // DEPRECATED: use pillar_id or governance_body_id
   } = body;
 
   // Handle quarter/year conversion
@@ -339,15 +347,17 @@ export async function POST(req: Request) {
       rock_level: determinedLevel,
       parent_rock_id,
       pillar_id,
+      governance_body_id: governance_body_id || null, // For company rocks
       linked_metric_id,
-      team_id: team_id || null,
+      team_id: team_id || null, // DEPRECATED
     })
     .select(`
       *,
       owner:profiles!owner_id(id, full_name, avatar_url, title),
       pillar:pillars!pillar_id(id, name, color),
       parent:rocks!parent_rock_id(id, title, rock_level),
-      quarter:quarters!quarter_id(id, year, quarter, planning_status)
+      quarter:quarters!quarter_id(id, year, quarter, planning_status),
+      governance_body:governance_bodies!rocks_governance_body_id_fkey(id, name, body_type)
     `)
     .single();
 

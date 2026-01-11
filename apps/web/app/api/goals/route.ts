@@ -6,7 +6,8 @@ import { NextResponse } from "next/server";
  * GET /api/goals - List individual goals
  *
  * Query params:
- * - team_id: Filter by team
+ * - pillar_id: Filter by pillar (preferred)
+ * - team_id: DEPRECATED - use pillar_id
  * - owner_id: Filter by owner
  * - rock_id: Filter by parent rock
  * - status: Filter by status (on_track, off_track, complete)
@@ -30,7 +31,8 @@ export async function GET(req: Request) {
   }
 
   const url = new URL(req.url);
-  const team_id = url.searchParams.get("team_id");
+  const pillar_id = url.searchParams.get("pillar_id");
+  const team_id = url.searchParams.get("team_id"); // DEPRECATED: use pillar_id
   const owner_id = url.searchParams.get("owner_id");
   const rock_id = url.searchParams.get("rock_id");
   const status = url.searchParams.get("status");
@@ -49,9 +51,11 @@ export async function GET(req: Request) {
       status,
       created_at,
       updated_at,
+      pillar_id,
       team_id,
       rock_id,
       owner_id,
+      pillar:pillars!individual_goals_pillar_id_fkey(id, name, color),
       team:teams!individual_goals_team_id_fkey(id, name, level),
       rock:rocks!individual_goals_rock_id_fkey(id, title, status),
       owner:profiles!individual_goals_owner_id_fkey(id, full_name, avatar_url)
@@ -60,6 +64,12 @@ export async function GET(req: Request) {
     .order("due_date", { ascending: true, nullsFirst: false })
     .order("created_at", { ascending: false });
 
+  // Filter by pillar (preferred)
+  if (pillar_id) {
+    query = query.eq("pillar_id", pillar_id);
+  }
+
+  // DEPRECATED: team_id filter - use pillar_id instead
   if (team_id) {
     query = query.eq("team_id", team_id);
   }
@@ -129,7 +139,8 @@ export async function POST(req: Request) {
     current_value,
     unit,
     due_date,
-    team_id,
+    pillar_id,
+    team_id, // DEPRECATED: use pillar_id
     rock_id,
     owner_id,
     status,
@@ -139,20 +150,37 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Title is required" }, { status: 400 });
   }
 
-  if (!team_id) {
-    return NextResponse.json({ error: "Team is required" }, { status: 400 });
+  // Pillar is required (or team_id for backwards compatibility)
+  if (!pillar_id && !team_id) {
+    return NextResponse.json({ error: "Pillar is required" }, { status: 400 });
   }
 
-  // Verify team exists in org
-  const { data: team } = await supabase
-    .from("teams")
-    .select("id")
-    .eq("id", team_id)
-    .eq("organization_id", profile.organization_id)
-    .single();
+  // Verify pillar exists in org
+  if (pillar_id) {
+    const { data: pillar } = await supabase
+      .from("pillars")
+      .select("id")
+      .eq("id", pillar_id)
+      .eq("organization_id", profile.organization_id)
+      .single();
 
-  if (!team) {
-    return NextResponse.json({ error: "Team not found" }, { status: 404 });
+    if (!pillar) {
+      return NextResponse.json({ error: "Pillar not found" }, { status: 404 });
+    }
+  }
+
+  // DEPRECATED: Verify team exists in org (for backwards compatibility)
+  if (team_id) {
+    const { data: team } = await supabase
+      .from("teams")
+      .select("id")
+      .eq("id", team_id)
+      .eq("organization_id", profile.organization_id)
+      .single();
+
+    if (!team) {
+      return NextResponse.json({ error: "Team not found" }, { status: 404 });
+    }
   }
 
   // If rock_id provided, verify it exists in org
@@ -181,7 +209,8 @@ export async function POST(req: Request) {
     .from("individual_goals")
     .insert({
       organization_id: profile.organization_id,
-      team_id,
+      pillar_id: pillar_id || null,
+      team_id: team_id || null, // DEPRECATED: use pillar_id
       rock_id: rock_id || null,
       owner_id: goalOwnerId,
       title,
@@ -202,6 +231,7 @@ export async function POST(req: Request) {
       due_date,
       status,
       created_at,
+      pillar:pillars!individual_goals_pillar_id_fkey(id, name, color),
       team:teams!individual_goals_team_id_fkey(id, name),
       rock:rocks!individual_goals_rock_id_fkey(id, title),
       owner:profiles!individual_goals_owner_id_fkey(id, full_name, avatar_url)

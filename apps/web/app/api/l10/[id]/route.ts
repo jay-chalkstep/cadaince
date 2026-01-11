@@ -21,7 +21,9 @@ export async function GET(
     .from("l10_meetings")
     .select(`
       *,
-      created_by_profile:profiles!l10_meetings_created_by_fkey(id, full_name, avatar_url)
+      created_by_profile:profiles!l10_meetings_created_by_fkey(id, full_name, avatar_url),
+      governance_body:governance_bodies!l10_meetings_governance_body_id_fkey(id, name, body_type),
+      pillar:pillars!l10_meetings_pillar_id_fkey(id, name, color)
     `)
     .eq("id", id)
     .single();
@@ -123,6 +125,8 @@ export async function PUT(
     notes,
     headlines,
     cascading_messages,
+    governance_body_id,
+    pillar_id,
   } = body;
 
   const updates: Record<string, unknown> = {};
@@ -134,6 +138,8 @@ export async function PUT(
   if (notes !== undefined) updates.notes = notes;
   if (headlines !== undefined) updates.headlines = headlines;
   if (cascading_messages !== undefined) updates.cascading_messages = cascading_messages;
+  if (governance_body_id !== undefined) updates.governance_body_id = governance_body_id;
+  if (pillar_id !== undefined) updates.pillar_id = pillar_id;
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
@@ -145,7 +151,9 @@ export async function PUT(
     .eq("id", id)
     .select(`
       *,
-      created_by_profile:profiles!l10_meetings_created_by_fkey(id, full_name, avatar_url)
+      created_by_profile:profiles!l10_meetings_created_by_fkey(id, full_name, avatar_url),
+      governance_body:governance_bodies!l10_meetings_governance_body_id_fkey(id, name, body_type),
+      pillar:pillars!l10_meetings_pillar_id_fkey(id, name, color)
     `)
     .single();
 

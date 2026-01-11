@@ -14,6 +14,8 @@ export async function GET(req: Request) {
   const status = searchParams.get("status");
   const limit = parseInt(searchParams.get("limit") || "20");
   const upcoming = searchParams.get("upcoming") === "true";
+  const governanceBodyId = searchParams.get("governance_body_id");
+  const pillarId = searchParams.get("pillar_id");
 
   const supabase = createAdminClient();
 
@@ -32,7 +34,9 @@ export async function GET(req: Request) {
     .from("l10_meetings")
     .select(`
       *,
-      created_by_profile:profiles!l10_meetings_created_by_fkey(id, full_name, avatar_url)
+      created_by_profile:profiles!l10_meetings_created_by_fkey(id, full_name, avatar_url),
+      governance_body:governance_bodies!l10_meetings_governance_body_id_fkey(id, name, body_type),
+      pillar:pillars!l10_meetings_pillar_id_fkey(id, name, color)
     `)
     .eq("organization_id", profile.organization_id)
     .order("scheduled_at", { ascending: upcoming });
@@ -45,6 +49,16 @@ export async function GET(req: Request) {
     // Show meetings that are scheduled or in_progress (exclude completed/cancelled)
     // Also include past in_progress meetings that haven't been ended yet
     query = query.in("status", ["scheduled", "in_progress"]);
+  }
+
+  // Filter by governance body (for leadership L10s)
+  if (governanceBodyId) {
+    query = query.eq("governance_body_id", governanceBodyId);
+  }
+
+  // Filter by pillar (for pillar L10s)
+  if (pillarId) {
+    query = query.eq("pillar_id", pillarId);
   }
 
   query = query.limit(limit);
@@ -85,7 +99,7 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json();
-  const { title, meeting_type, scheduled_at, attendee_ids } = body;
+  const { title, meeting_type, scheduled_at, attendee_ids, governance_body_id, pillar_id } = body;
 
   if (!title || !scheduled_at) {
     return NextResponse.json(
@@ -103,10 +117,14 @@ export async function POST(req: Request) {
       scheduled_at,
       created_by: profile.id,
       organization_id: profile.organization_id,
+      governance_body_id: governance_body_id || null,
+      pillar_id: pillar_id || null,
     })
     .select(`
       *,
-      created_by_profile:profiles!l10_meetings_created_by_fkey(id, full_name, avatar_url)
+      created_by_profile:profiles!l10_meetings_created_by_fkey(id, full_name, avatar_url),
+      governance_body:governance_bodies!l10_meetings_governance_body_id_fkey(id, name, body_type),
+      pillar:pillars!l10_meetings_pillar_id_fkey(id, name, color)
     `)
     .single();
 

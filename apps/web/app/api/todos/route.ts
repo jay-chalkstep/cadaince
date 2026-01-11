@@ -16,7 +16,8 @@ export async function GET(req: Request) {
   const mine = searchParams.get("mine");
   const visibility = searchParams.get("visibility"); // private, team, or all
   const meetingId = searchParams.get("meeting_id");
-  const teamId = searchParams.get("team_id");
+  const pillarId = searchParams.get("pillar_id");
+  const teamId = searchParams.get("team_id"); // DEPRECATED: use pillar_id
 
   const supabase = createAdminClient();
 
@@ -37,6 +38,7 @@ export async function GET(req: Request) {
       *,
       owner:profiles!todos_owner_id_fkey(id, full_name, avatar_url),
       created_by_profile:profiles!todos_created_by_fkey(id, full_name, avatar_url),
+      pillar:pillars!todos_pillar_id_fkey(id, name, color),
       team:teams!todos_team_id_fkey(id, name)
     `)
     .eq("organization_id", profile.organization_id)
@@ -77,7 +79,12 @@ export async function GET(req: Request) {
     query = query.eq("meeting_id", meetingId);
   }
 
-  // Filter by team
+  // Filter by pillar
+  if (pillarId) {
+    query = query.eq("pillar_id", pillarId);
+  }
+
+  // DEPRECATED: team_id filter - use pillar_id instead
   if (teamId) {
     query = query.eq("team_id", teamId);
   }
@@ -128,7 +135,18 @@ export async function POST(req: Request) {
     .single();
 
   const body = await req.json();
-  const { title, description, owner_id, due_date, linked_rock_id, linked_issue_id, visibility, meeting_id, team_id } = body;
+  const {
+    title,
+    description,
+    owner_id,
+    due_date,
+    linked_rock_id,
+    linked_issue_id,
+    visibility,
+    meeting_id,
+    pillar_id,
+    team_id, // DEPRECATED: use pillar_id
+  } = body;
 
   if (!title) {
     return NextResponse.json(
@@ -155,12 +173,14 @@ export async function POST(req: Request) {
       visibility: visibility || "team", // Default to team visibility
       meeting_id: meeting_id || null,
       organization_id: profileWithOrg?.organization_id,
-      team_id: team_id || null,
+      pillar_id: pillar_id || null,
+      team_id: team_id || null, // DEPRECATED: use pillar_id
     })
     .select(`
       *,
       owner:profiles!todos_owner_id_fkey(id, full_name, avatar_url),
-      created_by_profile:profiles!todos_created_by_fkey(id, full_name, avatar_url)
+      created_by_profile:profiles!todos_created_by_fkey(id, full_name, avatar_url),
+      pillar:pillars!todos_pillar_id_fkey(id, name, color)
     `)
     .single();
 

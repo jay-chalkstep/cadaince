@@ -14,7 +14,9 @@ export async function GET(req: Request) {
   const status = searchParams.get("status");
   const priority = searchParams.get("priority");
   const ownerId = searchParams.get("owner_id");
-  const teamId = searchParams.get("team_id");
+  const pillarId = searchParams.get("pillar_id");
+  const governanceBodyId = searchParams.get("governance_body_id");
+  const teamId = searchParams.get("team_id"); // DEPRECATED: use pillar_id or governance_body_id
 
   const supabase = createAdminClient();
 
@@ -37,6 +39,8 @@ export async function GET(req: Request) {
       owner:profiles!issues_owner_id_fkey(id, full_name, avatar_url),
       raised_by_profile:profiles!issues_raised_by_fkey(id, full_name, avatar_url),
       created_by_profile:profiles!issues_created_by_fkey(id, full_name, avatar_url),
+      pillar:pillars!issues_pillar_id_fkey(id, name, color),
+      governance_body:governance_bodies!issues_governance_body_id_fkey(id, name, body_type),
       team:teams!issues_team_id_fkey(id, name, parent_team_id)
     `)
     .eq("organization_id", profile.organization_id)
@@ -57,6 +61,15 @@ export async function GET(req: Request) {
     query = query.eq("owner_id", ownerId);
   }
 
+  if (pillarId) {
+    query = query.eq("pillar_id", pillarId);
+  }
+
+  if (governanceBodyId) {
+    query = query.eq("governance_body_id", governanceBodyId);
+  }
+
+  // DEPRECATED: team_id filter - use pillar_id or governance_body_id instead
   if (teamId) {
     query = query.eq("team_id", teamId);
   }
@@ -96,7 +109,16 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json();
-  const { title, description, owner_id, priority, linked_rock_id, team_id } = body;
+  const {
+    title,
+    description,
+    owner_id,
+    priority,
+    linked_rock_id,
+    pillar_id,
+    governance_body_id,
+    team_id, // DEPRECATED: use pillar_id or governance_body_id
+  } = body;
 
   if (!title) {
     return NextResponse.json(
@@ -118,12 +140,16 @@ export async function POST(req: Request) {
       priority: priority || 2, // Default to medium priority
       status: "open",
       linked_rock_id: linked_rock_id || null,
-      team_id: team_id || null,
+      pillar_id: pillar_id || null,
+      governance_body_id: governance_body_id || null,
+      team_id: team_id || null, // DEPRECATED
     })
     .select(`
       *,
       owner:profiles!issues_owner_id_fkey(id, full_name, avatar_url),
-      created_by_profile:profiles!issues_created_by_fkey(id, full_name, avatar_url)
+      created_by_profile:profiles!issues_created_by_fkey(id, full_name, avatar_url),
+      pillar:pillars!issues_pillar_id_fkey(id, name, color),
+      governance_body:governance_bodies!issues_governance_body_id_fkey(id, name, body_type)
     `)
     .single();
 

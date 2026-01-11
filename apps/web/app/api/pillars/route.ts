@@ -3,7 +3,7 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
 // GET /api/pillars - List all pillars for the user's organization
-export async function GET() {
+export async function GET(req: Request) {
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -22,6 +22,9 @@ export async function GET() {
     return NextResponse.json([]);
   }
 
+  const url = new URL(req.url);
+  const includeMembers = url.searchParams.get("include_members") === "true";
+
   const { data: pillars, error } = await supabase
     .from("pillars")
     .select(`
@@ -31,7 +34,13 @@ export async function GET() {
       description,
       color,
       sort_order,
-      leader:profiles!pillars_leader_id_fkey(id, full_name, avatar_url)
+      anchor_seat_id,
+      leader:profiles!pillars_leader_id_fkey(id, full_name, avatar_url),
+      anchor_seat:seats!pillars_anchor_seat_id_fkey(
+        id,
+        name,
+        eos_role
+      )
     `)
     .eq("organization_id", profile.organization_id)
     .order("sort_order", { ascending: true, nullsFirst: false })
@@ -42,23 +51,48 @@ export async function GET() {
     return NextResponse.json({ error: "Failed to fetch pillars" }, { status: 500 });
   }
 
-  // Get member count for each pillar
-  const pillarsWithCounts = await Promise.all(
+  // Get member counts and optionally full members for each pillar
+  const pillarsWithData = await Promise.all(
     pillars.map(async (pillar) => {
-      const { count } = await supabase
+      // Get computed members from pillar_memberships view
+      const { data: computedMembers, count: computedCount } = await supabase
+        .from("pillar_memberships")
+        .select("profile_id, is_lead", { count: "exact" })
+        .eq("pillar_id", pillar.id);
+
+      // Fallback: also count legacy profiles.pillar_id members
+      const { count: legacyCount } = await supabase
         .from("profiles")
         .select("*", { count: "exact", head: true })
         .eq("pillar_id", pillar.id)
         .eq("status", "active");
 
+      const member_count = Math.max(computedCount || 0, legacyCount || 0);
+
+      // If including full members, fetch profile details
+      let computed_members = undefined;
+      if (includeMembers && computedMembers && computedMembers.length > 0) {
+        const profileIds = computedMembers.map(m => m.profile_id);
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, full_name, avatar_url, title")
+          .in("id", profileIds);
+
+        computed_members = computedMembers.map(m => ({
+          ...m,
+          profile: profiles?.find(p => p.id === m.profile_id),
+        }));
+      }
+
       return {
         ...pillar,
-        member_count: count || 0,
+        member_count,
+        computed_members,
       };
     })
   );
 
-  return NextResponse.json(pillarsWithCounts);
+  return NextResponse.json(pillarsWithData);
 }
 
 // POST /api/pillars - Create a new pillar (admin only)
@@ -86,7 +120,7 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json();
-  const { name, slug, description, color, sort_order, leader_id } = body;
+  const { name, slug, description, color, sort_order, leader_id, anchor_seat_id } = body;
 
   if (!name) {
     return NextResponse.json({ error: "Name is required" }, { status: 400 });
@@ -104,6 +138,7 @@ export async function POST(req: Request) {
       color: color || "#6366F1",
       sort_order: sort_order || 0,
       leader_id,
+      anchor_seat_id,
       organization_id: profile.organization_id,
     })
     .select(`
@@ -113,7 +148,9 @@ export async function POST(req: Request) {
       description,
       color,
       sort_order,
-      leader:profiles!pillars_leader_id_fkey(id, full_name, avatar_url)
+      anchor_seat_id,
+      leader:profiles!pillars_leader_id_fkey(id, full_name, avatar_url),
+      anchor_seat:seats!pillars_anchor_seat_id_fkey(id, name, eos_role)
     `)
     .single();
 

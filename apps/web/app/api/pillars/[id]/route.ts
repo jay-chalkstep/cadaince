@@ -24,7 +24,9 @@ export async function GET(
       description,
       color,
       sort_order,
-      leader:profiles!pillars_leader_id_fkey(id, full_name, avatar_url, title)
+      anchor_seat_id,
+      leader:profiles!pillars_leader_id_fkey(id, full_name, avatar_url, title),
+      anchor_seat:seats!pillars_anchor_seat_id_fkey(id, name, eos_role)
     `)
     .eq("id", id)
     .single();
@@ -34,8 +36,39 @@ export async function GET(
     return NextResponse.json({ error: "Pillar not found" }, { status: 404 });
   }
 
-  // Get members of this pillar
-  const { data: members } = await supabase
+  // Get computed members from pillar_memberships view (derived from AC)
+  const { data: computedMemberships } = await supabase
+    .from("pillar_memberships")
+    .select("profile_id, is_lead")
+    .eq("pillar_id", id);
+
+  let computed_members: Array<{
+    profile_id: string;
+    is_lead: boolean;
+    profile: {
+      id: string;
+      full_name: string;
+      avatar_url: string | null;
+      title: string | null;
+      access_level: string;
+    } | null;
+  }> = [];
+
+  if (computedMemberships && computedMemberships.length > 0) {
+    const profileIds = computedMemberships.map(m => m.profile_id);
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("id, full_name, avatar_url, title, access_level")
+      .in("id", profileIds);
+
+    computed_members = computedMemberships.map(m => ({
+      ...m,
+      profile: profiles?.find(p => p.id === m.profile_id) || null,
+    }));
+  }
+
+  // Also get legacy members (from profiles.pillar_id)
+  const { data: legacyMembers } = await supabase
     .from("profiles")
     .select("id, full_name, avatar_url, title, role, access_level, is_pillar_lead")
     .eq("pillar_id", id)
@@ -45,7 +78,8 @@ export async function GET(
 
   return NextResponse.json({
     ...pillar,
-    members: members || [],
+    computed_members,
+    members: legacyMembers || [], // Legacy support
   });
 }
 
@@ -74,7 +108,7 @@ export async function PUT(
   }
 
   const body = await req.json();
-  const { name, slug, description, color, sort_order, leader_id } = body;
+  const { name, slug, description, color, sort_order, leader_id, anchor_seat_id } = body;
 
   const updates: Record<string, unknown> = {};
   if (name !== undefined) updates.name = name;
@@ -83,6 +117,7 @@ export async function PUT(
   if (color !== undefined) updates.color = color;
   if (sort_order !== undefined) updates.sort_order = sort_order;
   if (leader_id !== undefined) updates.leader_id = leader_id;
+  if (anchor_seat_id !== undefined) updates.anchor_seat_id = anchor_seat_id;
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
@@ -115,7 +150,9 @@ export async function PUT(
       description,
       color,
       sort_order,
-      leader:profiles!pillars_leader_id_fkey(id, full_name, avatar_url)
+      anchor_seat_id,
+      leader:profiles!pillars_leader_id_fkey(id, full_name, avatar_url),
+      anchor_seat:seats!pillars_anchor_seat_id_fkey(id, name, eos_role)
     `)
     .single();
 
