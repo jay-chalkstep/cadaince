@@ -22,12 +22,17 @@ export async function GET() {
     return NextResponse.json({ error: "Organization not found" }, { status: 404 });
   }
 
-  // Get all seats with assignments and functions
+  // Get all seats with assignments, functions, and pillars (multi-pillar support)
   const { data: seats, error } = await supabase
     .from("seats")
     .select(`
       *,
       pillar:pillars!seats_pillar_id_fkey(id, name, color),
+      seat_pillars(
+        id,
+        is_primary,
+        pillar:pillars!seat_pillars_pillar_id_fkey(id, name, color)
+      ),
       assignments:seat_assignments(
         id,
         is_primary,
@@ -64,11 +69,41 @@ export async function GET() {
     return NextResponse.json({ error: "Failed to fetch accountability chart" }, { status: 500 });
   }
 
-  // Build hierarchical structure
-  const seatsById = new Map(seats?.map(s => [s.id, { ...s, children: [] as typeof seats }]) || []);
-  const rootSeats: typeof seats = [];
+  // Transform seat_pillars into pillars array for each seat
+  const transformedSeats = seats?.map(seat => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const seatPillars = (seat as any).seat_pillars || [];
+    const pillars = seatPillars
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((sp: any) => ({
+        id: sp.pillar?.id,
+        name: sp.pillar?.name,
+        color: sp.pillar?.color,
+        is_primary: sp.is_primary,
+      }))
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .filter((p: any) => p.id) // Filter out any with missing pillar data
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .sort((a: any, b: any) => {
+        // Primary pillar first, then alphabetically
+        if (a.is_primary && !b.is_primary) return -1;
+        if (!a.is_primary && b.is_primary) return 1;
+        return a.name?.localeCompare(b.name || '') || 0;
+      });
 
-  seats?.forEach(seat => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { seat_pillars: _seatPillars, ...seatWithoutJunction } = seat as typeof seat & { seat_pillars?: unknown };
+    return {
+      ...seatWithoutJunction,
+      pillars,
+    };
+  }) || [];
+
+  // Build hierarchical structure
+  const seatsById = new Map(transformedSeats.map(s => [s.id, { ...s, children: [] as typeof transformedSeats }]));
+  const rootSeats: typeof transformedSeats = [];
+
+  transformedSeats.forEach(seat => {
     if (seat.parent_seat_id && seatsById.has(seat.parent_seat_id)) {
       seatsById.get(seat.parent_seat_id)!.children.push(seatsById.get(seat.id)!);
     } else {
@@ -78,7 +113,7 @@ export async function GET() {
 
   return NextResponse.json({
     seats: rootSeats,
-    flatSeats: seats || [],
+    flatSeats: transformedSeats,
     relationships: relationships || [],
   });
 }

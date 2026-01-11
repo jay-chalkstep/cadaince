@@ -38,6 +38,20 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { FunctionsEditor } from "./functions-editor";
+import { MultiPillarSelect } from "./multi-pillar-select";
+
+interface SeatPillar {
+  id: string;
+  name: string;
+  color: string | null;
+  is_primary: boolean;
+}
+
+interface Pillar {
+  id: string;
+  name: string;
+  color?: string | null;
+}
 
 interface Assignment {
   id: string;
@@ -79,6 +93,7 @@ interface Seat {
     name: string;
     color: string | null;
   } | null;
+  pillars?: SeatPillar[];
   roles: string[];
   seat_type?: "single" | "unit";
   eos_role?: "visionary" | "integrator" | "leader" | null;
@@ -146,6 +161,9 @@ export function SeatDetailSheet({
   const [parentSeatId, setParentSeatId] = useState<string | null>(null);
   const [descendants, setDescendants] = useState<Set<string>>(new Set());
   const [updatingParent, setUpdatingParent] = useState(false);
+  const [availablePillars, setAvailablePillars] = useState<Pillar[]>([]);
+  const [selectedPillarIds, setSelectedPillarIds] = useState<string[]>([]);
+  const [primaryPillarId, setPrimaryPillarId] = useState<string | null>(null);
 
   useEffect(() => {
     if (seat && open) {
@@ -158,8 +176,14 @@ export function SeatDetailSheet({
       setWantsIt(seat.wants_it);
       setCapacityToDo(seat.capacity_to_do);
       setParentSeatId(seat.parent_seat_id);
+      // Initialize pillar state from seat.pillars
+      const pillarIds = seat.pillars?.map(p => p.id) || [];
+      setSelectedPillarIds(pillarIds);
+      const primary = seat.pillars?.find(p => p.is_primary);
+      setPrimaryPillarId(primary?.id || (pillarIds.length > 0 ? pillarIds[0] : null));
       fetchTeamMembers();
       fetchDescendants(seat.id);
+      fetchPillars();
     }
   }, [seat, open]);
 
@@ -173,6 +197,23 @@ export function SeatDetailSheet({
     } catch (error) {
       console.error("Failed to fetch team members:", error);
     }
+  };
+
+  const fetchPillars = async () => {
+    try {
+      const response = await fetch("/api/pillars");
+      if (response.ok) {
+        const data = await response.json();
+        setAvailablePillars(data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch pillars:", error);
+    }
+  };
+
+  const handlePillarSelectionChange = (pillarIds: string[], primaryId: string | null) => {
+    setSelectedPillarIds(pillarIds);
+    setPrimaryPillarId(primaryId);
   };
 
   const fetchDescendants = async (seatId: string) => {
@@ -206,6 +247,8 @@ export function SeatDetailSheet({
         body: JSON.stringify({
           name: name.trim(),
           parent_seat_id: parentSeatId,
+          pillar_ids: selectedPillarIds,
+          primary_pillar_id: primaryPillarId,
           roles: roles
             .split("\n")
             .map((r) => r.trim())
@@ -378,14 +421,27 @@ export function SeatDetailSheet({
             )}
           </SheetTitle>
           <SheetDescription>
-            {seat.pillar && (
-              <Badge variant="secondary">{seat.pillar.name}</Badge>
-            )}
-            {seat.eos_role && (
-              <Badge variant="outline" className="ml-1 capitalize">
-                {seat.eos_role}
-              </Badge>
-            )}
+            <div className="flex flex-wrap gap-1">
+              {seat.pillars && seat.pillars.length > 0 ? (
+                seat.pillars.map((pillar) => (
+                  <Badge
+                    key={pillar.id}
+                    variant={pillar.is_primary ? "default" : "secondary"}
+                    style={pillar.color ? { backgroundColor: pillar.color, color: "#fff" } : undefined}
+                  >
+                    {pillar.name}
+                    {pillar.is_primary && seat.pillars!.length > 1 && " ★"}
+                  </Badge>
+                ))
+              ) : seat.pillar ? (
+                <Badge variant="secondary">{seat.pillar.name}</Badge>
+              ) : null}
+              {seat.eos_role && (
+                <Badge variant="outline" className="capitalize">
+                  {seat.eos_role}
+                </Badge>
+              )}
+            </div>
           </SheetDescription>
         </SheetHeader>
 
@@ -424,6 +480,21 @@ export function SeatDetailSheet({
                 </Select>
                 <p className="text-xs text-muted-foreground">
                   Who this seat reports to in the org chart
+                </p>
+              </div>
+
+              {/* Pillars */}
+              <div className="space-y-2">
+                <Label>Pillars</Label>
+                <MultiPillarSelect
+                  pillars={availablePillars}
+                  selectedPillarIds={selectedPillarIds}
+                  primaryPillarId={primaryPillarId}
+                  onSelectionChange={handlePillarSelectionChange}
+                  disabled={submitting}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Select which functional areas this seat belongs to
                 </p>
               </div>
 

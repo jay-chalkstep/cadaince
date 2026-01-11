@@ -40,18 +40,32 @@ export interface FunctionAssignment {
 }
 
 /**
+ * Pillar association for a seat (supports multi-pillar)
+ */
+export interface SeatPillar {
+  id: string;
+  name: string;
+  color: string | null;
+  is_primary: boolean;
+}
+
+/**
  * Seat data structure from the API
  */
 export interface Seat {
   id: string;
   name: string;
   parent_seat_id: string | null;
+  /** @deprecated Use pillars array instead */
   pillar_id: string | null;
+  /** @deprecated Use pillars array instead - kept for backward compat */
   pillar: {
     id: string;
     name: string;
     color: string | null;
   } | null;
+  /** Multi-pillar support - array of all pillars this seat belongs to */
+  pillars: SeatPillar[];
   roles: string[];
   seat_type?: "single" | "unit";
   eos_role?: "visionary" | "integrator" | "leader" | null;

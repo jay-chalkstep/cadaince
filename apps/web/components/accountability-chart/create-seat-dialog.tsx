@@ -21,10 +21,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { MultiPillarSelect } from "./multi-pillar-select";
 
 interface Pillar {
   id: string;
   name: string;
+  color?: string | null;
 }
 
 interface Seat {
@@ -48,7 +50,8 @@ export function CreateSeatDialog({
   existingSeats,
 }: CreateSeatDialogProps) {
   const [name, setName] = useState("");
-  const [selectedPillar, setSelectedPillar] = useState<string>("");
+  const [selectedPillarIds, setSelectedPillarIds] = useState<string[]>([]);
+  const [primaryPillarId, setPrimaryPillarId] = useState<string | null>(null);
   const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
   const [roles, setRoles] = useState("");
   const [pillars, setPillars] = useState<Pillar[]>([]);
@@ -60,6 +63,11 @@ export function CreateSeatDialog({
       fetchPillars();
     }
   }, [open, parentSeatId]);
+
+  const handlePillarSelectionChange = (pillarIds: string[], primaryId: string | null) => {
+    setSelectedPillarIds(pillarIds);
+    setPrimaryPillarId(primaryId);
+  };
 
   const fetchPillars = async () => {
     try {
@@ -84,7 +92,8 @@ export function CreateSeatDialog({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: name.trim(),
-          pillar_id: selectedPillar && selectedPillar !== "none" ? selectedPillar : null,
+          pillar_ids: selectedPillarIds,
+          primary_pillar_id: primaryPillarId,
           parent_seat_id: selectedParentId,
           roles: roles
             .split("\n")
@@ -95,7 +104,8 @@ export function CreateSeatDialog({
 
       if (response.ok) {
         setName("");
-        setSelectedPillar("");
+        setSelectedPillarIds([]);
+        setPrimaryPillarId(null);
         setSelectedParentId(null);
         setRoles("");
         onCreated();
@@ -160,20 +170,17 @@ export function CreateSeatDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="pillar">Pillar</Label>
-            <Select value={selectedPillar} onValueChange={setSelectedPillar}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select pillar (optional)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">No pillar</SelectItem>
-                {pillars.map((pillar) => (
-                  <SelectItem key={pillar.id} value={pillar.id}>
-                    {pillar.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label>Pillars</Label>
+            <MultiPillarSelect
+              pillars={pillars}
+              selectedPillarIds={selectedPillarIds}
+              primaryPillarId={primaryPillarId}
+              onSelectionChange={handlePillarSelectionChange}
+              disabled={submitting}
+            />
+            <p className="text-xs text-muted-foreground">
+              Select which functional areas this seat belongs to
+            </p>
           </div>
 
           <div className="space-y-2">

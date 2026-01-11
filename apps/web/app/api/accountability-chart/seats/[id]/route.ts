@@ -32,6 +32,11 @@ export async function GET(
       *,
       pillar:pillars!seats_pillar_id_fkey(id, name, color),
       parent:seats!seats_parent_seat_id_fkey(id, name),
+      seat_pillars(
+        id,
+        is_primary,
+        pillar:pillars!seat_pillars_pillar_id_fkey(id, name, color)
+      ),
       assignments:seat_assignments(
         id,
         is_primary,
@@ -58,7 +63,26 @@ export async function GET(
     return NextResponse.json({ error: "Seat not found" }, { status: 404 });
   }
 
-  return NextResponse.json(seat);
+  // Transform seat_pillars into pillars array
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const seatPillars = (seat as any).seat_pillars || [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pillars = seatPillars.map((sp: any) => ({
+    id: sp.pillar?.id,
+    name: sp.pillar?.name,
+    color: sp.pillar?.color,
+    is_primary: sp.is_primary,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  })).filter((p: any) => p.id).sort((a: any, b: any) => {
+    if (a.is_primary && !b.is_primary) return -1;
+    if (!a.is_primary && b.is_primary) return 1;
+    return a.name?.localeCompare(b.name || '') || 0;
+  });
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { seat_pillars: _sp, ...seatWithoutJunction } = seat as typeof seat & { seat_pillars?: unknown };
+
+  return NextResponse.json({ ...seatWithoutJunction, pillars });
 }
 
 // PATCH /api/accountability-chart/seats/:id - Update seat
@@ -105,6 +129,8 @@ export async function PATCH(
   const {
     name,
     pillar_id,
+    pillar_ids, // Multi-pillar support
+    primary_pillar_id, // Which pillar is primary
     parent_seat_id,
     roles,
     seat_type,
@@ -155,9 +181,18 @@ export async function PATCH(
     }
   }
 
+  // Handle multi-pillar update if pillar_ids provided
+  const hasPillarUpdate = pillar_ids !== undefined;
+
   const updateData: Record<string, unknown> = {};
   if (name !== undefined) updateData.name = name;
-  if (pillar_id !== undefined) updateData.pillar_id = pillar_id;
+  // For backward compat, update legacy pillar_id based on pillar_ids or primary_pillar_id
+  if (hasPillarUpdate) {
+    const legacyPillarId = primary_pillar_id || (pillar_ids?.length > 0 ? pillar_ids[0] : null);
+    updateData.pillar_id = legacyPillarId;
+  } else if (pillar_id !== undefined) {
+    updateData.pillar_id = pillar_id;
+  }
   if (parent_seat_id !== undefined) updateData.parent_seat_id = parent_seat_id;
   if (roles !== undefined) updateData.roles = roles;
   if (seat_type !== undefined) updateData.seat_type = seat_type;
@@ -202,9 +237,63 @@ export async function PATCH(
     return NextResponse.json({ error: "Failed to update seat" }, { status: 500 });
   }
 
+  // Sync seat_pillars junction table if pillar_ids provided
+  if (hasPillarUpdate) {
+    // Delete existing pillar associations
+    const { error: deleteError } = await supabase
+      .from("seat_pillars")
+      .delete()
+      .eq("seat_id", id);
+
+    if (deleteError) {
+      console.error("Error deleting old seat pillars:", deleteError);
+    }
+
+    // Insert new pillar associations
+    if (pillar_ids && pillar_ids.length > 0) {
+      const seatPillarInserts = pillar_ids.map((pId: string) => ({
+        seat_id: id,
+        pillar_id: pId,
+        is_primary: pId === (primary_pillar_id || pillar_ids[0]),
+      }));
+
+      const { error: insertError } = await supabase
+        .from("seat_pillars")
+        .insert(seatPillarInserts);
+
+      if (insertError) {
+        console.error("Error inserting seat pillars:", insertError);
+      }
+    }
+  }
+
+  // Fetch updated pillars for response
+  const { data: seatPillars } = await supabase
+    .from("seat_pillars")
+    .select(`
+      id,
+      is_primary,
+      pillar:pillars!seat_pillars_pillar_id_fkey(id, name, color)
+    `)
+    .eq("seat_id", id);
+
+  // Transform pillars for response
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pillars = (seatPillars || []).map((sp: any) => ({
+    id: sp.pillar?.id,
+    name: sp.pillar?.name,
+    color: sp.pillar?.color,
+    is_primary: sp.is_primary,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  })).filter((p: any) => p.id).sort((a: any, b: any) => {
+    if (a.is_primary && !b.is_primary) return -1;
+    if (!a.is_primary && b.is_primary) return 1;
+    return a.name?.localeCompare(b.name || '') || 0;
+  });
+
   // Emit event to trigger team sync (only for hierarchy-affecting changes)
   const hierarchyFields = ["name", "parent_seat_id", "eos_role", "pillar_id"];
-  const hasHierarchyChanges = hierarchyFields.some((f) => f in updateData);
+  const hasHierarchyChanges = hierarchyFields.some((f) => f in updateData) || hasPillarUpdate;
   if (hasHierarchyChanges) {
     await emitIntegrationEvent("accountability-chart/changed", {
       organization_id: profile.organization_id,
@@ -213,7 +302,7 @@ export async function PATCH(
     });
   }
 
-  return NextResponse.json(seat);
+  return NextResponse.json({ ...seat, pillars });
 }
 
 // DELETE /api/accountability-chart/seats/:id - Delete seat
