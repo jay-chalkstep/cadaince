@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Target, Filter } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
@@ -12,12 +11,32 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { GoalsList } from "@/components/goals/goals-list";
-import { useTeamContext } from "@/components/team/team-context-provider";
+
+interface Pillar {
+  id: string;
+  name: string;
+  color: string;
+}
 
 export default function GoalsPage() {
-  const { teams, currentTeam } = useTeamContext();
-  const [selectedTeamId, setSelectedTeamId] = useState<string>("all");
-  const [tab, setTab] = useState<"my" | "team">("my");
+  const [pillars, setPillars] = useState<Pillar[]>([]);
+  const [selectedPillarId, setSelectedPillarId] = useState<string>("all");
+  const [tab, setTab] = useState<"my" | "pillar">("my");
+
+  useEffect(() => {
+    async function fetchPillars() {
+      try {
+        const res = await fetch("/api/pillars");
+        if (res.ok) {
+          const data = await res.json();
+          setPillars(data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch pillars:", error);
+      }
+    }
+    fetchPillars();
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -29,31 +48,31 @@ export default function GoalsPage() {
             Individual Goals
           </h1>
           <p className="text-muted-foreground mt-1">
-            Track personal goals that support team rocks
+            Track personal goals that support rocks
           </p>
         </div>
       </div>
 
       {/* Tabs */}
-      <Tabs value={tab} onValueChange={(v) => setTab(v as "my" | "team")}>
+      <Tabs value={tab} onValueChange={(v) => setTab(v as "my" | "pillar")}>
         <div className="flex items-center justify-between">
           <TabsList>
             <TabsTrigger value="my">My Goals</TabsTrigger>
-            <TabsTrigger value="team">Team Goals</TabsTrigger>
+            <TabsTrigger value="pillar">Pillar Goals</TabsTrigger>
           </TabsList>
 
-          {tab === "team" && (
+          {tab === "pillar" && (
             <div className="flex items-center gap-2">
               <Filter className="h-4 w-4 text-muted-foreground" />
-              <Select value={selectedTeamId} onValueChange={setSelectedTeamId}>
+              <Select value={selectedPillarId} onValueChange={setSelectedPillarId}>
                 <SelectTrigger className="w-[200px]">
-                  <SelectValue placeholder="Filter by team" />
+                  <SelectValue placeholder="Filter by pillar" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Teams</SelectItem>
-                  {teams.map((team) => (
-                    <SelectItem key={team.id} value={team.id}>
-                      {team.name}
+                  <SelectItem value="all">All Pillars</SelectItem>
+                  {pillars.map((pillar) => (
+                    <SelectItem key={pillar.id} value={pillar.id}>
+                      {pillar.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -66,9 +85,9 @@ export default function GoalsPage() {
           <GoalsList myGoals showCreateButton />
         </TabsContent>
 
-        <TabsContent value="team" className="mt-6">
+        <TabsContent value="pillar" className="mt-6">
           <GoalsList
-            teamId={selectedTeamId === "all" ? undefined : selectedTeamId}
+            pillarId={selectedPillarId === "all" ? undefined : selectedPillarId}
             showCreateButton
           />
         </TabsContent>

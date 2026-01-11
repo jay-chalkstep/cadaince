@@ -21,13 +21,11 @@ import {
   Settings2,
   Target,
   Users,
-  Users2,
   Video,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
-import { TeamSwitcher } from "@/components/team/team-switcher";
 
 import {
   Sidebar,
@@ -55,7 +53,6 @@ const mainNavItems = [
 ];
 
 const secondaryNavItems = [
-  { title: "Teams", href: "/teams", icon: Users2 },
   { title: "Goals", href: "/goals", icon: Target },
   { title: "Accountability Chart", href: "/accountability-chart", icon: GitBranch },
   { title: "Alerts", href: "/alerts", icon: Bell },
@@ -104,11 +101,10 @@ export function AppSidebar() {
 
   return (
     <Sidebar>
-      <SidebarHeader className="border-b px-6 py-4 space-y-3">
+      <SidebarHeader className="border-b px-6 py-4">
         <Link href="/briefing" className="flex items-center gap-2">
           <span className="text-xl font-semibold">Aicomplice</span>
         </Link>
-        <TeamSwitcher className="w-full" />
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>

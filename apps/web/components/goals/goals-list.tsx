@@ -59,16 +59,16 @@ interface Goal {
   status: GoalStatus;
   progress: number | null;
   created_at: string;
-  team_id: string;
+  pillar_id: string | null;
   rock_id: string | null;
   owner_id: string;
-  team?: { id: string; name: string; level: number } | null;
+  pillar?: { id: string; name: string; color: string } | null;
   rock?: { id: string; title: string; status: string } | null;
   owner?: { id: string; full_name: string; avatar_url: string | null } | null;
 }
 
 interface GoalsListProps {
-  teamId?: string;
+  pillarId?: string;
   ownerId?: string;
   rockId?: string;
   myGoals?: boolean;
@@ -291,14 +291,14 @@ function GoalCard({
 function CreateGoalDialog({
   open,
   onOpenChange,
-  teamId,
+  pillarId,
   rockId,
   goal,
   onSaved,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  teamId?: string;
+  pillarId?: string;
   rockId?: string;
   goal?: Goal | null;
   onSaved: (goal: Goal) => void;
@@ -359,7 +359,7 @@ function CreateGoalDialog({
         unit: formData.unit.trim() || null,
         due_date: formData.due_date || null,
         status: formData.status,
-        team_id: teamId,
+        pillar_id: pillarId,
         rock_id: rockId || null,
       };
 
@@ -528,7 +528,7 @@ function CreateGoalDialog({
  * GoalsList - List of individual goals with filtering and CRUD
  */
 export function GoalsList({
-  teamId,
+  pillarId,
   ownerId,
   rockId,
   myGoals = false,
@@ -552,7 +552,7 @@ export function GoalsList({
       setError(null);
 
       const params = new URLSearchParams();
-      if (teamId) params.set("team_id", teamId);
+      if (pillarId) params.set("pillar_id", pillarId);
       if (ownerId) params.set("owner_id", ownerId);
       if (rockId) params.set("rock_id", rockId);
       if (myGoals) params.set("my_goals", "true");
@@ -567,7 +567,7 @@ export function GoalsList({
     } finally {
       setLoading(false);
     }
-  }, [teamId, ownerId, rockId, myGoals]);
+  }, [pillarId, ownerId, rockId, myGoals]);
 
   useEffect(() => {
     fetchGoals();
@@ -664,7 +664,7 @@ export function GoalsList({
           <h3 className="font-semibold">Goals</h3>
           <Badge variant="secondary">{goals.length}</Badge>
         </div>
-        {showCreateButton && teamId && (
+        {showCreateButton && (
           <Button size="sm" onClick={() => setCreateDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-1" />
             Add Goal
@@ -677,7 +677,7 @@ export function GoalsList({
           <CardContent className="flex flex-col items-center justify-center py-8">
             <Target className="h-12 w-12 text-muted-foreground/30" />
             <p className="mt-4 text-muted-foreground">No goals yet</p>
-            {showCreateButton && teamId && (
+            {showCreateButton && (
               <Button
                 variant="outline"
                 className="mt-4"
@@ -739,7 +739,7 @@ export function GoalsList({
             setEditingGoal(null);
           }
         }}
-        teamId={teamId}
+        pillarId={pillarId}
         rockId={rockId}
         goal={editingGoal}
         onSaved={handleSaved}

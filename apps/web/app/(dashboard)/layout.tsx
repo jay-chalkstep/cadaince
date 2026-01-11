@@ -1,7 +1,6 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { HeaderActions } from "@/components/layout/header-actions";
-import { TeamContextProvider } from "@/components/team/team-context-provider";
 import { UserButton } from "@clerk/nextjs";
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
@@ -78,19 +77,17 @@ export default async function DashboardLayout({
   }
 
   return (
-    <TeamContextProvider>
-      <SidebarProvider>
-        <AppSidebar />
-        <main className="flex-1">
-          <header className="flex h-14 items-center gap-4 border-b px-6">
-            <SidebarTrigger />
-            <div className="flex-1" />
-            <HeaderActions />
-            <UserButton afterSignOutUrl="/sign-in" />
-          </header>
-          <div className="p-6">{children}</div>
-        </main>
-      </SidebarProvider>
-    </TeamContextProvider>
+    <SidebarProvider>
+      <AppSidebar />
+      <main className="flex-1">
+        <header className="flex h-14 items-center gap-4 border-b px-6">
+          <SidebarTrigger />
+          <div className="flex-1" />
+          <HeaderActions />
+          <UserButton afterSignOutUrl="/sign-in" />
+        </header>
+        <div className="p-6">{children}</div>
+      </main>
+    </SidebarProvider>
   );
 }
