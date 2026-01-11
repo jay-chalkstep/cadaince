@@ -107,6 +107,7 @@ function SeatNodeComponent({ data, selected }: NodeProps<SeatNodeType>) {
 
   const handleDragStart = useCallback(
     (e: React.DragEvent) => {
+      e.stopPropagation(); // Prevent React Flow from intercepting
       e.dataTransfer.setData("text/plain", seat.id);
       e.dataTransfer.effectAllowed = "move";
       setIsDragging(true);
@@ -114,8 +115,14 @@ function SeatNodeComponent({ data, selected }: NodeProps<SeatNodeType>) {
     [seat.id]
   );
 
-  const handleDragEnd = useCallback(() => {
+  const handleDragEnd = useCallback((e: React.DragEvent) => {
+    e.stopPropagation();
     setIsDragging(false);
+  }, []);
+
+  // Prevent React Flow from capturing pointer events on the drag handle
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    e.stopPropagation();
   }, []);
 
   return (
@@ -148,25 +155,17 @@ function SeatNodeComponent({ data, selected }: NodeProps<SeatNodeType>) {
         onDragLeave={handleDragLeave}
         onDrop={handleDropEvent}
       >
-        {/* Drag handle - visible on hover, this triggers reparenting */}
-        <div className="absolute -left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div
-                  className="p-1 rounded bg-muted/80 text-muted-foreground hover:bg-muted hover:text-foreground cursor-grab active:cursor-grabbing"
-                  draggable
-                  onDragStart={handleDragStart}
-                  onDragEnd={handleDragEnd}
-                >
-                  <GripVertical className="h-4 w-4" />
-                </div>
-              </TooltipTrigger>
-              <TooltipContent side="left">
-                <p>Drag to change reporting</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+        {/* Drag handle - always visible, triggers reparenting via HTML5 drag */}
+        <div
+          className="absolute -left-2 top-1/2 -translate-y-1/2 z-20 p-1.5 rounded-md bg-primary/10 hover:bg-primary/20 text-primary cursor-grab active:cursor-grabbing border border-primary/20 hover:border-primary/40 transition-all"
+          draggable="true"
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          onPointerDown={handlePointerDown}
+          onMouseDown={(e) => e.stopPropagation()}
+          title="Drag to change reporting"
+        >
+          <GripVertical className="h-4 w-4" />
         </div>
 
         {/* Drop indicator label */}
