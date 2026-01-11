@@ -12,6 +12,7 @@ import {
   Background,
   BackgroundVariant,
   ConnectionLineType,
+  ConnectionMode,
   type NodeChange,
   type EdgeChange,
   type Connection,
@@ -351,7 +352,7 @@ function ChartCanvasInner({
             strokeWidth: 2,
           },
         }}
-        connectionMode="strict"
+        connectionMode={ConnectionMode.Strict}
         proOptions={{ hideAttribution: true }}
         className="bg-muted/30"
       >
