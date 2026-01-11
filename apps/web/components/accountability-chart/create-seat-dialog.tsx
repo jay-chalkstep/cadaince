@@ -49,15 +49,17 @@ export function CreateSeatDialog({
 }: CreateSeatDialogProps) {
   const [name, setName] = useState("");
   const [selectedPillar, setSelectedPillar] = useState<string>("");
+  const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
   const [roles, setRoles] = useState("");
   const [pillars, setPillars] = useState<Pillar[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (open) {
+      setSelectedParentId(parentSeatId);
       fetchPillars();
     }
-  }, [open]);
+  }, [open, parentSeatId]);
 
   const fetchPillars = async () => {
     try {
@@ -83,7 +85,7 @@ export function CreateSeatDialog({
         body: JSON.stringify({
           name: name.trim(),
           pillar_id: selectedPillar && selectedPillar !== "none" ? selectedPillar : null,
-          parent_seat_id: parentSeatId,
+          parent_seat_id: selectedParentId,
           roles: roles
             .split("\n")
             .map((r) => r.trim())
@@ -94,6 +96,7 @@ export function CreateSeatDialog({
       if (response.ok) {
         setName("");
         setSelectedPillar("");
+        setSelectedParentId(null);
         setRoles("");
         onCreated();
         onOpenChange(false);
@@ -105,8 +108,8 @@ export function CreateSeatDialog({
     }
   };
 
-  const parentSeat = parentSeatId
-    ? existingSeats.find((s) => s.id === parentSeatId)
+  const parentSeat = selectedParentId
+    ? existingSeats.find((s) => s.id === selectedParentId)
     : null;
 
   return (
@@ -131,6 +134,29 @@ export function CreateSeatDialog({
               onChange={(e) => setName(e.target.value)}
               required
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Reports To</Label>
+            <Select
+              value={selectedParentId || "none"}
+              onValueChange={(value) => setSelectedParentId(value === "none" ? null : value)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select parent seat (optional)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">None (root level)</SelectItem>
+                {existingSeats.map((seat) => (
+                  <SelectItem key={seat.id} value={seat.id}>
+                    {seat.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Who this seat reports to in the org chart
+            </p>
           </div>
 
           <div className="space-y-2">
