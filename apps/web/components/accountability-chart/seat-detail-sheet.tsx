@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Loader2, Plus, Trash2, X, Check, Users } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -212,11 +213,22 @@ export function SeatDetailSheet({
       });
 
       if (response.ok) {
+        toast.success("Seat deleted", {
+          description: `"${seat.name}" has been removed from the chart.`,
+        });
         onUpdate();
         onOpenChange(false);
+      } else {
+        const data = await response.json();
+        toast.error("Cannot delete seat", {
+          description: data.error || "Failed to delete seat. Please try again.",
+        });
       }
     } catch (error) {
       console.error("Failed to delete seat:", error);
+      toast.error("Delete failed", {
+        description: "An unexpected error occurred. Please try again.",
+      });
     }
   };
 

@@ -129,7 +129,7 @@ function SeatNodeComponent({ data, selected }: NodeProps<SeatNodeType>) {
 
       <Card
         className={cn(
-          "transition-all border-2 cursor-grab active:cursor-grabbing",
+          "transition-all border-2",
           selected && "ring-2 ring-primary ring-offset-2",
           // Valid drop target - green ring
           isDragOver && !isDragging && "ring-2 ring-green-500 ring-offset-2 bg-green-50/50",
@@ -147,16 +147,18 @@ function SeatNodeComponent({ data, selected }: NodeProps<SeatNodeType>) {
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDropEvent}
-        draggable
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
       >
-        {/* Drag handle - visible on hover */}
-        <div className="absolute -left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+        {/* Drag handle - visible on hover, this triggers reparenting */}
+        <div className="absolute -left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="p-1 rounded bg-muted/80 text-muted-foreground hover:bg-muted hover:text-foreground cursor-grab active:cursor-grabbing">
+                <div
+                  className="p-1 rounded bg-muted/80 text-muted-foreground hover:bg-muted hover:text-foreground cursor-grab active:cursor-grabbing"
+                  draggable
+                  onDragStart={handleDragStart}
+                  onDragEnd={handleDragEnd}
+                >
                   <GripVertical className="h-4 w-4" />
                 </div>
               </TooltipTrigger>
