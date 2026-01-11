@@ -124,6 +124,37 @@ export async function PATCH(
     return NextResponse.json({ error: "Seat cannot be its own parent" }, { status: 400 });
   }
 
+  // Validate parent seat if changing parent
+  if (parent_seat_id !== undefined && parent_seat_id !== null) {
+    // Check parent exists in same org
+    const { data: parentSeat } = await supabase
+      .from("seats")
+      .select("id")
+      .eq("id", parent_seat_id)
+      .eq("organization_id", profile.organization_id)
+      .single();
+
+    if (!parentSeat) {
+      return NextResponse.json({ error: "Parent seat not found" }, { status: 400 });
+    }
+
+    // Check for circular hierarchy - new parent cannot be a descendant of this seat
+    const { data: descendants } = await supabase.rpc("get_seat_descendants", {
+      p_seat_id: id,
+    });
+
+    const descendantIds = new Set(
+      descendants?.map((d: { id: string }) => d.id) || []
+    );
+
+    if (descendantIds.has(parent_seat_id)) {
+      return NextResponse.json(
+        { error: "Cannot set parent to a descendant (would create circular hierarchy)" },
+        { status: 400 }
+      );
+    }
+  }
+
   const updateData: Record<string, unknown> = {};
   if (name !== undefined) updateData.name = name;
   if (pillar_id !== undefined) updateData.pillar_id = pillar_id;
@@ -213,18 +244,16 @@ export async function DELETE(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  // Check if seat has children
-  const { data: children } = await supabase
+  // Orphan any child seats (set their parent to null) before deleting
+  const { error: orphanError } = await supabase
     .from("seats")
-    .select("id")
+    .update({ parent_seat_id: null })
     .eq("parent_seat_id", id)
-    .limit(1);
+    .eq("organization_id", profile.organization_id);
 
-  if (children && children.length > 0) {
-    return NextResponse.json(
-      { error: "Cannot delete seat with child seats. Delete or reassign children first." },
-      { status: 400 }
-    );
+  if (orphanError) {
+    console.error("Error orphaning child seats:", orphanError);
+    return NextResponse.json({ error: "Failed to reassign child seats" }, { status: 500 });
   }
 
   const { error } = await supabase

@@ -66,6 +66,20 @@ export function useChartLayout(dimensions: CardDimensions): UseChartLayoutResult
         dagreGraph.setEdge(edge.source, edge.target);
       });
 
+      // Check for cycles before applying layout (prevents dagre from crashing)
+      try {
+        const cycles = dagre.graphlib.alg.findCycles(dagreGraph);
+        if (cycles.length > 0) {
+          console.error(
+            "Circular reference detected in seat hierarchy, skipping layout",
+            cycles
+          );
+          return { nodes, edges };
+        }
+      } catch (e) {
+        console.error("Error checking for cycles:", e);
+      }
+
       // Apply layout
       dagre.layout(dagreGraph);
 
@@ -131,6 +145,20 @@ export function calculateLayout(
   edges.forEach((edge) => {
     dagreGraph.setEdge(edge.source, edge.target);
   });
+
+  // Check for cycles before applying layout (prevents dagre from crashing)
+  try {
+    const cycles = dagre.graphlib.alg.findCycles(dagreGraph);
+    if (cycles.length > 0) {
+      console.error(
+        "Circular reference detected in seat hierarchy, skipping layout",
+        cycles
+      );
+      return { nodes, edges };
+    }
+  } catch (e) {
+    console.error("Error checking for cycles:", e);
+  }
 
   dagre.layout(dagreGraph);
 

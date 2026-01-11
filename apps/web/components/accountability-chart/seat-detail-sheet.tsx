@@ -143,6 +143,8 @@ export function SeatDetailSheet({
   const [selectedMember, setSelectedMember] = useState("");
   const [selectedAssignmentType, setSelectedAssignmentType] = useState("holder");
   const [assigning, setAssigning] = useState(false);
+  const [parentSeatId, setParentSeatId] = useState<string | null>(null);
+  const [descendants, setDescendants] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (seat && open) {
@@ -154,7 +156,9 @@ export function SeatDetailSheet({
       setGetsIt(seat.gets_it);
       setWantsIt(seat.wants_it);
       setCapacityToDo(seat.capacity_to_do);
+      setParentSeatId(seat.parent_seat_id);
       fetchTeamMembers();
+      fetchDescendants(seat.id);
     }
   }, [seat, open]);
 
@@ -170,6 +174,26 @@ export function SeatDetailSheet({
     }
   };
 
+  const fetchDescendants = async (seatId: string) => {
+    try {
+      const response = await fetch(
+        `/api/accountability-chart/seats/${seatId}/descendants`
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setDescendants(new Set(data.map((d: { id: string }) => d.id)));
+      }
+    } catch (error) {
+      console.error("Failed to fetch descendants:", error);
+      setDescendants(new Set());
+    }
+  };
+
+  // Filter available parents: exclude self and descendants
+  const availableParents = existingSeats.filter(
+    (s) => s.id !== seat?.id && !descendants.has(s.id)
+  );
+
   const handleSave = async () => {
     if (!seat) return;
 
@@ -180,6 +204,7 @@ export function SeatDetailSheet({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: name.trim(),
+          parent_seat_id: parentSeatId,
           roles: roles
             .split("\n")
             .map((r) => r.trim())
@@ -332,6 +357,32 @@ export function SeatDetailSheet({
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                 />
+              </div>
+
+              {/* Reports To */}
+              <div className="space-y-2">
+                <Label>Reports To</Label>
+                <Select
+                  value={parentSeatId || "none"}
+                  onValueChange={(value) =>
+                    setParentSeatId(value === "none" ? null : value)
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select parent seat (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None (root level)</SelectItem>
+                    {availableParents.map((parent) => (
+                      <SelectItem key={parent.id} value={parent.id}>
+                        {parent.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Who this seat reports to in the org chart
+                </p>
               </div>
 
               {/* Seat Type Toggle */}
@@ -550,6 +601,19 @@ export function SeatDetailSheet({
                     </Button>
                   </div>
                 </div>
+              </div>
+
+              <Separator />
+
+              {/* Reports To */}
+              <div>
+                <Label className="text-sm font-medium">Reports To</Label>
+                <p className="mt-1 text-sm">
+                  {seat.parent_seat_id
+                    ? existingSeats.find((s) => s.id === seat.parent_seat_id)
+                        ?.name || "Unknown"
+                    : "None (root level)"}
+                </p>
               </div>
 
               <Separator />

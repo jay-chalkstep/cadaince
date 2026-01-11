@@ -94,37 +94,65 @@ function ChartCanvasInner({
     });
   const { reparentSeat, isReparenting } = useReparentSeat();
 
+  // Helper to check if a seat is a descendant of another
+  const isDescendantOf = useCallback(
+    (seatId: string, potentialAncestorId: string): boolean => {
+      let current = seatLookup.get(seatId);
+      while (current) {
+        if (current.parent_seat_id === potentialAncestorId) {
+          return true;
+        }
+        current = current.parent_seat_id
+          ? seatLookup.get(current.parent_seat_id)
+          : undefined;
+      }
+      return false;
+    },
+    [seatLookup]
+  );
+
   // Handle connection from React Flow (drag from source handle to target handle)
-  // Source = the seat being moved, Target = the new parent
+  // Visio-style: Drag FROM parent's bottom handle TO child = source becomes parent of target
   const handleConnect: OnConnect = useCallback(
     (connection: Connection) => {
-      // connection.source = the node with the source handle (seat being moved)
-      // connection.target = the node with the target handle (new parent)
+      // connection.source = the seat you dragged FROM (will become the parent)
+      // connection.target = the seat you dropped ON (will become the child)
       if (!connection.source || !connection.target) return;
 
-      const sourceSeat = seatLookup.get(connection.source);
-      const targetSeat = seatLookup.get(connection.target);
+      const newParentSeat = seatLookup.get(connection.source);
+      const childSeat = seatLookup.get(connection.target);
 
-      if (!sourceSeat || !targetSeat) return;
+      if (!newParentSeat || !childSeat) return;
 
       // Don't allow connecting to self
       if (connection.source === connection.target) return;
 
-      // Don't allow if already the parent
-      if (sourceSeat.parent_seat_id === connection.target) {
+      // Don't allow if source is already the parent of target
+      if (childSeat.parent_seat_id === connection.source) {
         toast.info("Already reports to this seat");
         return;
       }
 
+      // Check for circular reference: new parent cannot be a descendant of the child
+      // (otherwise we'd create: child -> ... -> newParent -> child)
+      if (isDescendantOf(connection.source, connection.target)) {
+        toast.error("Invalid hierarchy", {
+          description: "This would create a circular reporting structure.",
+        });
+        return;
+      }
+
       // Show confirmation dialog
+      // sourceId = the seat being reparented (the child)
+      // targetId = the new parent
       setPendingReparent({
-        sourceId: connection.source,
-        sourceName: sourceSeat.name,
-        targetId: connection.target,
-        targetName: targetSeat.name,
+        sourceId: connection.target,
+        sourceName: childSeat.name,
+        targetId: connection.source,
+        targetName: newParentSeat.name,
       });
     },
-    [seatLookup]
+    [seatLookup, isDescendantOf]
   );
 
   // Confirm the reparent action
