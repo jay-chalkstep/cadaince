@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Loader2, Plus, Trash2, X, Check, Users } from "lucide-react";
+import { Loader2, Plus, Trash2, X, Check, Users, Star } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -164,6 +164,8 @@ export function SeatDetailSheet({
   const [availablePillars, setAvailablePillars] = useState<Pillar[]>([]);
   const [selectedPillarIds, setSelectedPillarIds] = useState<string[]>([]);
   const [primaryPillarId, setPrimaryPillarId] = useState<string | null>(null);
+  const [updatingPillars, setUpdatingPillars] = useState(false);
+  const [pillarToAdd, setPillarToAdd] = useState("");
 
   useEffect(() => {
     if (seat && open) {
@@ -214,6 +216,62 @@ export function SeatDetailSheet({
   const handlePillarSelectionChange = (pillarIds: string[], primaryId: string | null) => {
     setSelectedPillarIds(pillarIds);
     setPrimaryPillarId(primaryId);
+  };
+
+  // Save pillar changes to server (used in view mode)
+  const savePillars = async (pillarIds: string[], primaryId: string | null) => {
+    if (!seat) return;
+
+    setUpdatingPillars(true);
+    try {
+      const response = await fetch(`/api/accountability-chart/seats/${seat.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pillar_ids: pillarIds,
+          primary_pillar_id: primaryId,
+        }),
+      });
+
+      if (response.ok) {
+        setSelectedPillarIds(pillarIds);
+        setPrimaryPillarId(primaryId);
+        onUpdate();
+      } else {
+        toast.error("Failed to update pillars");
+      }
+    } catch (error) {
+      console.error("Failed to update pillars:", error);
+      toast.error("Failed to update pillars");
+    } finally {
+      setUpdatingPillars(false);
+    }
+  };
+
+  const handleAddPillar = async () => {
+    if (!pillarToAdd || selectedPillarIds.includes(pillarToAdd)) return;
+
+    const newPillarIds = [...selectedPillarIds, pillarToAdd];
+    const newPrimaryId = primaryPillarId || pillarToAdd; // First pillar becomes primary
+    await savePillars(newPillarIds, newPrimaryId);
+    setPillarToAdd("");
+  };
+
+  const handleRemovePillar = async (pillarId: string) => {
+    const newPillarIds = selectedPillarIds.filter(id => id !== pillarId);
+    let newPrimaryId = primaryPillarId;
+
+    // If removing primary, set new primary to first remaining
+    if (pillarId === primaryPillarId) {
+      newPrimaryId = newPillarIds.length > 0 ? newPillarIds[0] : null;
+    }
+
+    await savePillars(newPillarIds, newPrimaryId);
+  };
+
+  const handleSetPrimaryPillar = async (pillarId: string) => {
+    if (pillarId === primaryPillarId) return;
+    await savePillars(selectedPillarIds, pillarId);
   };
 
   const fetchDescendants = async (seatId: string) => {
@@ -740,6 +798,106 @@ export function SeatDetailSheet({
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <Separator />
+
+              {/* Pillars */}
+              <div>
+                <Label className="text-sm font-medium">Pillars</Label>
+                <div className="mt-2 space-y-2">
+                  {selectedPillarIds.length > 0 ? (
+                    selectedPillarIds.map((pillarId) => {
+                      const pillar = availablePillars.find(p => p.id === pillarId);
+                      if (!pillar) return null;
+                      const isPrimary = pillarId === primaryPillarId;
+                      return (
+                        <div
+                          key={pillarId}
+                          className="flex items-center justify-between p-2 rounded-lg border"
+                        >
+                          <div className="flex items-center gap-2">
+                            {pillar.color && (
+                              <div
+                                className="w-3 h-3 rounded-full shrink-0"
+                                style={{ backgroundColor: pillar.color }}
+                              />
+                            )}
+                            <span className="text-sm font-medium">{pillar.name}</span>
+                            {isPrimary && (
+                              <Badge variant="secondary" className="text-[10px]">
+                                Primary
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            {!isPrimary && selectedPillarIds.length > 1 && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleSetPrimaryPillar(pillarId)}
+                                disabled={updatingPillars}
+                                title="Set as primary"
+                              >
+                                <Star className="h-4 w-4 text-muted-foreground hover:text-yellow-500" />
+                              </Button>
+                            )}
+                            {isPrimary && selectedPillarIds.length > 1 && (
+                              <Star className="h-4 w-4 fill-yellow-400 text-yellow-400 mx-2" />
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleRemovePillar(pillarId)}
+                              disabled={updatingPillars}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No pillars assigned</p>
+                  )}
+                </div>
+
+                {/* Add pillar */}
+                <div className="mt-3 flex gap-2">
+                  <Select value={pillarToAdd} onValueChange={setPillarToAdd}>
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Add pillar..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availablePillars
+                        .filter(p => !selectedPillarIds.includes(p.id))
+                        .map((pillar) => (
+                          <SelectItem key={pillar.id} value={pillar.id}>
+                            <div className="flex items-center gap-2">
+                              {pillar.color && (
+                                <div
+                                  className="w-2 h-2 rounded-full"
+                                  style={{ backgroundColor: pillar.color }}
+                                />
+                              )}
+                              {pillar.name}
+                            </div>
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    size="sm"
+                    onClick={handleAddPillar}
+                    disabled={!pillarToAdd || updatingPillars}
+                  >
+                    {updatingPillars ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Plus className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
               </div>
 
               <Separator />

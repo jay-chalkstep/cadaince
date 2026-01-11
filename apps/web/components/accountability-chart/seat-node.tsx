@@ -138,33 +138,13 @@ function SeatNodeComponent({ data, selected }: NodeProps<SeatNodeType>) {
             </div>
             <div className="flex items-center justify-center gap-1 mt-1 flex-wrap">
               {seat.pillars && seat.pillars.length > 0 ? (
-                <>
-                  {/* Show primary pillar first */}
-                  {seat.pillars.filter(p => p.is_primary).map(pillar => (
-                    <Badge
-                      key={pillar.id}
-                      className={cn(badgeSize)}
-                      style={pillar.color ? { backgroundColor: pillar.color, color: "#fff" } : undefined}
-                    >
-                      {pillar.name}
-                    </Badge>
-                  ))}
-                  {/* Show "+N" badge if there are secondary pillars */}
-                  {seat.pillars.filter(p => !p.is_primary).length > 0 && (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Badge variant="outline" className={cn(badgeSize)}>
-                            +{seat.pillars.filter(p => !p.is_primary).length}
-                          </Badge>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>{seat.pillars.filter(p => !p.is_primary).map(p => p.name).join(", ")}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  )}
-                </>
+                <Badge variant="secondary" className={cn(badgeSize)}>
+                  {/* Show all pillars with slash separator, primary first */}
+                  {[
+                    ...seat.pillars.filter(p => p.is_primary),
+                    ...seat.pillars.filter(p => !p.is_primary)
+                  ].map(p => p.name).join("/")}
+                </Badge>
               ) : seat.pillar ? (
                 <Badge variant="secondary" className={cn(badgeSize)}>
                   {seat.pillar.name}
