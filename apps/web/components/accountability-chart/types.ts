@@ -105,7 +105,6 @@ export interface SeatNodeData extends Record<string, unknown> {
   dimensions: CardDimensions;
   onSeatClick: (seat: Seat) => void;
   onAddChild: (seat: Seat) => void;
-  onDrop?: (draggedId: string, targetId: string) => void;
 }
 
 /**
@@ -187,8 +186,7 @@ export function seatsToNodes(
   seats: Seat[],
   dimensions: CardDimensions,
   onSeatClick: (seat: Seat) => void,
-  onAddChild: (seat: Seat) => void,
-  onDrop?: (draggedId: string, targetId: string) => void
+  onAddChild: (seat: Seat) => void
 ): SeatNode[] {
   return seats.map((seat) => ({
     id: seat.id,
@@ -202,7 +200,6 @@ export function seatsToNodes(
       dimensions,
       onSeatClick,
       onAddChild,
-      onDrop,
     },
     draggable: true,
   }));

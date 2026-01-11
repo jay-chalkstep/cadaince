@@ -11,11 +11,13 @@ import {
   MiniMap,
   Background,
   BackgroundVariant,
+  ConnectionLineType,
   type NodeChange,
   type EdgeChange,
   type Connection,
   type OnNodesChange,
   type OnEdgesChange,
+  type OnConnect,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { toast } from "sonner";
@@ -91,19 +93,33 @@ function ChartCanvasInner({
     });
   const { reparentSeat, isReparenting } = useReparentSeat();
 
-  // Handle drag-to-reparent - show confirmation dialog
-  const handleDrop = useCallback(
-    (draggedId: string, targetId: string) => {
-      const sourceSeat = seatLookup.get(draggedId);
-      const targetSeat = seatLookup.get(targetId);
+  // Handle connection from React Flow (drag from source handle to target handle)
+  // Source = the seat being moved, Target = the new parent
+  const handleConnect: OnConnect = useCallback(
+    (connection: Connection) => {
+      // connection.source = the node with the source handle (seat being moved)
+      // connection.target = the node with the target handle (new parent)
+      if (!connection.source || !connection.target) return;
+
+      const sourceSeat = seatLookup.get(connection.source);
+      const targetSeat = seatLookup.get(connection.target);
 
       if (!sourceSeat || !targetSeat) return;
 
+      // Don't allow connecting to self
+      if (connection.source === connection.target) return;
+
+      // Don't allow if already the parent
+      if (sourceSeat.parent_seat_id === connection.target) {
+        toast.info("Already reports to this seat");
+        return;
+      }
+
       // Show confirmation dialog
       setPendingReparent({
-        sourceId: draggedId,
+        sourceId: connection.source,
         sourceName: sourceSeat.name,
-        targetId: targetId,
+        targetId: connection.target,
         targetName: targetSeat.name,
       });
     },
@@ -143,8 +159,8 @@ function ChartCanvasInner({
 
   // Convert seats to nodes and edges
   const initialNodes = useMemo(
-    () => seatsToNodes(flatSeats, dimensions, onSeatClick, onAddChild, handleDrop),
-    [flatSeats, dimensions, onSeatClick, onAddChild, handleDrop]
+    () => seatsToNodes(flatSeats, dimensions, onSeatClick, onAddChild),
+    [flatSeats, dimensions, onSeatClick, onAddChild]
   );
 
   const initialEdges = useMemo(() => seatsToEdges(flatSeats), [flatSeats]);
@@ -310,11 +326,14 @@ function ChartCanvasInner({
         edges={edges}
         onNodesChange={handleNodesChange}
         onEdgesChange={handleEdgesChange}
+        onConnect={handleConnect}
         nodeTypes={nodeTypes}
         fitView
         fitViewOptions={{ padding: 0.2 }}
         minZoom={0.1}
         maxZoom={2}
+        connectionLineStyle={{ stroke: "hsl(var(--primary))", strokeWidth: 2 }}
+        connectionLineType={ConnectionLineType.SmoothStep}
         defaultEdgeOptions={{
           type: "smoothstep",
           animated: false,

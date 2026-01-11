@@ -1,9 +1,9 @@
 "use client";
 
-import { memo, useCallback, useState } from "react";
+import { memo, useCallback } from "react";
 import { Handle, Position } from "@xyflow/react";
 import type { Node, NodeProps } from "@xyflow/react";
-import { GripVertical, Plus, User, Users } from "lucide-react";
+import { Plus, User, Users } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -24,19 +24,26 @@ import {
 } from "./types";
 
 /**
+ * Custom handle style for visible connection points (like Visio)
+ */
+const handleStyle = {
+  width: 12,
+  height: 12,
+  background: "hsl(var(--primary))",
+  border: "2px solid hsl(var(--background))",
+};
+
+/**
  * SeatNode - Custom React Flow node for accountability chart seats
  *
  * Features:
  * - Auto-scaling based on dimensions prop
- * - Drag-to-reparent drop zone detection
+ * - Connection handles for creating reporting relationships (like Visio)
  * - GWC indicators
  * - Avatar display (single or unit)
  */
 function SeatNodeComponent({ data, selected }: NodeProps<SeatNodeType>) {
-  const { seat, dimensions, onSeatClick, onAddChild, onDrop } = data;
-  const [isDragOver, setIsDragOver] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragOverSelf, setDragOverSelf] = useState(false);
+  const { seat, dimensions, onSeatClick, onAddChild } = data;
 
   const isUnit = seat.seat_type === "unit" && seat.display_as_unit;
   const coHolders =
@@ -72,76 +79,21 @@ function SeatNodeComponent({ data, selected }: NodeProps<SeatNodeType>) {
     [seat, onAddChild]
   );
 
-  const handleDragOver = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      const draggedId = e.dataTransfer.types.includes("text/plain")
-        ? e.dataTransfer.getData("text/plain")
-        : null;
-
-      // Check if dragging over self (getData doesn't work during dragover in some browsers)
-      // We'll check the actual ID in handleDropEvent
-      e.dataTransfer.dropEffect = "move";
-      setIsDragOver(true);
-    },
-    []
-  );
-
-  const handleDragLeave = useCallback(() => {
-    setIsDragOver(false);
-    setDragOverSelf(false);
-  }, []);
-
-  const handleDropEvent = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      setIsDragOver(false);
-      setDragOverSelf(false);
-      const draggedId = e.dataTransfer.getData("text/plain");
-      if (draggedId && draggedId !== seat.id && onDrop) {
-        onDrop(draggedId, seat.id);
-      }
-    },
-    [seat.id, onDrop]
-  );
-
-  const handleDragStart = useCallback(
-    (e: React.DragEvent) => {
-      e.stopPropagation(); // Prevent React Flow from intercepting
-      e.dataTransfer.setData("text/plain", seat.id);
-      e.dataTransfer.effectAllowed = "move";
-      setIsDragging(true);
-    },
-    [seat.id]
-  );
-
-  const handleDragEnd = useCallback((e: React.DragEvent) => {
-    e.stopPropagation();
-    setIsDragging(false);
-  }, []);
-
-  // Prevent React Flow from capturing pointer events on the drag handle
-  const handlePointerDown = useCallback((e: React.PointerEvent) => {
-    e.stopPropagation();
-  }, []);
-
   return (
     <div className="relative group">
-      {/* Top handle for incoming connections */}
+      {/* Top handle - this seat can RECEIVE a reporting line (child reports TO this seat) */}
       <Handle
         type="target"
         position={Position.Top}
-        className="!bg-transparent !border-0 !w-4 !h-4"
+        id="top"
+        style={handleStyle}
+        className="!opacity-0 group-hover:!opacity-100 transition-opacity cursor-crosshair hover:!bg-green-500 hover:scale-125"
       />
 
       <Card
         className={cn(
           "transition-all border-2",
-          selected && "ring-2 ring-primary ring-offset-2",
-          // Valid drop target - green ring
-          isDragOver && !isDragging && "ring-2 ring-green-500 ring-offset-2 bg-green-50/50",
-          // Dragging this card - reduced opacity
-          isDragging && "opacity-50 ring-2 ring-dashed ring-muted-foreground"
+          selected && "ring-2 ring-primary ring-offset-2"
         )}
         style={{
           width: dimensions.width,
@@ -151,29 +103,7 @@ function SeatNodeComponent({ data, selected }: NodeProps<SeatNodeType>) {
             (hasAssignment ? "hsl(var(--border))" : "hsl(var(--muted))"),
         }}
         onClick={handleClick}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDropEvent}
       >
-        {/* Drag handle - always visible, triggers reparenting via HTML5 drag */}
-        <div
-          className="absolute -left-2 top-1/2 -translate-y-1/2 z-20 p-1.5 rounded-md bg-primary/10 hover:bg-primary/20 text-primary cursor-grab active:cursor-grabbing border border-primary/20 hover:border-primary/40 transition-all"
-          draggable="true"
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-          onPointerDown={handlePointerDown}
-          onMouseDown={(e) => e.stopPropagation()}
-          title="Drag to change reporting"
-        >
-          <GripVertical className="h-4 w-4" />
-        </div>
-
-        {/* Drop indicator label */}
-        {isDragOver && !isDragging && (
-          <div className="absolute -top-6 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-green-500 text-white text-xs font-medium rounded whitespace-nowrap z-10">
-            Drop to assign
-          </div>
-        )}
         <CardContent className={cn("p-3", isCompact && "p-2")}>
           {/* Header with name and EOS role badge */}
           <div className="text-center mb-2">
@@ -398,11 +328,13 @@ function SeatNodeComponent({ data, selected }: NodeProps<SeatNodeType>) {
         <Plus className={isCompact ? "h-2.5 w-2.5" : "h-3 w-3"} />
       </Button>
 
-      {/* Bottom handle for outgoing connections */}
+      {/* Bottom handle - drag FROM here to set THIS seat's parent (this seat reports to...) */}
       <Handle
         type="source"
         position={Position.Bottom}
-        className="!bg-transparent !border-0 !w-4 !h-4"
+        id="bottom"
+        style={handleStyle}
+        className="!opacity-0 group-hover:!opacity-100 transition-opacity cursor-crosshair hover:!bg-blue-500 hover:scale-125"
       />
     </div>
   );
