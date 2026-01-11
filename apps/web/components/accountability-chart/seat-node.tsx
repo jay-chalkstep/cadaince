@@ -2,12 +2,11 @@
 
 import { memo, useCallback } from "react";
 import { Handle, Position } from "@xyflow/react";
-import type { Node, NodeProps } from "@xyflow/react";
-import { Plus, User, Users } from "lucide-react";
+import type { NodeProps } from "@xyflow/react";
+import { User, Users } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
 import {
   Tooltip,
   TooltipContent,
@@ -24,25 +23,16 @@ import {
 } from "./types";
 
 /**
- * Custom handle style for visible connection points (like Visio)
- * Using bright colors and large size for visibility debugging
+ * Handle styles - subtle but visible, highlight on hover via CSS
  */
-const topHandleStyle: React.CSSProperties = {
-  width: 16,
-  height: 16,
-  background: "#22c55e", // Bright green - target handle
-  border: "3px solid #ffffff",
+const handleStyle: React.CSSProperties = {
+  width: 10,
+  height: 10,
+  background: "#94a3b8", // Subtle gray matching edges
+  border: "2px solid #ffffff",
   borderRadius: "50%",
-  zIndex: 100,
-};
-
-const bottomHandleStyle: React.CSSProperties = {
-  width: 16,
-  height: 16,
-  background: "#3b82f6", // Bright blue - source handle
-  border: "3px solid #ffffff",
-  borderRadius: "50%",
-  zIndex: 100,
+  zIndex: 50,
+  transition: "all 0.15s ease",
 };
 
 /**
@@ -83,17 +73,9 @@ function SeatNodeComponent({ data, selected }: NodeProps<SeatNodeType>) {
     onSeatClick(seat);
   }, [seat, onSeatClick]);
 
-  const handleAddChild = useCallback(
-    (e: React.MouseEvent) => {
-      e.stopPropagation();
-      onAddChild(seat);
-    },
-    [seat, onAddChild]
-  );
-
   return (
     <div className="relative group">
-      {/* Top handle - this seat can RECEIVE a reporting line (child reports TO this seat) */}
+      {/* Top handle - this seat can RECEIVE a reporting line (drop here to make something report TO this seat) */}
       <Handle
         type="target"
         position={Position.Top}
@@ -101,7 +83,8 @@ function SeatNodeComponent({ data, selected }: NodeProps<SeatNodeType>) {
         isConnectable={true}
         isConnectableStart={false}
         isConnectableEnd={true}
-        style={topHandleStyle}
+        style={handleStyle}
+        className="!bg-slate-400 hover:!bg-green-500 hover:!scale-150"
       />
 
       <Card
@@ -329,20 +312,7 @@ function SeatNodeComponent({ data, selected }: NodeProps<SeatNodeType>) {
         </CardContent>
       </Card>
 
-      {/* Add Child Button */}
-      <Button
-        size="sm"
-        variant="outline"
-        className={cn(
-          "absolute -bottom-3 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity rounded-full",
-          isCompact ? "h-5 w-5 p-0" : "h-6 w-6 p-0"
-        )}
-        onClick={handleAddChild}
-      >
-        <Plus className={isCompact ? "h-2.5 w-2.5" : "h-3 w-3"} />
-      </Button>
-
-      {/* Bottom handle - drag FROM here to set THIS seat's parent (this seat reports to...) */}
+      {/* Bottom handle - drag FROM here to reparent this seat (this seat will report to the drop target) */}
       <Handle
         type="source"
         position={Position.Bottom}
@@ -350,7 +320,8 @@ function SeatNodeComponent({ data, selected }: NodeProps<SeatNodeType>) {
         isConnectable={true}
         isConnectableStart={true}
         isConnectableEnd={false}
-        style={bottomHandleStyle}
+        style={handleStyle}
+        className="!bg-slate-400 hover:!bg-blue-500 hover:!scale-150"
       />
     </div>
   );

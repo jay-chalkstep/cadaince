@@ -164,18 +164,7 @@ function ChartCanvasInner({
     [flatSeats, dimensions, onSeatClick, onAddChild]
   );
 
-  const initialEdges = useMemo(() => {
-    const edges = seatsToEdges(flatSeats);
-    // Debug logging to verify edge generation
-    if (typeof window !== "undefined") {
-      console.log("[ChartCanvas] Total seats:", flatSeats.length);
-      console.log("[ChartCanvas] Seats with parent:", flatSeats.filter(s => s.parent_seat_id).length);
-      console.log("[ChartCanvas] Generated edges:", edges.length);
-      console.log("[ChartCanvas] Edge details:", JSON.stringify(edges, null, 2));
-      console.log("[ChartCanvas] Seat IDs:", flatSeats.map(s => ({ id: s.id, parent: s.parent_seat_id })));
-    }
-    return edges;
-  }, [flatSeats]);
+  const initialEdges = useMemo(() => seatsToEdges(flatSeats), [flatSeats]);
 
   // Apply initial layout
   const { nodes: layoutedNodes, edges: layoutedEdges } = useMemo(() => {
@@ -196,11 +185,6 @@ function ChartCanvasInner({
   // React Flow state
   const [nodes, setNodes, onNodesChange] = useNodesState<SeatNodeType>(layoutedNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState<ChartEdge>(layoutedEdges);
-
-  // Debug: Log edges state
-  if (typeof window !== "undefined") {
-    console.log("[ChartCanvas] Edges in state:", edges.length, edges);
-  }
 
   // Update nodes when seats change
   useEffect(() => {

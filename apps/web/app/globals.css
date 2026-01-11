@@ -141,51 +141,26 @@
    React Flow - Accountability Chart Styles
    ============================================ */
 
-/* Force edge visibility - DEBUG */
-.react-flow__edges {
-  z-index: 1 !important;
-}
-
-.react-flow__edge {
-  pointer-events: all !important;
-}
-
-.react-flow__edge-path {
-  stroke: #ff0000 !important;
-  stroke-width: 4px !important;
-  stroke-opacity: 1 !important;
-}
-
-/* Handle visibility - always visible */
+/* Ensure handles are always visible and interactive */
 .react-flow__handle {
   visibility: visible !important;
   opacity: 1 !important;
   pointer-events: all !important;
+  cursor: crosshair;
 }
 
-.react-flow__handle-top {
-  width: 16px !important;
-  height: 16px !important;
-  background: #22c55e !important;
-  border: 3px solid #ffffff !important;
-  border-radius: 50% !important;
-  z-index: 100 !important;
+/* Edge styling */
+.react-flow__edge-path {
+  stroke: #94a3b8;
+  stroke-width: 2px;
 }
 
-.react-flow__handle-bottom {
-  width: 16px !important;
-  height: 16px !important;
-  background: #3b82f6 !important;
-  border: 3px solid #ffffff !important;
-  border-radius: 50% !important;
-  z-index: 100 !important;
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke: hsl(var(--primary));
+  stroke-width: 3px;
 }
 
-.react-flow__handle:hover {
-  transform: scale(1.25);
-}
-
-/* Connection line (while dragging) */
+/* Connection line while dragging */
 .react-flow__connection-line {
   stroke: hsl(var(--primary));
   stroke-width: 2;
