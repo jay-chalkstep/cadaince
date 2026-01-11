@@ -36,8 +36,8 @@ export function useChartLayout(dimensions: CardDimensions): UseChartLayoutResult
     ): { nodes: SeatNode[]; edges: ChartEdge[] } => {
       const {
         direction = "TB",
-        rankSep = 80,
-        nodeSep = 40,
+        rankSep = 120,
+        nodeSep = 50,
       } = options;
 
       // Create a new dagre graph
@@ -120,8 +120,8 @@ export function calculateLayout(
 ): { nodes: SeatNode[]; edges: ChartEdge[] } {
   const {
     direction = "TB",
-    rankSep = 80,
-    nodeSep = 40,
+    rankSep = 120,
+    nodeSep = 50,
   } = options;
 
   const dagreGraph = new dagre.graphlib.Graph();

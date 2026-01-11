@@ -362,9 +362,9 @@ function ChartCanvasInner({
         minZoom={0.1}
         maxZoom={2}
         connectionLineStyle={{ stroke: "hsl(var(--primary))", strokeWidth: 2 }}
-        connectionLineType={ConnectionLineType.SmoothStep}
+        connectionLineType={ConnectionLineType.Step}
         defaultEdgeOptions={{
-          type: "smoothstep",
+          type: "step",
           animated: false,
           style: {
             stroke: "hsl(var(--border))",
