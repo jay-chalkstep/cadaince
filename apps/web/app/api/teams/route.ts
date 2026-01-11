@@ -32,6 +32,8 @@ export async function GET(req: Request) {
   const levelFilter = url.searchParams.get("level");
 
   // Build query
+  // Note: Self-referencing FK hints don't work in PostgREST, so we omit the hint
+  // for parent_team and let it resolve automatically via parent_team_id
   let query = supabase
     .from("teams")
     .select(`
@@ -49,12 +51,7 @@ export async function GET(req: Request) {
         id,
         name,
         eos_role,
-        pillar:pillars!seats_pillar_id_fkey(id, name, color)
-      ),
-      parent_team:teams!teams_parent_team_id_fkey(
-        id,
-        name,
-        slug
+        pillar:pillars(id, name, color)
       )
     `)
     .eq("organization_id", profile.organization_id)
