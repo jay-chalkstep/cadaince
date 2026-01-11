@@ -163,7 +163,16 @@ function ChartCanvasInner({
     [flatSeats, dimensions, onSeatClick, onAddChild]
   );
 
-  const initialEdges = useMemo(() => seatsToEdges(flatSeats), [flatSeats]);
+  const initialEdges = useMemo(() => {
+    const edges = seatsToEdges(flatSeats);
+    // Debug logging to verify edge generation
+    if (typeof window !== "undefined") {
+      console.log("[ChartCanvas] Total seats:", flatSeats.length);
+      console.log("[ChartCanvas] Seats with parent:", flatSeats.filter(s => s.parent_seat_id).length);
+      console.log("[ChartCanvas] Generated edges:", edges.length);
+    }
+    return edges;
+  }, [flatSeats]);
 
   // Apply initial layout
   const { nodes: layoutedNodes, edges: layoutedEdges } = useMemo(() => {
@@ -337,7 +346,12 @@ function ChartCanvasInner({
         defaultEdgeOptions={{
           type: "smoothstep",
           animated: false,
+          style: {
+            stroke: "hsl(var(--border))",
+            strokeWidth: 2,
+          },
         }}
+        connectionMode="strict"
         proOptions={{ hideAttribution: true }}
         className="bg-muted/30"
       >

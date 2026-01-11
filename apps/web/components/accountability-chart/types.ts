@@ -217,7 +217,13 @@ export function seatsToEdges(seats: Seat[]): ChartEdge[] {
         id: `${seat.parent_seat_id}-${seat.id}`,
         source: seat.parent_seat_id,
         target: seat.id,
+        sourceHandle: "bottom",
+        targetHandle: "top",
         type: "smoothstep",
+        style: {
+          stroke: "hsl(var(--border))",
+          strokeWidth: 2,
+        },
         data: { type: "solid" },
         animated: false,
       });

@@ -25,12 +25,14 @@ import {
 
 /**
  * Custom handle style for visible connection points (like Visio)
+ * Always visible with proper z-index to ensure handles are clickable
  */
 const handleStyle = {
-  width: 12,
-  height: 12,
+  width: 10,
+  height: 10,
   background: "hsl(var(--primary))",
   border: "2px solid hsl(var(--background))",
+  zIndex: 10,
 };
 
 /**
@@ -86,8 +88,11 @@ function SeatNodeComponent({ data, selected }: NodeProps<SeatNodeType>) {
         type="target"
         position={Position.Top}
         id="top"
+        isConnectable={true}
+        isConnectableStart={false}
+        isConnectableEnd={true}
         style={handleStyle}
-        className="!opacity-0 group-hover:!opacity-100 transition-opacity cursor-crosshair hover:!bg-green-500 hover:scale-125"
+        className="hover:!bg-green-500 hover:scale-125 transition-transform cursor-crosshair"
       />
 
       <Card
@@ -333,8 +338,11 @@ function SeatNodeComponent({ data, selected }: NodeProps<SeatNodeType>) {
         type="source"
         position={Position.Bottom}
         id="bottom"
+        isConnectable={true}
+        isConnectableStart={true}
+        isConnectableEnd={false}
         style={handleStyle}
-        className="!opacity-0 group-hover:!opacity-100 transition-opacity cursor-crosshair hover:!bg-blue-500 hover:scale-125"
+        className="hover:!bg-blue-500 hover:scale-125 transition-transform cursor-crosshair"
       />
     </div>
   );
