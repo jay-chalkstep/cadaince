@@ -145,6 +145,7 @@ export function SeatDetailSheet({
   const [assigning, setAssigning] = useState(false);
   const [parentSeatId, setParentSeatId] = useState<string | null>(null);
   const [descendants, setDescendants] = useState<Set<string>>(new Set());
+  const [updatingParent, setUpdatingParent] = useState(false);
 
   useEffect(() => {
     if (seat && open) {
@@ -303,6 +304,47 @@ export function SeatDetailSheet({
     }
   };
 
+  const handleParentChange = async (newParentId: string | null) => {
+    if (!seat) return;
+
+    setUpdatingParent(true);
+    setParentSeatId(newParentId);
+
+    try {
+      const response = await fetch(`/api/accountability-chart/seats/${seat.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ parent_seat_id: newParentId }),
+      });
+
+      if (response.ok) {
+        const newParentName = newParentId
+          ? existingSeats.find((s) => s.id === newParentId)?.name
+          : null;
+        toast.success("Reporting updated", {
+          description: newParentName
+            ? `${seat.name} now reports to ${newParentName}`
+            : `${seat.name} is now a root-level seat`,
+        });
+        onUpdate();
+      } else {
+        const data = await response.json();
+        toast.error("Update failed", {
+          description: data.error || "Could not update reporting relationship.",
+        });
+        setParentSeatId(seat.parent_seat_id);
+      }
+    } catch (error) {
+      console.error("Failed to update parent:", error);
+      toast.error("Update failed", {
+        description: "An unexpected error occurred.",
+      });
+      setParentSeatId(seat.parent_seat_id);
+    } finally {
+      setUpdatingParent(false);
+    }
+  };
+
   const getInitials = (name: string) => {
     return name
       .split(" ")
@@ -324,7 +366,7 @@ export function SeatDetailSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-lg overflow-y-auto">
+      <SheetContent className="sm:max-w-lg overflow-y-auto px-6">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             {editing ? "Edit Seat" : seat.name}
@@ -608,12 +650,25 @@ export function SeatDetailSheet({
               {/* Reports To */}
               <div>
                 <Label className="text-sm font-medium">Reports To</Label>
-                <p className="mt-1 text-sm">
-                  {seat.parent_seat_id
-                    ? existingSeats.find((s) => s.id === seat.parent_seat_id)
-                        ?.name || "Unknown"
-                    : "None (root level)"}
-                </p>
+                <Select
+                  value={parentSeatId || "none"}
+                  onValueChange={(value) =>
+                    handleParentChange(value === "none" ? null : value)
+                  }
+                  disabled={updatingParent}
+                >
+                  <SelectTrigger className="mt-2">
+                    <SelectValue placeholder="Select parent seat" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None (root level)</SelectItem>
+                    {availableParents.map((parent) => (
+                      <SelectItem key={parent.id} value={parent.id}>
+                        {parent.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <Separator />
