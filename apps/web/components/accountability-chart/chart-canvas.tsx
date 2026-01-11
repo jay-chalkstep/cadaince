@@ -18,11 +18,13 @@ import {
   type OnEdgesChange,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
+import { toast } from "sonner";
 
 import { SeatNode } from "./seat-node";
 import { ChartControls } from "./chart-controls";
 import { useChartLayout, calculateLayout } from "./use-chart-layout";
 import { useChartPersistence, useReparentSeat } from "./use-chart-persistence";
+import { ReparentDialog, type PendingReparent } from "./reparent-dialog";
 import {
   type Seat,
   type SeatNode as SeatNodeType,
@@ -60,6 +62,7 @@ function ChartCanvasInner({
   const reactFlowInstance = useReactFlow();
   const [layoutMode, setLayoutMode] = useState<LayoutMode>("auto");
   const [showMinimap, setShowMinimap] = useState(true);
+  const [pendingReparent, setPendingReparent] = useState<PendingReparent | null>(null);
 
   // Flatten seats and calculate dimensions
   const flatSeats = useMemo(() => flattenSeats(seats), [seats]);
@@ -67,6 +70,15 @@ function ChartCanvasInner({
     () => getCardDimensions(flatSeats.length),
     [flatSeats.length]
   );
+
+  // Create a lookup map for seat names
+  const seatLookup = useMemo(() => {
+    const map = new Map<string, Seat>();
+    for (const seat of flatSeats) {
+      map.set(seat.id, seat);
+    }
+    return map;
+  }, [flatSeats]);
 
   // Layout hook
   const { getLayoutedElements } = useChartLayout(dimensions);
@@ -79,20 +91,55 @@ function ChartCanvasInner({
     });
   const { reparentSeat, isReparenting } = useReparentSeat();
 
-  // Handle drag-to-reparent
+  // Handle drag-to-reparent - show confirmation dialog
   const handleDrop = useCallback(
-    async (draggedId: string, targetId: string) => {
+    (draggedId: string, targetId: string) => {
+      const sourceSeat = seatLookup.get(draggedId);
+      const targetSeat = seatLookup.get(targetId);
+
+      if (!sourceSeat || !targetSeat) return;
+
+      // Show confirmation dialog
+      setPendingReparent({
+        sourceId: draggedId,
+        sourceName: sourceSeat.name,
+        targetId: targetId,
+        targetName: targetSeat.name,
+      });
+    },
+    [seatLookup]
+  );
+
+  // Confirm the reparent action
+  const handleConfirmReparent = useCallback(async () => {
+    if (!pendingReparent) return;
+
+    try {
       if (onReparent) {
-        await onReparent(draggedId, targetId);
+        await onReparent(pendingReparent.sourceId, pendingReparent.targetId);
       } else {
-        const success = await reparentSeat(draggedId, targetId);
-        if (success) {
-          // The parent component should refresh seats after reparenting
+        const success = await reparentSeat(pendingReparent.sourceId, pendingReparent.targetId);
+        if (!success) {
+          throw new Error("Failed to update reporting relationship");
         }
       }
-    },
-    [onReparent, reparentSeat]
-  );
+
+      toast.success("Reporting updated", {
+        description: `${pendingReparent.sourceName} now reports to ${pendingReparent.targetName}`,
+      });
+    } catch (error) {
+      toast.error("Failed to update", {
+        description: "Could not change the reporting relationship. Please try again.",
+      });
+    } finally {
+      setPendingReparent(null);
+    }
+  }, [pendingReparent, onReparent, reparentSeat]);
+
+  // Cancel the reparent action
+  const handleCancelReparent = useCallback(() => {
+    setPendingReparent(null);
+  }, []);
 
   // Convert seats to nodes and edges
   const initialNodes = useMemo(
@@ -292,6 +339,12 @@ function ChartCanvasInner({
           />
         )}
       </ReactFlow>
+
+      <ReparentDialog
+        pendingReparent={pendingReparent}
+        onConfirm={handleConfirmReparent}
+        onCancel={handleCancelReparent}
+      />
     </div>
   );
 }

@@ -3,7 +3,7 @@
 import { memo, useCallback, useState } from "react";
 import { Handle, Position } from "@xyflow/react";
 import type { Node, NodeProps } from "@xyflow/react";
-import { Plus, User, Users } from "lucide-react";
+import { GripVertical, Plus, User, Users } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -35,6 +35,8 @@ import {
 function SeatNodeComponent({ data, selected }: NodeProps<SeatNodeType>) {
   const { seat, dimensions, onSeatClick, onAddChild, onDrop } = data;
   const [isDragOver, setIsDragOver] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOverSelf, setDragOverSelf] = useState(false);
 
   const isUnit = seat.seat_type === "unit" && seat.display_as_unit;
   const coHolders =
@@ -70,20 +72,31 @@ function SeatNodeComponent({ data, selected }: NodeProps<SeatNodeType>) {
     [seat, onAddChild]
   );
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-    setIsDragOver(true);
-  }, []);
+  const handleDragOver = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      const draggedId = e.dataTransfer.types.includes("text/plain")
+        ? e.dataTransfer.getData("text/plain")
+        : null;
+
+      // Check if dragging over self (getData doesn't work during dragover in some browsers)
+      // We'll check the actual ID in handleDropEvent
+      e.dataTransfer.dropEffect = "move";
+      setIsDragOver(true);
+    },
+    []
+  );
 
   const handleDragLeave = useCallback(() => {
     setIsDragOver(false);
+    setDragOverSelf(false);
   }, []);
 
   const handleDropEvent = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
       setIsDragOver(false);
+      setDragOverSelf(false);
       const draggedId = e.dataTransfer.getData("text/plain");
       if (draggedId && draggedId !== seat.id && onDrop) {
         onDrop(draggedId, seat.id);
@@ -96,9 +109,14 @@ function SeatNodeComponent({ data, selected }: NodeProps<SeatNodeType>) {
     (e: React.DragEvent) => {
       e.dataTransfer.setData("text/plain", seat.id);
       e.dataTransfer.effectAllowed = "move";
+      setIsDragging(true);
     },
     [seat.id]
   );
+
+  const handleDragEnd = useCallback(() => {
+    setIsDragging(false);
+  }, []);
 
   return (
     <div className="relative group">
@@ -111,9 +129,12 @@ function SeatNodeComponent({ data, selected }: NodeProps<SeatNodeType>) {
 
       <Card
         className={cn(
-          "cursor-pointer transition-all border-2",
+          "transition-all border-2 cursor-grab active:cursor-grabbing",
           selected && "ring-2 ring-primary ring-offset-2",
-          isDragOver && "ring-2 ring-blue-500 ring-offset-2 bg-blue-50/50"
+          // Valid drop target - green ring
+          isDragOver && !isDragging && "ring-2 ring-green-500 ring-offset-2 bg-green-50/50",
+          // Dragging this card - reduced opacity
+          isDragging && "opacity-50 ring-2 ring-dashed ring-muted-foreground"
         )}
         style={{
           width: dimensions.width,
@@ -128,7 +149,30 @@ function SeatNodeComponent({ data, selected }: NodeProps<SeatNodeType>) {
         onDrop={handleDropEvent}
         draggable
         onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
       >
+        {/* Drag handle - visible on hover */}
+        <div className="absolute -left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="p-1 rounded bg-muted/80 text-muted-foreground hover:bg-muted hover:text-foreground cursor-grab active:cursor-grabbing">
+                  <GripVertical className="h-4 w-4" />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="left">
+                <p>Drag to change reporting</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+
+        {/* Drop indicator label */}
+        {isDragOver && !isDragging && (
+          <div className="absolute -top-6 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-green-500 text-white text-xs font-medium rounded whitespace-nowrap z-10">
+            Drop to assign
+          </div>
+        )}
         <CardContent className={cn("p-3", isCompact && "p-2")}>
           {/* Header with name and EOS role badge */}
           <div className="text-center mb-2">
