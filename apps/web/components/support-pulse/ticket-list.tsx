@@ -195,8 +195,17 @@ export function TicketList({ filters, days, customRange, onClose }: TicketListPr
                                   <span className="font-medium">{ticket.programName || "—"}</span>
                                 </div>
                                 <div>
-                                  <span className="text-muted-foreground">Owner ID:</span>{" "}
-                                  <span className="font-mono text-xs">{ticket.ownerId || "—"}</span>
+                                  <span className="text-muted-foreground">Owner:</span>{" "}
+                                  {ticket.ownerName ? (
+                                    <span className="font-medium">
+                                      {ticket.ownerName}
+                                      <span className="text-muted-foreground font-mono text-xs ml-1">
+                                        ({ticket.ownerId})
+                                      </span>
+                                    </span>
+                                  ) : (
+                                    <span className="font-mono text-xs">{ticket.ownerId || "—"}</span>
+                                  )}
                                 </div>
                                 <div>
                                   <span className="text-muted-foreground">External ID:</span>{" "}

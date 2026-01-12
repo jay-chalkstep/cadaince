@@ -103,6 +103,32 @@ interface HubSpotSearchResponse {
   };
 }
 
+export interface HubSpotOwner {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  userId?: number;
+  createdAt: string;
+  updatedAt: string;
+  archived?: boolean;
+  teams?: Array<{
+    id: string;
+    name: string;
+    primary: boolean;
+  }>;
+}
+
+interface HubSpotOwnersResponse {
+  results: HubSpotOwner[];
+  paging?: {
+    next?: {
+      after: string;
+      link?: string;
+    };
+  };
+}
+
 /**
  * HubSpot API client using OAuth v2 tokens
  */
@@ -465,6 +491,35 @@ export class HubSpotClient {
     } catch {
       return null;
     }
+  }
+
+  /**
+   * Fetch all HubSpot owners (users who can be assigned to records)
+   * Uses HubSpot Owners API: GET /crm/v3/owners
+   */
+  async fetchOwners(): Promise<HubSpotOwner[]> {
+    const allOwners: HubSpotOwner[] = [];
+    let after: string | undefined;
+    const maxOwners = 1000; // Safety limit
+
+    do {
+      const params = new URLSearchParams({ limit: "100" });
+      if (after) {
+        params.set("after", after);
+      }
+
+      const response = await this.request<HubSpotOwnersResponse>(
+        `/crm/v3/owners?${params.toString()}`
+      );
+
+      // Filter out archived owners
+      const activeOwners = response.results.filter((o) => !o.archived);
+      allOwners.push(...activeOwners);
+
+      after = response.paging?.next?.after;
+    } while (after && allOwners.length < maxOwners);
+
+    return allOwners;
   }
 
   /**

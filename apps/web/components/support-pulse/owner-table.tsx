@@ -34,7 +34,7 @@ export function OwnerTable({ data, onOwnerClick }: OwnerTableProps) {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Owner ID</TableHead>
+                  <TableHead>Owner</TableHead>
                   <TableHead className="text-right">Tickets</TableHead>
                   <TableHead className="text-right">Avg Resolution</TableHead>
                   <TableHead className="text-right">Open</TableHead>
@@ -47,8 +47,17 @@ export function OwnerTable({ data, onOwnerClick }: OwnerTableProps) {
                     className={onOwnerClick ? "cursor-pointer hover:bg-muted/50" : ""}
                     onClick={() => onOwnerClick?.(owner.ownerId)}
                   >
-                    <TableCell className="font-mono text-sm">
-                      {owner.ownerId}
+                    <TableCell>
+                      {owner.ownerName ? (
+                        <div>
+                          <div className="font-medium">{owner.ownerName}</div>
+                          <div className="text-xs text-muted-foreground font-mono">
+                            {owner.ownerId}
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="font-mono text-sm">{owner.ownerId}</span>
+                      )}
                     </TableCell>
                     <TableCell className="text-right">
                       {owner.ticketCount}

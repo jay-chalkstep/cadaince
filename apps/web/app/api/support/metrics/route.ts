@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
+import { getOwnerNamesMap } from "@/lib/integrations/hubspot/sync-owners";
 import type {
   SupportMetricsResponse,
   DailyVolume,
@@ -139,8 +140,18 @@ export async function GET(req: Request) {
     const categoryBreakdown = calculateCategoryBreakdown(currentTickets);
     const sourceMix = calculateSourceMix(currentTickets);
     const resolutionDistribution = calculateResolutionDistribution(currentTickets);
-    const ownerWorkload = calculateOwnerWorkload(currentTickets);
+    const ownerWorkloadRaw = calculateOwnerWorkload(currentTickets);
     const clientVolume = calculateClientVolume(currentTickets);
+
+    // Fetch owner names for the owner workload
+    const ownerIds = ownerWorkloadRaw.map((o) => o.ownerId);
+    const ownerNamesMap = await getOwnerNamesMap(profile.organization_id, ownerIds);
+
+    // Add owner names to workload
+    const ownerWorkload: OwnerWorkload[] = ownerWorkloadRaw.map((o) => ({
+      ...o,
+      ownerName: ownerNamesMap.get(o.ownerId) || null,
+    }));
 
     const response: SupportMetricsResponse = {
       summary,
@@ -312,7 +323,7 @@ function calculateResolutionDistribution(tickets: TicketData[]): ResolutionBucke
   }));
 }
 
-function calculateOwnerWorkload(tickets: TicketData[]): OwnerWorkload[] {
+function calculateOwnerWorkload(tickets: TicketData[]): Omit<OwnerWorkload, "ownerName">[] {
   const ownerMap = new Map<
     string,
     { count: number; totalResolution: number; resolutionCount: number; openCount: number }

@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { RefreshCw, Headphones } from "lucide-react";
+import { RefreshCw, Headphones, Users } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
 import { SummaryCards } from "./summary-cards";
 import { VolumeChart } from "./volume-chart";
@@ -26,7 +27,9 @@ import type {
 export function SupportPulseDashboard() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [syncingOwners, setSyncingOwners] = useState(false);
   const [data, setData] = useState<SupportMetricsResponse | null>(null);
+  const { toast } = useToast();
 
   // Time frame state
   const [days, setDays] = useState<TimeFrameDays>(10);
@@ -79,6 +82,38 @@ export function SupportPulseDashboard() {
   const handleRefresh = () => {
     setRefreshing(true);
     fetchData();
+  };
+
+  const handleSyncOwners = async () => {
+    setSyncingOwners(true);
+    try {
+      const res = await fetch("/api/support/sync-owners", { method: "POST" });
+      const json = await res.json();
+
+      if (res.ok) {
+        toast({
+          title: "Owners synced",
+          description: `Successfully synced ${json.count} owners from HubSpot.`,
+        });
+        // Refresh data to show updated owner names
+        fetchData();
+      } else {
+        toast({
+          title: "Sync failed",
+          description: json.error || "Failed to sync owners from HubSpot.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error syncing owners:", error);
+      toast({
+        title: "Sync failed",
+        description: "An unexpected error occurred while syncing owners.",
+        variant: "destructive",
+      });
+    } finally {
+      setSyncingOwners(false);
+    }
   };
 
   const handleFilterChange = (newFilters: Partial<SupportPulseFilters>) => {
@@ -166,6 +201,16 @@ export function SupportPulseDashboard() {
             customRange={customRange}
             onCustomRangeChange={setCustomRange}
           />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSyncOwners}
+            disabled={syncingOwners}
+            title="Sync HubSpot owners to display names"
+          >
+            <Users className={cn("h-4 w-4 mr-2", syncingOwners && "animate-pulse")} />
+            {syncingOwners ? "Syncing..." : "Sync Owners"}
+          </Button>
           <Button
             variant="outline"
             size="icon"

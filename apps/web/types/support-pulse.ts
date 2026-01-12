@@ -81,6 +81,7 @@ export interface ResolutionBucket {
 
 export interface OwnerWorkload {
   ownerId: string;
+  ownerName: string | null;
   ticketCount: number;
   avgResolutionMs: number | null;
   openCount: number;
@@ -126,6 +127,7 @@ export interface TicketListItem {
   clientName: string | null;
   programName: string | null;
   ownerId: string | null;
+  ownerName: string | null;
 }
 
 // Tickets list response

@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
+import { getOwnerNamesMap } from "@/lib/integrations/hubspot/sync-owners";
 import type { TicketListItem, TicketsListResponse } from "@/types/support-pulse";
 
 // GET /api/support/tickets - Get paginated ticket list for drill-down
@@ -86,6 +87,22 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Failed to fetch tickets" }, { status: 500 });
     }
 
+    // Collect unique owner IDs for name lookup
+    const ownerIds = new Set<string>();
+    for (const ticket of tickets || []) {
+      const props = ticket.properties as Record<string, unknown>;
+      const ownerId = props.hubspot_owner_id as string;
+      if (ownerId) {
+        ownerIds.add(ownerId);
+      }
+    }
+
+    // Fetch owner names
+    const ownerNamesMap = await getOwnerNamesMap(
+      profile.organization_id,
+      Array.from(ownerIds)
+    );
+
     // Transform tickets to list items
     const ticketItems: TicketListItem[] = (tickets || []).map((ticket) => {
       const props = ticket.properties as Record<string, unknown>;
@@ -99,6 +116,8 @@ export async function GET(req: Request) {
         }
       }
 
+      const ownerId = (props.hubspot_owner_id as string) || null;
+
       return {
         id: ticket.id,
         externalId: ticket.external_id,
@@ -111,7 +130,8 @@ export async function GET(req: Request) {
         content: (props.content as string) || null,
         clientName: (props.client_name as string) || null,
         programName: (props.program_name as string) || null,
-        ownerId: (props.hubspot_owner_id as string) || null,
+        ownerId,
+        ownerName: ownerId ? ownerNamesMap.get(ownerId) || null : null,
       };
     });
 
