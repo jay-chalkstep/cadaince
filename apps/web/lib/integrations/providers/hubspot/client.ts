@@ -419,9 +419,17 @@ export class HubSpotClient {
     const maxRecords = 50000; // Safety limit
     let requestCount = 0;
 
-    // Use List API (GET) if no filters, Search API (POST) if filters provided
-    // HubSpot's Search API requires at least one filter
-    const useSearchApi = filterGroups.length > 0;
+    // Use Search API (POST) if filters provided OR if URL would be too long
+    // HubSpot's Search API requires at least one filter - use a "match all" filter if none provided
+    // URL length limit is ~2000 chars, properties list can easily exceed this
+    const propertiesUrlLength = properties.join(",").length;
+    const urlWouldBeTooLong = propertiesUrlLength > 1500;
+    const useSearchApi = filterGroups.length > 0 || urlWouldBeTooLong;
+
+    // If using Search API but no filters, add a "match all" filter
+    const effectiveFilterGroups = filterGroups.length > 0
+      ? filterGroups
+      : [{ filters: [{ propertyName: "hs_object_id", operator: "HAS_PROPERTY" }] }];
 
     do {
       // Rate limit: HubSpot allows 10 requests/second
@@ -433,19 +441,20 @@ export class HubSpotClient {
       let response: HubSpotSearchResponseWithAssociations;
 
       if (useSearchApi) {
-        // Search API - requires filters
+        // Search API - requires filters (uses effectiveFilterGroups which has "match all" fallback)
         // Note: Search API supports associations via request body
         const searchUrl = `/crm/v3/objects/${object}/search`;
         const searchBody = {
-          filterGroups,
+          filterGroups: effectiveFilterGroups,
           properties,
           limit: 100,
           after,
           ...(associations?.length && { associations }),
         };
         console.log(`[HubSpot] Search API request: ${searchUrl}`, {
-          filterCount: filterGroups.length,
-          associations
+          filterCount: effectiveFilterGroups.length,
+          associations,
+          urlWouldBeTooLong
         });
         response = await this.request<HubSpotSearchResponseWithAssociations>(
           searchUrl,
