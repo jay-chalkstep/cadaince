@@ -43,24 +43,24 @@ import {
 const myDayItems = [
   { title: "Briefing", href: "/briefing", icon: BookOpen },
   { title: "Updates and Alerts", href: "/stream", icon: Radio },
-  { title: "Scorecard", href: "/scorecard", icon: BarChart3 },
   { title: "To-Dos", href: "/todos", icon: CheckSquare },
   { title: "Private Notes", href: "/notes", icon: MessageSquareLock },
+  { title: "Goals", href: "/goals", icon: Target },
 ];
 
 // L10 - Meeting and execution focused
 const l10Items = [
   { title: "L10", href: "/l10", icon: Video },
+  { title: "Scorecard", href: "/scorecard", icon: BarChart3 },
   { title: "Issues", href: "/issues", icon: MessageSquare },
   { title: "Rocks", href: "/rocks", icon: CircleDot },
   { title: "Headlines", href: "/headlines", icon: Megaphone },
   { title: "Vision", href: "/vision", icon: Compass },
-  { title: "Goals", href: "/goals", icon: Target },
-  { title: "Accountability Chart", href: "/accountability-chart", icon: GitBranch },
 ];
 
 // Admin - Settings and configuration
 const adminItems = [
+  { title: "Accountability Chart", href: "/accountability-chart", icon: GitBranch },
   { title: "Team", href: "/team", icon: Users },
   { title: "Meetings", href: "/meetings", icon: Calendar },
   { title: "V/TO", href: "/settings/vto", icon: Settings2 },
