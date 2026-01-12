@@ -226,6 +226,8 @@ export function CreateRockDialog({
                   value={parentRockId}
                   onChange={setParentRockId}
                   rockLevel={rockLevel}
+                  quarter={quarter}
+                  year={year}
                 />
               </div>
             )}

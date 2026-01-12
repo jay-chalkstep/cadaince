@@ -38,6 +38,8 @@ interface ParentRockSelectorProps {
   onChange: (rockId: string | null) => void;
   rockLevel: "pillar" | "individual";
   quarterId?: string;
+  quarter?: number | string; // Quarter number (1-4) or string
+  year?: number | string; // Year like 2025
   teamId?: string;
   disabled?: boolean;
   className?: string;
@@ -58,6 +60,8 @@ export function ParentRockSelector({
   onChange,
   rockLevel,
   quarterId,
+  quarter,
+  year,
   teamId,
   disabled = false,
   className,
@@ -79,6 +83,13 @@ export function ParentRockSelector({
         if (quarterId) {
           params.set("quarter_id", quarterId);
         }
+        // Pass quarter and year for filtering if provided
+        if (quarter) {
+          params.set("quarter", String(quarter));
+        }
+        if (year) {
+          params.set("year", String(year));
+        }
         if (teamId && parentLevel === "pillar") {
           params.set("team_id", teamId);
         }
@@ -86,11 +97,13 @@ export function ParentRockSelector({
         const res = await fetch(`/api/rocks?${params}`);
         if (res.ok) {
           const data = await res.json();
-          setRocks(data.rocks || []);
+          // API returns rocks array directly, not { rocks: [] }
+          const rocksArray = Array.isArray(data) ? data : (data.rocks || []);
+          setRocks(rocksArray);
 
           // Find selected rock if value is set
           if (value) {
-            const found = data.rocks?.find((r: ParentRock) => r.id === value);
+            const found = rocksArray.find((r: ParentRock) => r.id === value);
             setSelectedRock(found || null);
           }
         }
@@ -102,7 +115,7 @@ export function ParentRockSelector({
     };
 
     fetchRocks();
-  }, [parentLevel, quarterId, teamId, value]);
+  }, [parentLevel, quarterId, quarter, year, teamId, value]);
 
   const handleSelect = (rock: ParentRock | null) => {
     setSelectedRock(rock);
