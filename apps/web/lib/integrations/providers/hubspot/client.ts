@@ -371,6 +371,10 @@ export class HubSpotClient {
     const maxRecords = 50000; // Safety limit
     let requestCount = 0;
 
+    // Use List API (GET) if no filters, Search API (POST) if filters provided
+    // HubSpot's Search API requires at least one filter
+    const useSearchApi = filterGroups.length > 0;
+
     do {
       // Rate limit: HubSpot allows 10 requests/second
       if (requestCount > 0) {
@@ -378,18 +382,35 @@ export class HubSpotClient {
       }
       requestCount++;
 
-      const response = await this.request<HubSpotSearchResponse>(
-        `/crm/v3/objects/${object}/search`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            filterGroups: filterGroups.length ? filterGroups : undefined,
-            properties,
-            limit: 100,
-            after,
-          }),
+      let response: HubSpotSearchResponse;
+
+      if (useSearchApi) {
+        // Search API - requires filters
+        response = await this.request<HubSpotSearchResponse>(
+          `/crm/v3/objects/${object}/search`,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              filterGroups,
+              properties,
+              limit: 100,
+              after,
+            }),
+          }
+        );
+      } else {
+        // List API - for fetching all records without filters
+        const params = new URLSearchParams({
+          limit: "100",
+          properties: properties.join(","),
+        });
+        if (after) {
+          params.set("after", after);
         }
-      );
+        response = await this.request<HubSpotSearchResponse>(
+          `/crm/v3/objects/${object}?${params.toString()}`
+        );
+      }
 
       // Keep full record structure for raw storage
       allRecords.push(
