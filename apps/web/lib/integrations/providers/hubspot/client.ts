@@ -551,7 +551,11 @@ export class HubSpotClient {
         }>;
       }>(`/crm/v4/objects/${fromObjectType}/${objectId}/associations/${toObjectType}`);
 
-      return response.results.map((r) => r.toObjectId.toString());
+      const associations = (response.results || []).map((r) => r.toObjectId.toString());
+      if (associations.length > 0) {
+        console.log(`[HubSpot] Found ${associations.length} associations for ${fromObjectType}/${objectId}`);
+      }
+      return associations;
     } catch (error) {
       // Return empty array if no associations or error
       console.error(`[HubSpot] Failed to fetch associations for ${fromObjectType}/${objectId}:`, error);
@@ -570,6 +574,8 @@ export class HubSpotClient {
   ): Promise<Map<string, string[]>> {
     const associations = new Map<string, string[]>();
 
+    console.log(`[HubSpot] Batch fetching associations: ${fromObjectType} -> ${toObjectType} for ${objectIds.length} objects`);
+
     // HubSpot batch associations endpoint
     // POST /crm/v4/associations/{fromObjectType}/{toObjectType}/batch/read
     try {
@@ -585,14 +591,21 @@ export class HubSpotClient {
         }),
       });
 
-      for (const result of response.results) {
+      console.log(`[HubSpot] Batch associations response: ${response.results?.length || 0} results`);
+
+      for (const result of response.results || []) {
         const fromId = result.from.id;
-        const toIds = result.to.map((t) => t.toObjectId.toString());
-        associations.set(fromId, toIds);
+        const toIds = (result.to || []).map((t) => t.toObjectId.toString());
+        if (toIds.length > 0) {
+          associations.set(fromId, toIds);
+        }
       }
+
+      console.log(`[HubSpot] Found ${associations.size} objects with associations`);
     } catch (error) {
       console.error(`[HubSpot] Failed to batch fetch associations:`, error);
       // Fall back to individual requests if batch fails
+      console.log(`[HubSpot] Falling back to individual association requests...`);
       for (const objectId of objectIds) {
         const toIds = await this.fetchAssociations(fromObjectType, objectId, toObjectType);
         if (toIds.length > 0) {

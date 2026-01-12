@@ -592,12 +592,14 @@ async function processToRawRecords(
 
   // Fetch ticket associations for feedback submissions
   if (objectType === "feedback_submissions" && processed > 0) {
+    console.log(`[Sync] Starting feedback-ticket association sync for ${records.length} records`);
     try {
       await syncFeedbackTicketAssociations(
         dataSource.id,
         organizationId,
         records.map((r) => r.id)
       );
+      console.log(`[Sync] Completed feedback-ticket association sync`);
     } catch (assocError) {
       console.warn("[Sync] Failed to sync feedback-ticket associations:", assocError);
       // Don't fail the main sync if association sync fails
