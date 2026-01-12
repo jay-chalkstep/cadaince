@@ -3,20 +3,19 @@
 import { useEffect, useState } from "react";
 import {
   BarChart3,
-  Bell,
   BookOpen,
   Calendar,
   CheckSquare,
   CircleDot,
   Compass,
   Database,
-  FileText,
   GitBranch,
   Home,
   Link2,
   Megaphone,
   MessageSquare,
   MessageSquareLock,
+  Radio,
   Settings,
   Settings2,
   Target,
@@ -49,13 +48,12 @@ const mainNavItems = [
   { title: "Issues", href: "/issues", icon: MessageSquare },
   { title: "To-Dos", href: "/todos", icon: CheckSquare },
   { title: "Headlines", href: "/headlines", icon: Megaphone },
-  { title: "Updates", href: "/updates", icon: FileText },
+  { title: "Updates and Alerts", href: "/stream", icon: Radio },
 ];
 
 const secondaryNavItems = [
   { title: "Goals", href: "/goals", icon: Target },
   { title: "Accountability Chart", href: "/accountability-chart", icon: GitBranch },
-  { title: "Alerts", href: "/alerts", icon: Bell },
   { title: "Private Notes", href: "/notes", icon: MessageSquareLock },
   { title: "Meetings", href: "/meetings", icon: Calendar },
 ];
@@ -70,24 +68,24 @@ const settingsNavItems = [
 
 export function AppSidebar() {
   const pathname = usePathname();
-  const [unreadUpdatesCount, setUnreadUpdatesCount] = useState(0);
+  const [streamCount, setStreamCount] = useState(0);
 
-  // Fetch unread updates count
+  // Fetch combined updates + alerts count
   useEffect(() => {
     const fetchCount = async () => {
       try {
-        const res = await fetch("/api/updates/count");
+        const res = await fetch("/api/stream/count");
         if (res.ok) {
-          const { count } = await res.json();
-          setUnreadUpdatesCount(count);
+          const { total } = await res.json();
+          setStreamCount(total);
         }
       } catch (error) {
-        console.error("Failed to fetch updates count:", error);
+        console.error("Failed to fetch stream count:", error);
       }
     };
 
     fetchCount();
-    // Poll every 10 seconds for responsive unread badge updates
+    // Poll every 10 seconds for responsive badge updates
     const interval = setInterval(fetchCount, 10000);
     return () => clearInterval(interval);
   }, []);
@@ -121,12 +119,12 @@ export function AppSidebar() {
                         <item.icon className="h-4 w-4" />
                         <span>{item.title}</span>
                       </span>
-                      {item.href === "/updates" && unreadUpdatesCount > 0 && (
+                      {item.href === "/stream" && streamCount > 0 && (
                         <Badge
                           variant="default"
                           className="h-5 min-w-5 px-1.5 text-[10px] bg-blue-600 hover:bg-blue-600"
                         >
-                          {unreadUpdatesCount > 9 ? "9+" : unreadUpdatesCount}
+                          {streamCount > 9 ? "9+" : streamCount}
                         </Badge>
                       )}
                     </Link>
