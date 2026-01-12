@@ -289,7 +289,15 @@ async function fetchRawFromHubSpot(
   const properties = queryConfig.properties as string[];
   const filters = queryConfig.filters as HubSpotQueryConfig["filters"];
 
-  const result = await client.fetchRawRecords(objectType, properties, filters);
+  // Auto-include ticket associations for feedback_submissions
+  const associations: HubSpotObject[] | undefined =
+    objectType === "feedback_submissions" ? ["tickets"] : undefined;
+
+  if (associations) {
+    console.log(`[Sync] Fetching ${objectType} with associations: ${associations.join(", ")}`);
+  }
+
+  const result = await client.fetchRawRecords(objectType, properties, filters, associations);
 
   return {
     success: result.success,
@@ -590,111 +598,10 @@ async function processToRawRecords(
     }
   }
 
-  // Fetch ticket associations for feedback submissions
-  if (objectType === "feedback_submissions" && processed > 0) {
-    console.log(`[Sync] Starting feedback-ticket association sync for ${records.length} records`);
-    try {
-      await syncFeedbackTicketAssociations(
-        dataSource.id,
-        organizationId,
-        records.map((r) => r.id)
-      );
-      console.log(`[Sync] Completed feedback-ticket association sync`);
-    } catch (assocError) {
-      console.warn("[Sync] Failed to sync feedback-ticket associations:", assocError);
-      // Don't fail the main sync if association sync fails
-    }
-  }
+  // Note: Ticket associations for feedback_submissions are now fetched inline
+  // via the associations parameter in fetchRawFromHubSpot
 
   return { records_processed: processed, signals_created: 0 };
-}
-
-/**
- * Sync ticket associations for feedback submissions
- * Fetches associations from HubSpot and updates integration_records with associated_ticket_id
- */
-async function syncFeedbackTicketAssociations(
-  dataSourceId: string,
-  organizationId: string,
-  feedbackIds: string[]
-): Promise<void> {
-  if (feedbackIds.length === 0) return;
-
-  const supabase = createAdminClient();
-
-  // Get the integration for this data source
-  const { data: dataSource } = await supabase
-    .from("data_sources_v2")
-    .select("integration_id")
-    .eq("id", dataSourceId)
-    .single();
-
-  if (!dataSource?.integration_id) {
-    console.warn("[Sync] No integration found for data source");
-    return;
-  }
-
-  // Get HubSpot client
-  const client = await HubSpotClient.forIntegration(dataSource.integration_id);
-  if (!client) {
-    console.warn("[Sync] Failed to get HubSpot client for associations");
-    return;
-  }
-
-  // Batch fetch associations (process in chunks to avoid API limits)
-  const chunkSize = 100;
-  let associationsFound = 0;
-
-  for (let i = 0; i < feedbackIds.length; i += chunkSize) {
-    const chunk = feedbackIds.slice(i, i + chunkSize);
-
-    try {
-      const associations = await client.batchFetchAssociations(
-        "feedback_submissions",
-        chunk,
-        "tickets"
-      );
-
-      // Update records with associated ticket IDs
-      for (const [feedbackId, ticketIds] of associations) {
-        if (ticketIds.length > 0) {
-          // Fetch current properties and merge with association data
-          const { data: existing } = await supabase
-            .from("integration_records")
-            .select("properties")
-            .eq("data_source_id", dataSourceId)
-            .eq("external_id", feedbackId)
-            .single();
-
-          if (existing) {
-            const updatedProps = {
-              ...(existing.properties as Record<string, unknown>),
-              associated_ticket_id: ticketIds[0],
-              associated_ticket_ids: ticketIds.length > 1 ? ticketIds : undefined,
-            };
-
-            await supabase
-              .from("integration_records")
-              .update({ properties: updatedProps })
-              .eq("data_source_id", dataSourceId)
-              .eq("external_id", feedbackId);
-
-            associationsFound++;
-          }
-        }
-      }
-
-      // Rate limit between chunks
-      if (i + chunkSize < feedbackIds.length) {
-        await new Promise((resolve) => setTimeout(resolve, 200));
-      }
-    } catch (chunkError) {
-      console.warn(`[Sync] Failed to fetch associations for chunk ${i}:`, chunkError);
-      // Continue with next chunk
-    }
-  }
-
-  console.log(`[Sync] Found ${associationsFound} feedback-ticket associations`);
 }
 
 /**

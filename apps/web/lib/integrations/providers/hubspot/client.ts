@@ -103,6 +103,25 @@ interface HubSpotSearchResponse {
   };
 }
 
+// Extended response type for List API with associations
+interface HubSpotSearchResponseWithAssociations {
+  total?: number;
+  results: Array<{
+    id: string;
+    properties: Record<string, string>;
+    createdAt: string;
+    updatedAt: string;
+    associations?: Record<string, {
+      results: Array<{ id: string; type: string }>;
+    }>;
+  }>;
+  paging?: {
+    next?: {
+      after: string;
+    };
+  };
+}
+
 export interface HubSpotOwner {
   id: string;
   email: string;
@@ -351,11 +370,13 @@ export class HubSpotClient {
 
   /**
    * Fetch raw records with multiple properties (for raw record ingestion)
+   * Optional associations parameter to fetch related objects in the same request
    */
   async fetchRawRecords(
     object: HubSpotObject,
     properties: string[],
-    filters?: HubSpotFilter[]
+    filters?: HubSpotFilter[],
+    associations?: HubSpotObject[]
   ): Promise<HubSpotRawFetchResult> {
     try {
       // Build filter groups
@@ -372,7 +393,7 @@ export class HubSpotClient {
       }
 
       // Fetch all records with specified properties
-      const records = await this.fetchAllRawRecords(object, properties, filterGroups);
+      const records = await this.fetchAllRawRecords(object, properties, filterGroups, associations);
 
       return {
         success: true,
@@ -390,7 +411,8 @@ export class HubSpotClient {
   private async fetchAllRawRecords(
     object: HubSpotObject,
     properties: string[],
-    filterGroups: Array<{ filters: unknown[] }>
+    filterGroups: Array<{ filters: unknown[] }>,
+    associations?: HubSpotObject[]
   ): Promise<HubSpotRecord[]> {
     const allRecords: HubSpotRecord[] = [];
     let after: string | undefined;
@@ -408,11 +430,12 @@ export class HubSpotClient {
       }
       requestCount++;
 
-      let response: HubSpotSearchResponse;
+      let response: HubSpotSearchResponseWithAssociations;
 
       if (useSearchApi) {
         // Search API - requires filters
-        response = await this.request<HubSpotSearchResponse>(
+        // Note: Search API supports associations via request body
+        response = await this.request<HubSpotSearchResponseWithAssociations>(
           `/crm/v3/objects/${object}/search`,
           {
             method: "POST",
@@ -421,6 +444,7 @@ export class HubSpotClient {
               properties,
               limit: 100,
               after,
+              ...(associations?.length && { associations }),
             }),
           }
         );
@@ -433,19 +457,42 @@ export class HubSpotClient {
         if (after) {
           params.set("after", after);
         }
-        response = await this.request<HubSpotSearchResponse>(
+        // Add associations parameter
+        if (associations?.length) {
+          params.set("associations", associations.join(","));
+        }
+        response = await this.request<HubSpotSearchResponseWithAssociations>(
           `/crm/v3/objects/${object}?${params.toString()}`
         );
       }
 
-      // Keep full record structure for raw storage
+      // Keep full record structure for raw storage, including associations
       allRecords.push(
-        ...response.results.map((r) => ({
-          id: r.id,
-          properties: r.properties,
-          createdAt: r.createdAt,
-          updatedAt: r.updatedAt,
-        }))
+        ...response.results.map((r) => {
+          const record: HubSpotRecord = {
+            id: r.id,
+            properties: { ...r.properties },
+            createdAt: r.createdAt,
+            updatedAt: r.updatedAt,
+          };
+
+          // Extract associations and add to properties for storage
+          if (r.associations) {
+            for (const [assocType, assocData] of Object.entries(r.associations)) {
+              if (assocData?.results?.length) {
+                const assocIds = assocData.results.map((a: { id: string }) => a.id);
+                // Store first association ID as primary, all IDs as array
+                record.properties[`associated_${assocType}_id`] = assocIds[0];
+                if (assocIds.length > 1) {
+                  record.properties[`associated_${assocType}_ids`] = assocIds.join(",");
+                }
+                console.log(`[HubSpot] Record ${r.id} has ${assocIds.length} ${assocType} associations`);
+              }
+            }
+          }
+
+          return record;
+        })
       );
 
       after = response.paging?.next?.after;
