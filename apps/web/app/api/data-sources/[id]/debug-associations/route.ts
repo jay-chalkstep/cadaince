@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 import { HubSpotClient } from "@/lib/integrations/providers/hubspot";
+import { getAccessToken } from "@/lib/integrations/oauth/token-refresh";
 
 /**
  * GET /api/data-sources/[id]/debug-associations
@@ -64,7 +65,7 @@ export async function GET(
   }
 
   // Test batch associations
-  const feedbackIds = feedbackRecords.map(r => r.external_id);
+  const feedbackIds = feedbackRecords.map((r: { external_id: string }) => r.external_id);
   console.log(`[Debug] Testing associations for ${feedbackIds.length} feedback IDs:`, feedbackIds);
 
   try {
@@ -79,19 +80,75 @@ export async function GET(
       "feedback_submissions"
     );
 
-    // Test batch API
+    // Test batch API (v4)
     const batchAssociations = await client.batchFetchAssociations(
       "feedback_submissions",
       feedbackIds,
       "tickets"
     );
 
-    // Also test individual API for first record
+    // Also test individual API for first record (v4)
     const singleAssociations = await client.fetchAssociations(
       "feedback_submissions",
       feedbackIds[0],
       "tickets"
     );
+
+    // Get OAuth token for direct API calls
+    const accessToken = await getAccessToken(integration.id);
+    if (!accessToken) {
+      return NextResponse.json({ error: "Failed to get access token" }, { status: 500 });
+    }
+
+    // Test v3 associations endpoint (different format)
+    // GET /crm/v3/objects/{objectType}/{objectId}/associations/{toObjectType}
+    let v3Associations: unknown = null;
+    try {
+      const v3Response = await fetch(
+        `https://api.hubapi.com/crm/v3/objects/feedback_submissions/${feedbackIds[0]}/associations/tickets`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+      v3Associations = await v3Response.json();
+    } catch (e) {
+      v3Associations = { error: String(e) };
+    }
+
+    // Also try fetching the record directly with associations param
+    let recordWithAssociations: unknown = null;
+    try {
+      const recordResponse = await fetch(
+        `https://api.hubapi.com/crm/v3/objects/feedback_submissions/${feedbackIds[0]}?associations=tickets`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+      recordWithAssociations = await recordResponse.json();
+    } catch (e) {
+      recordWithAssociations = { error: String(e) };
+    }
+
+    // Try fetching the specific ticket from the screenshot to see its feedback associations
+    let ticketAssociations: unknown = null;
+    const specificTicketId = "236405336824"; // From the screenshot
+    try {
+      const ticketResponse = await fetch(
+        `https://api.hubapi.com/crm/v3/objects/tickets/${specificTicketId}?associations=feedback_submissions`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+      ticketAssociations = await ticketResponse.json();
+    } catch (e) {
+      ticketAssociations = { error: String(e) };
+    }
 
     // Try reverse direction too (tickets -> feedback)
     let reverseTest = null;
@@ -126,17 +183,20 @@ export async function GET(
         note: "If empty, no association type exists between these objects"
       },
       feedback_ids_tested: feedbackIds,
-      batch_associations: Object.fromEntries(batchAssociations),
-      single_associations: {
+      batch_associations_v4: Object.fromEntries(batchAssociations),
+      single_associations_v4: {
         feedback_id: feedbackIds[0],
         ticket_ids: singleAssociations
       },
+      v3_associations: v3Associations,
+      record_with_associations: recordWithAssociations,
+      ticket_236405336824_associations: ticketAssociations,
       reverse_lookup: reverseTest,
-      sample_feedback_properties: feedbackRecords.map(r => ({
+      sample_feedback_properties: feedbackRecords.map((r: { external_id: string; properties: Record<string, unknown> }) => ({
         external_id: r.external_id,
-        hs_ticket_id: (r.properties as Record<string, unknown>)?.hs_ticket_id,
-        hs_ticket_subject: (r.properties as Record<string, unknown>)?.hs_ticket_subject,
-        associated_ticket_id: (r.properties as Record<string, unknown>)?.associated_ticket_id,
+        hs_ticket_id: r.properties?.hs_ticket_id,
+        hs_ticket_subject: r.properties?.hs_ticket_subject,
+        associated_ticket_id: r.properties?.associated_ticket_id,
       }))
     });
   } catch (error) {
