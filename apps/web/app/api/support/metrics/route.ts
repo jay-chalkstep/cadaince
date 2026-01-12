@@ -79,7 +79,8 @@ export async function GET(req: Request) {
       .eq("organization_id", profile.organization_id)
       .eq("object_type", "tickets")
       .gte("external_created_at", start.toISOString())
-      .lt("external_created_at", end.toISOString());
+      .lt("external_created_at", end.toISOString())
+      .limit(50000); // Remove default 1000 row cap
 
     if (category) {
       query = query.eq("properties->>ticket_category", category);
@@ -98,10 +99,17 @@ export async function GET(req: Request) {
   };
 
   try {
-    // Fetch current and previous period data in parallel
-    const [currentResult, previousResult] = await Promise.all([
+    // Fetch current period, previous period, and all open tickets in parallel
+    const [currentResult, previousResult, openTicketsResult] = await Promise.all([
       buildBaseQuery(startDate, endDate),
       buildBaseQuery(previousStart, previousEnd),
+      // Open tickets query - NO date filter, just currently open tickets
+      supabase
+        .from("integration_records")
+        .select("id", { count: "exact", head: true })
+        .eq("organization_id", profile.organization_id)
+        .eq("object_type", "tickets")
+        .eq("properties->>hs_is_closed", "false"),
     ]);
 
     if (currentResult.error) {
@@ -111,6 +119,7 @@ export async function GET(req: Request) {
 
     const currentTickets = currentResult.data || [];
     const previousTickets = previousResult.data || [];
+    const totalOpenTickets = openTicketsResult.count || 0;
 
     // Calculate summary metrics
     const currentMetrics = calculateSummaryMetrics(currentTickets);
@@ -132,7 +141,7 @@ export async function GET(req: Request) {
         currentMetrics.avgFirstResponse,
         previousMetrics.avgFirstResponse
       ),
-      openTickets: currentMetrics.openCount,
+      openTickets: totalOpenTickets, // Use time-independent count
     };
 
     // Calculate breakdowns
