@@ -574,6 +574,22 @@ async function processToRawRecords(
     }
   }
 
+  // Auto-sync owners when tickets are synced (for Support Pulse name lookups)
+  if (objectType === "tickets" && processed > 0) {
+    try {
+      const { syncHubSpotOwners } = await import("../hubspot/sync-owners");
+      const ownerResult = await syncHubSpotOwners(organizationId);
+      if (ownerResult.success) {
+        console.log(`[Sync] Auto-synced ${ownerResult.count} HubSpot owners`);
+      } else {
+        console.warn("[Sync] Owner sync failed:", ownerResult.error);
+      }
+    } catch (ownerError) {
+      console.warn("[Sync] Failed to auto-sync owners:", ownerError);
+      // Don't fail the main sync if owner sync fails
+    }
+  }
+
   return { records_processed: processed, signals_created: 0 };
 }
 
