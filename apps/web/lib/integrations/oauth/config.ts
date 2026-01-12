@@ -64,11 +64,13 @@ const OAUTH_CONFIGS: Record<IntegrationProvider, () => OAuthConfig | null> = {
       authorizationUrl: "https://app.hubspot.com/oauth/authorize",
       tokenUrl: "https://api.hubapi.com/oauth/v1/token",
       scopes: [
+        "oauth",
         "crm.objects.deals.read",
         "crm.objects.contacts.read",
         "crm.objects.companies.read",
         "crm.schemas.deals.read",
         "crm.schemas.contacts.read",
+        "tickets",
       ],
       supportsRefresh: true,
     };
