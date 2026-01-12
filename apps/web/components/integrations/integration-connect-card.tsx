@@ -54,6 +54,16 @@ interface IntegrationConnectCardProps {
   isLoading?: boolean;
 }
 
+interface TestResult {
+  success: boolean;
+  error?: string;
+  details?: {
+    portalId?: string;
+    accountType?: string;
+    timeZone?: string;
+  };
+}
+
 // Map provider to icon
 const PROVIDER_ICONS: Record<IntegrationProvider, React.ReactNode> = {
   hubspot: <Briefcase className="h-5 w-5" />,
@@ -119,10 +129,28 @@ export function IntegrationConnectCard({
   const [connecting, setConnecting] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<TestResult | null>(null);
 
   const isConnected = integration?.status === "active";
   const hasError = integration?.status === "error";
   const statusConfig = getStatusConfig(integration?.status ?? null);
+
+  const handleTest = async () => {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const response = await fetch(`/api/integrations-v2/${provider}/test`, {
+        method: "POST",
+      });
+      const data = await response.json();
+      setTestResult(data);
+    } catch {
+      setTestResult({ success: false, error: "Failed to test connection" });
+    } finally {
+      setTesting(false);
+    }
+  };
 
   const handleConnect = async () => {
     setConnecting(true);
@@ -186,6 +214,19 @@ export function IntegrationConnectCard({
                 </span>
               </p>
             )}
+            {/* Show test result with portal info */}
+            {testResult?.success && testResult.details?.portalId && (
+              <p>
+                <span className="font-medium text-foreground">
+                  Portal ID: {testResult.details.portalId}
+                </span>
+                {testResult.details.accountType && (
+                  <span className="ml-2 text-muted-foreground">
+                    ({testResult.details.accountType})
+                  </span>
+                )}
+              </p>
+            )}
             {integration.last_successful_connection_at && (
               <p>
                 Connected{" "}
@@ -201,6 +242,14 @@ export function IntegrationConnectCard({
                   {integration.data_source_count === 1 ? "" : "s"}
                 </p>
               )}
+          </div>
+        )}
+
+        {/* Test result error */}
+        {testResult && !testResult.success && (
+          <div className="mb-3 rounded-md bg-destructive/10 p-2 text-sm text-destructive">
+            <p className="font-medium">Test Failed</p>
+            <p className="text-xs opacity-90">{testResult.error}</p>
           </div>
         )}
 
@@ -225,6 +274,21 @@ export function IntegrationConnectCard({
           <div className="flex gap-2">
             {isConnected ? (
               <>
+                {/* Test connection button */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleTest}
+                  disabled={testing}
+                >
+                  {testing ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="h-4 w-4" />
+                  )}
+                  <span className="ml-1.5">Test</span>
+                </Button>
+
                 {/* Refresh token button (for OAuth providers with refresh) */}
                 {hasError && onRefresh && (
                   <Button
