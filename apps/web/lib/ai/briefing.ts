@@ -46,6 +46,7 @@ export interface BriefingContext {
     one_year_goals: Array<{ goal: string; measurable: string }>;
   } | null;
   metrics: Array<{
+    id: string;
     name: string;
     current_value: number | null;
     goal: number | null;
@@ -61,6 +62,7 @@ export interface BriefingContext {
     message: string;
   }>;
   rocks: Array<{
+    id: string;
     name: string;
     status: string;
     owner: string;
@@ -69,6 +71,7 @@ export interface BriefingContext {
     due_date: string | null;
   }>;
   issues: Array<{
+    id: string;
     title: string;
     priority: number;
     owner: string | null;
@@ -108,12 +111,27 @@ export interface BriefingContext {
   }>;
 }
 
+// Reference types for linking briefing insights to source records
+export type ReferenceType = 'issue' | 'rock' | 'metric';
+
+export interface BriefingReference {
+  type: ReferenceType;
+  id: string;
+  title: string;
+}
+
+export interface BriefingInsight {
+  text: string;
+  severity?: 'urgent' | 'warning' | 'info';
+  references: BriefingReference[];
+}
+
 export interface BriefingContent {
   greeting: string;
   summary: string;
-  highlights: string[];
-  attention_needed: string[];
-  opportunities: string[];
+  highlights: BriefingInsight[];
+  attention_needed: BriefingInsight[];
+  opportunities: BriefingInsight[];
   meeting_prep: string | null;
 }
 
@@ -136,12 +154,38 @@ Generate a concise, actionable morning briefing based on the provided context.
 Your response must be valid JSON matching this structure:
 {
   "greeting": "A brief, personalized greeting",
-  "summary": "2-3 sentence overview of the day's priorities, referencing strategic goals when relevant",
-  "highlights": ["Array of 2-4 positive developments or wins"],
-  "attention_needed": ["Array of 2-4 items requiring attention, ordered by urgency/impact"],
-  "opportunities": ["Array of 1-2 strategic opportunities or suggestions"],
+  "summary": "2-3 sentence overview of the day's priorities",
+  "highlights": [
+    {
+      "text": "Human-readable insight about a positive development",
+      "references": [
+        { "type": "rock" | "metric" | "issue", "id": "exact-uuid-from-context", "title": "2-5 word link text" }
+      ]
+    }
+  ],
+  "attention_needed": [
+    {
+      "text": "Item requiring attention",
+      "severity": "urgent" | "warning" | "info",
+      "references": [{ "type": "rock" | "metric" | "issue", "id": "uuid", "title": "short link text" }]
+    }
+  ],
+  "opportunities": [
+    {
+      "text": "Strategic opportunity or suggestion",
+      "references": []
+    }
+  ],
   "meeting_prep": "If there's an upcoming meeting, brief prep notes. Otherwise null"
 }
+
+CRITICAL RULES FOR REFERENCES:
+- Use the EXACT id value from the [id:...] prefix in the context data
+- Every insight mentioning a specific metric, rock, or issue MUST include its reference
+- The "title" should be 2-5 words suitable for a clickable link (e.g., "Q4 Revenue Rock", "Chad conduct issue")
+- Group related items into a single insight when appropriate
+- The references array can be empty if the insight is general and not about specific records
+- severity for attention_needed: "urgent" for immediate action, "warning" for needs attention soon, "info" for awareness
 
 Guidelines:
 - Be concise and direct - executives are busy
@@ -209,15 +253,15 @@ ${strategicContext}${teamContext}
 CURRENT STATE:
 
 Metrics (${context.metrics.length} tracked):
-${context.metrics.map((m) => `- ${m.name}: ${m.current_value ?? "No data"} (Goal: ${m.goal ?? "None"}, ${m.status}, ${m.trend} trend, Owner: ${m.owner})`).join("\n") || "No metrics data"}
+${context.metrics.map((m) => `- [id:${m.id}] ${m.name}: ${m.current_value ?? "No data"} (Goal: ${m.goal ?? "None"}, ${m.status}, ${m.trend} trend, Owner: ${m.owner})`).join("\n") || "No metrics data"}
 ${anomalyAlerts}
 
 Rocks this quarter (${context.rocks.length}${rocksAtRisk.length > 0 ? `, ${rocksAtRisk.length} at risk` : ""}):
-${context.rocks.map((r) => `- ${r.name}: ${r.status} (Owner: ${r.owner}${r.due_date ? `, Due: ${new Date(r.due_date).toLocaleDateString()}` : ""})`).join("\n") || "No rocks"}
+${context.rocks.map((r) => `- [id:${r.id}] ${r.name}: ${r.status} (Owner: ${r.owner}${r.due_date ? `, Due: ${new Date(r.due_date).toLocaleDateString()}` : ""})`).join("\n") || "No rocks"}
 ${rocksDueSoon.length > 0 ? `\nRocks due in next 14 days: ${rocksDueSoon.map((r) => r.name).join(", ")}` : ""}
 
 Open Issues (${context.issues.length}):
-${context.issues.slice(0, 5).map((i) => `- [Priority ${i.priority}] ${i.title} (Owner: ${i.owner || "Unassigned"}${i.team_name ? `, Team: ${i.team_name}` : ""})`).join("\n") || "No open issues"}
+${context.issues.slice(0, 5).map((i) => `- [id:${i.id}][Priority ${i.priority}] ${i.title} (Owner: ${i.owner || "Unassigned"}${i.team_name ? `, Team: ${i.team_name}` : ""})`).join("\n") || "No open issues"}
 ${escalatedSection}
 
 Recent Updates (last 24h):

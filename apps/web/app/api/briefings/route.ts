@@ -218,6 +218,7 @@ async function gatherBriefingContext(
       supabase
         .from("metrics")
         .select(`
+          id,
           name,
           goal,
           unit,
@@ -234,6 +235,7 @@ async function gatherBriefingContext(
       supabase
         .from("rocks")
         .select(`
+          id,
           title,
           status,
           quarter,
@@ -246,7 +248,7 @@ async function gatherBriefingContext(
       // Open issues (not resolved)
       supabase
         .from("issues")
-        .select("title, priority, created_at, raised_by:profiles!issues_raised_by_fkey(full_name)")
+        .select("id, title, priority, created_at, raised_by:profiles!issues_raised_by_fkey(full_name)")
         .eq("organization_id", organizationId)
         .neq("status", "resolved")
         .order("priority", { ascending: true })
@@ -400,6 +402,7 @@ async function gatherBriefingContext(
     metrics: (metricsResult.data || []).map((m) => {
       const values = m.metric_values as { value: number; recorded_at: string }[] | null;
       return {
+        id: m.id,
         name: m.name,
         current_value: values?.[0]?.value ?? null,
         goal: m.goal,
@@ -415,6 +418,7 @@ async function gatherBriefingContext(
       message: a.message,
     })),
     rocks: (rocksResult.data || []).map((r) => ({
+      id: r.id,
       name: r.title,
       status: r.status,
       owner: getOwnerName(r.owner),
@@ -423,6 +427,7 @@ async function gatherBriefingContext(
       due_date: r.due_date,
     })),
     issues: (issuesResult.data || []).map((i) => ({
+      id: i.id,
       title: i.title,
       priority: i.priority,
       owner: getOwnerName(i.raised_by),

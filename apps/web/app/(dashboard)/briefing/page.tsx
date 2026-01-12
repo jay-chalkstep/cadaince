@@ -15,13 +15,20 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MentionsWidget } from "@/components/mentions/mentions-widget";
+import { BriefingInsightItem } from "@/components/briefing/briefing-insight";
+import type { BriefingInsight } from "@/lib/ai/briefing";
+
+// Type guard for backward compatibility with cached briefings that use string[]
+function isLegacyInsight(item: string | BriefingInsight): item is string {
+  return typeof item === 'string';
+}
 
 interface BriefingContent {
   greeting: string;
   summary: string;
-  highlights: string[];
-  attention_needed: string[];
-  opportunities: string[];
+  highlights: (string | BriefingInsight)[];
+  attention_needed: (string | BriefingInsight)[];
+  opportunities: (string | BriefingInsight)[];
   meeting_prep: string | null;
 }
 
@@ -208,14 +215,18 @@ export default function BriefingPage() {
           </CardHeader>
           <CardContent>
             {content?.highlights && content.highlights.length > 0 ? (
-              <ul className="space-y-2">
-                {content.highlights.map((highlight, i) => (
-                  <li key={i} className="flex items-start gap-2">
-                    <span className="text-green-600 mt-1">•</span>
-                    <span className="text-sm">{highlight}</span>
-                  </li>
+              <div className="space-y-2">
+                {content.highlights.map((item, i) => (
+                  isLegacyInsight(item) ? (
+                    <div key={i} className="flex items-start gap-2">
+                      <span className="text-green-600 mt-1">•</span>
+                      <span className="text-sm">{item}</span>
+                    </div>
+                  ) : (
+                    <BriefingInsightItem key={i} insight={item} bulletColor="text-green-600" />
+                  )
                 ))}
-              </ul>
+              </div>
             ) : (
               <p className="text-sm text-muted-foreground">No highlights to report.</p>
             )}
@@ -232,14 +243,18 @@ export default function BriefingPage() {
           </CardHeader>
           <CardContent>
             {content?.attention_needed && content.attention_needed.length > 0 ? (
-              <ul className="space-y-2">
+              <div className="space-y-2">
                 {content.attention_needed.map((item, i) => (
-                  <li key={i} className="flex items-start gap-2">
-                    <span className="text-red-600 mt-1">•</span>
-                    <span className="text-sm">{item}</span>
-                  </li>
+                  isLegacyInsight(item) ? (
+                    <div key={i} className="flex items-start gap-2">
+                      <span className="text-red-600 mt-1">•</span>
+                      <span className="text-sm">{item}</span>
+                    </div>
+                  ) : (
+                    <BriefingInsightItem key={i} insight={item} bulletColor="text-red-600" />
+                  )
                 ))}
-              </ul>
+              </div>
             ) : (
               <p className="text-sm text-muted-foreground">Nothing urgent at the moment.</p>
             )}
@@ -256,14 +271,18 @@ export default function BriefingPage() {
           </CardHeader>
           <CardContent>
             {content?.opportunities && content.opportunities.length > 0 ? (
-              <ul className="space-y-2">
-                {content.opportunities.map((opp, i) => (
-                  <li key={i} className="flex items-start gap-2">
-                    <span className="text-yellow-600 mt-1">•</span>
-                    <span className="text-sm">{opp}</span>
-                  </li>
+              <div className="space-y-2">
+                {content.opportunities.map((item, i) => (
+                  isLegacyInsight(item) ? (
+                    <div key={i} className="flex items-start gap-2">
+                      <span className="text-yellow-600 mt-1">•</span>
+                      <span className="text-sm">{item}</span>
+                    </div>
+                  ) : (
+                    <BriefingInsightItem key={i} insight={item} bulletColor="text-yellow-600" />
+                  )
                 ))}
-              </ul>
+              </div>
             ) : (
               <p className="text-sm text-muted-foreground">No specific opportunities identified.</p>
             )}
