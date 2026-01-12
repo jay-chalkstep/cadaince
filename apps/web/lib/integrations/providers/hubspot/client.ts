@@ -74,6 +74,20 @@ export interface HubSpotFetchResult {
   details?: Record<string, unknown>;
 }
 
+export interface HubSpotRawFetchResult {
+  success: boolean;
+  records?: HubSpotRecord[];
+  records_fetched?: number;
+  error?: string;
+}
+
+export interface HubSpotRecord {
+  id: string;
+  properties: Record<string, string | null>;
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface HubSpotSearchResponse {
   total: number;
   results: Array<{
@@ -279,6 +293,90 @@ export class HubSpotClient {
       default:
         return values.reduce((a, b) => a + b, 0);
     }
+  }
+
+  /**
+   * Fetch raw records with multiple properties (for raw record ingestion)
+   */
+  async fetchRawRecords(
+    object: HubSpotObject,
+    properties: string[],
+    filters?: HubSpotFilter[]
+  ): Promise<HubSpotRawFetchResult> {
+    try {
+      // Build filter groups
+      const filterGroups: Array<{ filters: unknown[] }> = [];
+
+      if (filters?.length) {
+        filterGroups.push({
+          filters: filters.map((f) => ({
+            propertyName: f.propertyName,
+            operator: f.operator,
+            value: f.value,
+          })),
+        });
+      }
+
+      // Fetch all records with specified properties
+      const records = await this.fetchAllRawRecords(object, properties, filterGroups);
+
+      return {
+        success: true,
+        records,
+        records_fetched: records.length,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
+  }
+
+  private async fetchAllRawRecords(
+    object: HubSpotObject,
+    properties: string[],
+    filterGroups: Array<{ filters: unknown[] }>
+  ): Promise<HubSpotRecord[]> {
+    const allRecords: HubSpotRecord[] = [];
+    let after: string | undefined;
+    const maxRecords = 10000; // Safety limit
+    let requestCount = 0;
+
+    do {
+      // Rate limit: HubSpot allows 10 requests/second
+      if (requestCount > 0) {
+        await new Promise((resolve) => setTimeout(resolve, 150));
+      }
+      requestCount++;
+
+      const response = await this.request<HubSpotSearchResponse>(
+        `/crm/v3/objects/${object}/search`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            filterGroups: filterGroups.length ? filterGroups : undefined,
+            properties,
+            limit: 100,
+            after,
+          }),
+        }
+      );
+
+      // Keep full record structure for raw storage
+      allRecords.push(
+        ...response.results.map((r) => ({
+          id: r.id,
+          properties: r.properties,
+          createdAt: r.createdAt,
+          updatedAt: r.updatedAt,
+        }))
+      );
+
+      after = response.paging?.next?.after;
+    } while (after && allRecords.length < maxRecords);
+
+    return allRecords;
   }
 
   /**

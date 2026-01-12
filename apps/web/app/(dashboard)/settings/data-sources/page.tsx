@@ -18,7 +18,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/components/ui/use-toast";
-import { CreateDataSourceWizard } from "@/components/integrations/create-data-source-wizard";
+import { CreateDataSourceDialog } from "@/components/integrations/create-data-source-dialog";
 
 interface Integration {
   id: string;
@@ -180,7 +180,7 @@ export default function DataSourcesPage() {
           <Plus className="mr-2 h-4 w-4" />
           New Data Source
         </Button>
-        <CreateDataSourceWizard
+        <CreateDataSourceDialog
           open={createDialogOpen}
           onOpenChange={setCreateDialogOpen}
           onCreated={fetchData}

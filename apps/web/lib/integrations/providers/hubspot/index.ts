@@ -10,6 +10,8 @@ export {
   type HubSpotQueryConfig,
   type HubSpotFilter,
   type HubSpotFetchResult,
+  type HubSpotRawFetchResult,
+  type HubSpotRecord,
   type HubSpotSourceType,
   type HubSpotProperty,
 } from "./client";

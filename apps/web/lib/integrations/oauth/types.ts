@@ -28,7 +28,8 @@ export type DestinationType =
   | "customer_health"
   | "team_health"
   | "rock_progress"
-  | "signal";
+  | "signal"
+  | "raw_records";
 
 export type SyncStatus = "running" | "success" | "error" | "cancelled";
 

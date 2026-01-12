@@ -6,7 +6,12 @@
  */
 
 import { createAdminClient } from "@/lib/supabase/server";
-import { HubSpotClient, type HubSpotQueryConfig } from "../providers/hubspot";
+import {
+  HubSpotClient,
+  type HubSpotQueryConfig,
+  type HubSpotObject,
+  type HubSpotRecord,
+} from "../providers/hubspot";
 import type {
   DataSource,
   DataSourceSync,
@@ -29,6 +34,8 @@ interface FetchResult {
   records_fetched?: number;
   error?: string;
   raw_data?: unknown;
+  // For raw record ingestion
+  records?: HubSpotRecord[];
 }
 
 /**
@@ -243,8 +250,14 @@ async function fetchFromHubSpot(
   }
 
   // Use sourceType as the object type if not specified in queryConfig
-  const objectType = (queryConfig.object || sourceType) as HubSpotQueryConfig["object"];
+  const objectType = (queryConfig.object || sourceType) as HubSpotObject;
 
+  // Check if this is a raw records fetch (has properties array)
+  if (Array.isArray(queryConfig.properties)) {
+    return fetchRawFromHubSpot(client, objectType, queryConfig);
+  }
+
+  // Legacy aggregation mode
   const config: HubSpotQueryConfig = {
     object: objectType,
     property: (queryConfig.property as string) || "id", // Default to counting by ID
@@ -262,6 +275,27 @@ async function fetchFromHubSpot(
     records_fetched: result.records_fetched,
     error: result.error,
     raw_data: result.details,
+  };
+}
+
+/**
+ * Fetch raw records from HubSpot (for raw_records destination)
+ */
+async function fetchRawFromHubSpot(
+  client: HubSpotClient,
+  objectType: HubSpotObject,
+  queryConfig: Record<string, unknown>
+): Promise<FetchResult> {
+  const properties = queryConfig.properties as string[];
+  const filters = queryConfig.filters as HubSpotQueryConfig["filters"];
+
+  const result = await client.fetchRawRecords(objectType, properties, filters);
+
+  return {
+    success: result.success,
+    records_fetched: result.records_fetched,
+    records: result.records,
+    error: result.error,
   };
 }
 
@@ -286,6 +320,8 @@ async function processToDestination(
       return processToSignal(dataSource, fetchResult, organizationId);
     case "issue_detection":
       return processToIssueDetection(dataSource, fetchResult, organizationId);
+    case "raw_records":
+      return processToRawRecords(dataSource, fetchResult, organizationId);
     default:
       // Default: just create a signal
       return processToSignal(dataSource, fetchResult, organizationId);
@@ -486,6 +522,59 @@ async function processToIssueDetection(
   });
 
   return { records_processed: 1, signals_created: 1 };
+}
+
+/**
+ * Process data to raw records storage (integration_records table)
+ */
+async function processToRawRecords(
+  dataSource: DataSource,
+  fetchResult: FetchResult,
+  organizationId: string
+): Promise<{ records_processed: number; signals_created: number }> {
+  const records = fetchResult.records;
+  if (!records || records.length === 0) {
+    return { records_processed: 0, signals_created: 0 };
+  }
+
+  const supabase = createAdminClient();
+  const queryConfig = dataSource.query_config as { object?: string };
+  const objectType = queryConfig.object || dataSource.source_type;
+
+  let processed = 0;
+  const batchSize = 100;
+
+  // Process in batches for better performance
+  for (let i = 0; i < records.length; i += batchSize) {
+    const batch = records.slice(i, i + batchSize);
+
+    const recordsToUpsert = batch.map((record) => ({
+      organization_id: organizationId,
+      data_source_id: dataSource.id,
+      external_id: record.id,
+      object_type: objectType,
+      properties: record.properties,
+      external_created_at: record.createdAt,
+      external_updated_at: record.updatedAt,
+      synced_at: new Date().toISOString(),
+    }));
+
+    const { error } = await supabase
+      .from("integration_records")
+      .upsert(recordsToUpsert, {
+        onConflict: "data_source_id,external_id",
+        ignoreDuplicates: false,
+      });
+
+    if (error) {
+      console.error("[Sync] Failed to upsert records batch:", error);
+      // Continue with next batch instead of failing entirely
+    } else {
+      processed += batch.length;
+    }
+  }
+
+  return { records_processed: processed, signals_created: 0 };
 }
 
 /**
