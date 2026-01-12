@@ -289,9 +289,15 @@ async function fetchRawFromHubSpot(
   const properties = queryConfig.properties as string[];
   const filters = queryConfig.filters as HubSpotQueryConfig["filters"];
 
-  // Auto-include ticket associations for feedback_submissions
-  const associations: HubSpotObject[] | undefined =
-    objectType === "feedback_submissions" ? ["tickets"] : undefined;
+  // Auto-include associations based on object type
+  // - feedback_submissions: fetch ticket associations (for direct linking)
+  // - tickets: fetch contact associations (for matching feedback via contact)
+  let associations: HubSpotObject[] | undefined;
+  if (objectType === "feedback_submissions") {
+    associations = ["tickets"];
+  } else if (objectType === "tickets") {
+    associations = ["contacts"];
+  }
 
   if (associations) {
     console.log(`[Sync] Fetching ${objectType} with associations: ${associations.join(", ")}`);
