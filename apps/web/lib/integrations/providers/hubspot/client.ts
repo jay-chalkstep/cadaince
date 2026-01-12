@@ -221,8 +221,16 @@ export class HubSpotClient {
     const allRecords: Record<string, string>[] = [];
     let after: string | undefined;
     const maxRecords = 10000; // Safety limit
+    let requestCount = 0;
 
     do {
+      // Rate limit: HubSpot allows 10 requests/second
+      // Add delay after first request to stay under limit
+      if (requestCount > 0) {
+        await new Promise((resolve) => setTimeout(resolve, 150));
+      }
+      requestCount++;
+
       const response = await this.request<HubSpotSearchResponse>(
         `/crm/v3/objects/${object}/search`,
         {
