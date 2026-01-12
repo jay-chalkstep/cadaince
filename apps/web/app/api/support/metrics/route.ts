@@ -71,38 +71,61 @@ export async function GET(req: Request) {
   const previousEnd = new Date(startDate.getTime());
   const previousStart = new Date(startDate.getTime() - periodLength);
 
-  // Build base query conditions
-  const buildBaseQuery = (start: Date, end: Date) => {
-    let query = supabase
-      .from("integration_records")
-      .select("*")
-      .eq("organization_id", profile.organization_id)
-      .eq("object_type", "tickets")
-      .gte("external_created_at", start.toISOString())
-      .lt("external_created_at", end.toISOString())
-      .limit(50000); // Remove default 1000 row cap
+  // Fetch all tickets with pagination (Supabase has 1000 row default limit)
+  const fetchAllTickets = async (start: Date, end: Date): Promise<TicketData[]> => {
+    const allTickets: TicketData[] = [];
+    const pageSize = 1000;
+    let offset = 0;
+    let hasMore = true;
 
-    if (category) {
-      query = query.eq("properties->>ticket_category", category);
-    }
-    if (source) {
-      query = query.eq("properties->>source_type", source);
-    }
-    if (ownerId) {
-      query = query.eq("properties->>hubspot_owner_id", ownerId);
-    }
-    if (clientName) {
-      query = query.eq("properties->>client_name", clientName);
+    while (hasMore) {
+      let query = supabase
+        .from("integration_records")
+        .select("*")
+        .eq("organization_id", profile.organization_id)
+        .eq("object_type", "tickets")
+        .gte("external_created_at", start.toISOString())
+        .lt("external_created_at", end.toISOString())
+        .order("external_created_at", { ascending: false })
+        .range(offset, offset + pageSize - 1);
+
+      if (category) {
+        query = query.eq("properties->>ticket_category", category);
+      }
+      if (source) {
+        query = query.eq("properties->>source_type", source);
+      }
+      if (ownerId) {
+        query = query.eq("properties->>hubspot_owner_id", ownerId);
+      }
+      if (clientName) {
+        query = query.eq("properties->>client_name", clientName);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error("Error fetching tickets page:", error);
+        break;
+      }
+
+      if (data && data.length > 0) {
+        allTickets.push(...(data as TicketData[]));
+        offset += pageSize;
+        hasMore = data.length === pageSize;
+      } else {
+        hasMore = false;
+      }
     }
 
-    return query;
+    return allTickets;
   };
 
   try {
     // Fetch current period, previous period, and all open tickets in parallel
-    const [currentResult, previousResult, openTicketsResult] = await Promise.all([
-      buildBaseQuery(startDate, endDate),
-      buildBaseQuery(previousStart, previousEnd),
+    const [currentTickets, previousTickets, openTicketsResult] = await Promise.all([
+      fetchAllTickets(startDate, endDate),
+      fetchAllTickets(previousStart, previousEnd),
       // Open tickets query - NO date filter, just currently open tickets
       supabase
         .from("integration_records")
@@ -112,13 +135,6 @@ export async function GET(req: Request) {
         .eq("properties->>hs_is_closed", "false"),
     ]);
 
-    if (currentResult.error) {
-      console.error("Error fetching current period:", currentResult.error);
-      return NextResponse.json({ error: "Failed to fetch metrics" }, { status: 500 });
-    }
-
-    const currentTickets = currentResult.data || [];
-    const previousTickets = previousResult.data || [];
     const totalOpenTickets = openTicketsResult.count || 0;
 
     // Calculate summary metrics
