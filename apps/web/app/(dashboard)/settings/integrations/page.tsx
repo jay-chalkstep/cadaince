@@ -190,7 +190,8 @@ export default function IntegrationsPage() {
         slack_save_failed: "Failed to save Slack connection. Please try again.",
         admin_required: "Admin access is required to connect Slack.",
       };
-      setError(errorMessages[errorParam] || "An error occurred during connection.");
+      // Show actual error for debugging, or use mapped message
+      setError(errorMessages[errorParam] || decodeURIComponent(errorParam));
       router.replace("/settings/integrations");
     }
   }, [searchParams, router]);
