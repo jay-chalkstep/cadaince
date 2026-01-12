@@ -6,9 +6,8 @@ import type { BriefingInsight, ReferenceType } from '@/lib/ai/briefing';
 
 function getEntityUrl(type: ReferenceType, id: string): string {
   const routes: Record<ReferenceType, string> = {
-    issue: '/issues',
-    rock: '/rocks',
-    metric: '/scorecard',
+    update: '/updates',
+    alert: '/alerts',
   };
   return `${routes[type]}/${id}`;
 }

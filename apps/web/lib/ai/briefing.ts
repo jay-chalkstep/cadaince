@@ -86,6 +86,7 @@ export interface BriefingContext {
     escalated_at: string;
   }>;
   updates: Array<{
+    id: string;
     author: string;
     type: string;
     content: string | null;
@@ -93,6 +94,7 @@ export interface BriefingContext {
     published_at: string;
   }>;
   alerts: Array<{
+    id: string;
     title: string;
     type: string;
     severity: string;
@@ -112,7 +114,7 @@ export interface BriefingContext {
 }
 
 // Reference types for linking briefing insights to source records
-export type ReferenceType = 'issue' | 'rock' | 'metric';
+export type ReferenceType = 'update' | 'alert';
 
 export interface BriefingReference {
   type: ReferenceType;
@@ -159,7 +161,7 @@ Your response must be valid JSON matching this structure:
     {
       "text": "Human-readable insight about a positive development",
       "references": [
-        { "type": "rock" | "metric" | "issue", "id": "exact-uuid-from-context", "title": "2-5 word link text" }
+        { "type": "update" | "alert", "id": "exact-uuid-from-context", "title": "2-5 word link text" }
       ]
     }
   ],
@@ -167,7 +169,7 @@ Your response must be valid JSON matching this structure:
     {
       "text": "Item requiring attention",
       "severity": "urgent" | "warning" | "info",
-      "references": [{ "type": "rock" | "metric" | "issue", "id": "uuid", "title": "short link text" }]
+      "references": [{ "type": "update" | "alert", "id": "uuid", "title": "short link text" }]
     }
   ],
   "opportunities": [
@@ -181,10 +183,10 @@ Your response must be valid JSON matching this structure:
 
 CRITICAL RULES FOR REFERENCES:
 - Use the EXACT id value from the [id:...] prefix in the context data
-- Every insight mentioning a specific metric, rock, or issue MUST include its reference
-- The "title" should be 2-5 words suitable for a clickable link (e.g., "Q4 Revenue Rock", "Chad conduct issue")
+- When an insight is based on a specific update or alert, include its reference
+- The "title" should be 2-5 words suitable for a clickable link (e.g., "Sarah's update", "Revenue alert")
 - Group related items into a single insight when appropriate
-- The references array can be empty if the insight is general and not about specific records
+- The references array can be empty if the insight is synthesized from multiple sources or general context
 - severity for attention_needed: "urgent" for immediate action, "warning" for needs attention soon, "info" for awareness
 
 Guidelines:
@@ -265,10 +267,10 @@ ${context.issues.slice(0, 5).map((i) => `- [id:${i.id}][Priority ${i.priority}] 
 ${escalatedSection}
 
 Recent Updates (last 24h):
-${context.updates.slice(0, 5).map((u) => `- ${u.author} (${u.type}): ${u.content?.slice(0, 100) || u.transcript?.slice(0, 100) || "Video update"}...`).join("\n") || "No recent updates"}
+${context.updates.slice(0, 5).map((u) => `- [id:${u.id}] ${u.author} (${u.type}): ${u.content?.slice(0, 100) || u.transcript?.slice(0, 100) || "Video update"}...`).join("\n") || "No recent updates"}
 
 Unacknowledged Alerts (${context.alerts.filter((a) => !a.acknowledged).length}):
-${context.alerts.filter((a) => !a.acknowledged).slice(0, 3).map((a) => `- [${a.severity.toUpperCase()}] ${a.title} (${a.type})`).join("\n") || "None"}
+${context.alerts.filter((a) => !a.acknowledged).slice(0, 3).map((a) => `- [id:${a.id}][${a.severity.toUpperCase()}] ${a.title} (${a.type})`).join("\n") || "None"}
 
 Pending To-Dos: ${context.pendingTodos}
 

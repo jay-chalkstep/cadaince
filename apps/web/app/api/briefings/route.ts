@@ -258,6 +258,7 @@ async function gatherBriefingContext(
       supabase
         .from("updates")
         .select(`
+          id,
           type,
           content,
           transcript,
@@ -273,6 +274,7 @@ async function gatherBriefingContext(
       supabase
         .from("alerts")
         .select(`
+          id,
           title,
           type,
           severity,
@@ -434,6 +436,7 @@ async function gatherBriefingContext(
       created_at: i.created_at,
     })),
     updates: (updatesResult.data || []).map((u) => ({
+      id: u.id,
       author: getOwnerName(u.author),
       type: u.type,
       content: u.content,
@@ -441,6 +444,7 @@ async function gatherBriefingContext(
       published_at: u.published_at,
     })),
     alerts: (alertsResult.data || []).map((a) => ({
+      id: a.id,
       title: a.title,
       type: a.type,
       severity: a.severity,
