@@ -604,6 +604,13 @@ export const HUBSPOT_SOURCE_TYPES = {
     defaultProperty: "hs_response_value",
     suggestedProperties: ["hs_survey_type", "hs_response_value"],
   },
+  feedback_surveys: {
+    name: "Feedback Surveys",
+    description: "NPS scores, CSAT ratings, and survey responses",
+    object: "feedback_submissions" as HubSpotObject,
+    defaultProperty: "hs_response_value",
+    suggestedProperties: ["hs_survey_type", "hs_response_value", "hs_sentiment"],
+  },
 } as const;
 
 export type HubSpotSourceType = keyof typeof HUBSPOT_SOURCE_TYPES;

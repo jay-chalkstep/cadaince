@@ -102,6 +102,14 @@ const HUBSPOT_SOURCE_TYPES: SourceTypeOption[] = [
     suggestedProperties: ["hs_pipeline_stage", "hs_ticket_priority"],
   },
   {
+    id: "feedback_surveys",
+    name: "Feedback Surveys",
+    description: "NPS scores, CSAT ratings, and survey responses",
+    object: "feedback_submissions",
+    defaultProperty: "hs_response_value",
+    suggestedProperties: ["hs_survey_type", "hs_response_value", "hs_sentiment"],
+  },
+  {
     id: "custom",
     name: "Custom Query",
     description: "Build a custom query with any object and property",

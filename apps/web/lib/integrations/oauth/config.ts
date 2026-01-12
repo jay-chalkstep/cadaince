@@ -69,6 +69,7 @@ const OAUTH_CONFIGS: Record<IntegrationProvider, () => OAuthConfig | null> = {
         "crm.objects.contacts.read",
         "crm.objects.companies.read",
         "crm.objects.owners.read",
+        "crm.objects.feedback_submissions.read",
         "crm.schemas.deals.read",
         "crm.schemas.companies.read",
         "tickets",
