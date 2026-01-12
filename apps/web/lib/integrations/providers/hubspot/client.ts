@@ -152,8 +152,36 @@ export class HubSpotClient {
     });
 
     if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`HubSpot API error: ${response.status} - ${error}`);
+      const errorText = await response.text();
+      let errorMessage = `HubSpot API error: ${response.status}`;
+
+      try {
+        const errorJson = JSON.parse(errorText);
+        // HubSpot returns detailed errors in various formats
+        if (errorJson.message) {
+          errorMessage += ` - ${errorJson.message}`;
+        }
+        if (errorJson.errors && Array.isArray(errorJson.errors)) {
+          const details = errorJson.errors
+            .map((e: { message?: string; context?: { propertyName?: string } }) =>
+              e.context?.propertyName
+                ? `${e.message} (property: ${e.context.propertyName})`
+                : e.message
+            )
+            .join("; ");
+          if (details) {
+            errorMessage += ` - Details: ${details}`;
+          }
+        }
+        if (errorJson.category) {
+          errorMessage += ` [${errorJson.category}]`;
+        }
+      } catch {
+        // If not JSON, include raw text
+        errorMessage += ` - ${errorText}`;
+      }
+
+      throw new Error(errorMessage);
     }
 
     return response.json();
