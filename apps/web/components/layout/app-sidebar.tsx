@@ -10,6 +10,7 @@ import {
   Compass,
   Database,
   GitBranch,
+  Headphones,
   Home,
   Link2,
   Megaphone,
@@ -42,6 +43,7 @@ import {
 // My Day - Individual's daily starting point
 const myDayItems = [
   { title: "Briefing", href: "/briefing", icon: BookOpen },
+  { title: "Support Pulse", href: "/support-pulse", icon: Headphones },
   { title: "Updates and Alerts", href: "/stream", icon: Radio },
   { title: "To-Dos", href: "/todos", icon: CheckSquare },
   { title: "Private Notes", href: "/notes", icon: MessageSquareLock },

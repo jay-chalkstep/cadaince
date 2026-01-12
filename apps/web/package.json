@@ -50,6 +50,7 @@
     "openai": "^6.15.0",
     "pdfkit": "^0.17.2",
     "react": "19.2.1",
+    "react-day-picker": "^9.13.0",
     "react-dom": "19.2.1",
     "react-markdown": "^10.1.0",
     "recharts": "^3.6.0",
