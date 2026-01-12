@@ -435,17 +435,23 @@ export class HubSpotClient {
       if (useSearchApi) {
         // Search API - requires filters
         // Note: Search API supports associations via request body
+        const searchUrl = `/crm/v3/objects/${object}/search`;
+        const searchBody = {
+          filterGroups,
+          properties,
+          limit: 100,
+          after,
+          ...(associations?.length && { associations }),
+        };
+        console.log(`[HubSpot] Search API request: ${searchUrl}`, {
+          filterCount: filterGroups.length,
+          associations
+        });
         response = await this.request<HubSpotSearchResponseWithAssociations>(
-          `/crm/v3/objects/${object}/search`,
+          searchUrl,
           {
             method: "POST",
-            body: JSON.stringify({
-              filterGroups,
-              properties,
-              limit: 100,
-              after,
-              ...(associations?.length && { associations }),
-            }),
+            body: JSON.stringify(searchBody),
           }
         );
       } else {
@@ -461,9 +467,22 @@ export class HubSpotClient {
         if (associations?.length) {
           params.set("associations", associations.join(","));
         }
+        const listUrl = `/crm/v3/objects/${object}?${params.toString()}`;
+        console.log(`[HubSpot] List API request: ${listUrl}`);
         response = await this.request<HubSpotSearchResponseWithAssociations>(
-          `/crm/v3/objects/${object}?${params.toString()}`
+          listUrl
         );
+      }
+
+      // Log first result to see associations format
+      if (requestCount === 1 && response.results?.length > 0) {
+        const firstResult = response.results[0];
+        console.log(`[HubSpot] First result structure for ${object}:`, {
+          id: firstResult.id,
+          hasAssociations: !!firstResult.associations,
+          associationKeys: firstResult.associations ? Object.keys(firstResult.associations) : [],
+          rawAssociations: firstResult.associations,
+        });
       }
 
       // Keep full record structure for raw storage, including associations
