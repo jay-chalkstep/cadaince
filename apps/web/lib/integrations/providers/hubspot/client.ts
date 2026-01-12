@@ -534,6 +534,79 @@ export class HubSpotClient {
   }
 
   /**
+   * Fetch associations between objects
+   * Uses HubSpot Associations API v4: GET /crm/v4/objects/{fromObjectType}/{objectId}/associations/{toObjectType}
+   * Returns array of associated object IDs
+   */
+  async fetchAssociations(
+    fromObjectType: HubSpotObject,
+    objectId: string,
+    toObjectType: HubSpotObject
+  ): Promise<string[]> {
+    try {
+      const response = await this.request<{
+        results: Array<{
+          toObjectId: number;
+          associationTypes: Array<{ category: string; typeId: number; label: string | null }>;
+        }>;
+      }>(`/crm/v4/objects/${fromObjectType}/${objectId}/associations/${toObjectType}`);
+
+      return response.results.map((r) => r.toObjectId.toString());
+    } catch (error) {
+      // Return empty array if no associations or error
+      console.error(`[HubSpot] Failed to fetch associations for ${fromObjectType}/${objectId}:`, error);
+      return [];
+    }
+  }
+
+  /**
+   * Batch fetch associations for multiple objects
+   * More efficient than calling fetchAssociations for each object individually
+   */
+  async batchFetchAssociations(
+    fromObjectType: HubSpotObject,
+    objectIds: string[],
+    toObjectType: HubSpotObject
+  ): Promise<Map<string, string[]>> {
+    const associations = new Map<string, string[]>();
+
+    // HubSpot batch associations endpoint
+    // POST /crm/v4/associations/{fromObjectType}/{toObjectType}/batch/read
+    try {
+      const response = await this.request<{
+        results: Array<{
+          from: { id: string };
+          to: Array<{ toObjectId: number }>;
+        }>;
+      }>(`/crm/v4/associations/${fromObjectType}/${toObjectType}/batch/read`, {
+        method: "POST",
+        body: JSON.stringify({
+          inputs: objectIds.map((id) => ({ id })),
+        }),
+      });
+
+      for (const result of response.results) {
+        const fromId = result.from.id;
+        const toIds = result.to.map((t) => t.toObjectId.toString());
+        associations.set(fromId, toIds);
+      }
+    } catch (error) {
+      console.error(`[HubSpot] Failed to batch fetch associations:`, error);
+      // Fall back to individual requests if batch fails
+      for (const objectId of objectIds) {
+        const toIds = await this.fetchAssociations(fromObjectType, objectId, toObjectType);
+        if (toIds.length > 0) {
+          associations.set(objectId, toIds);
+        }
+        // Rate limit between individual requests
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+    }
+
+    return associations;
+  }
+
+  /**
    * Get all available properties for an object type
    * Uses HubSpot Properties API: GET /crm/v3/properties/{objectType}
    */
