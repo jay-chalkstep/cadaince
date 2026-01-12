@@ -36,9 +36,9 @@ export async function GET(req: Request) {
       status,
       rock_level,
       parent_rock_id,
-      team_id,
+      pillar_id,
       owner:profiles!owner_id(id, full_name, avatar_url),
-      team:teams!team_id(id, name)
+      pillar:pillars!pillar_id(id, name)
     `)
     .eq("organization_id", profile.organization_id)
     .eq("rock_level", level)
@@ -49,7 +49,7 @@ export async function GET(req: Request) {
   }
 
   if (teamId) {
-    query = query.eq("team_id", teamId);
+    query = query.eq("pillar_id", teamId);
   }
 
   const { data: rocks, error } = await query;
@@ -95,7 +95,7 @@ export async function GET(req: Request) {
       status: rock.status,
       rock_level: rock.rock_level,
       owner: rock.owner,
-      team: rock.team,
+      team: rock.pillar, // Map pillar to team for component compatibility
       children_count: stats.count,
       children_on_track: stats.on_track,
     };

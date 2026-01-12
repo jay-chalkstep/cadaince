@@ -75,16 +75,34 @@ export async function GET(
     .in("parent_rock_id", childIds)
     .order("title", { ascending: true });
 
+  // Transform pillar to team for component compatibility
+  const transformRock = (rock: any) => ({
+    id: rock.id,
+    title: rock.title,
+    status: rock.status,
+    rock_level: rock.rock_level,
+    owner: rock.owner,
+    team: rock.pillar, // Map pillar to team for cascade tree component
+    children_count: 0,
+    children_on_track: 0,
+  });
+
   if (flat) {
     // Return flat list of all descendants
-    return NextResponse.json([...children, ...(grandchildren || [])]);
+    return NextResponse.json([...children, ...(grandchildren || [])].map(transformRock));
   }
 
-  // Return nested structure
-  const nestedChildren = children.map((child) => ({
-    ...child,
-    children: (grandchildren || []).filter((gc) => gc.parent_rock_id === child.id),
-  }));
+  // Return nested structure with cascade tree format
+  const nestedChildren = children.map((child) => {
+    const childGrandchildren = (grandchildren || []).filter((gc) => gc.parent_rock_id === child.id);
+    const onTrack = childGrandchildren.filter((gc) => gc.status === "on_track" || gc.status === "complete").length;
+    return {
+      ...transformRock(child),
+      children_count: childGrandchildren.length,
+      children_on_track: onTrack,
+      children: childGrandchildren.map(transformRock),
+    };
+  });
 
   return NextResponse.json({
     children: nestedChildren,

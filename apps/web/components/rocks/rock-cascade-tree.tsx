@@ -63,19 +63,25 @@ function getStatusColor(status: string): string {
 }
 
 /**
- * Get level color for rock
+ * Get pillar badge color based on pillar name
+ * Uses a hash of the name to pick a consistent color
  */
-function getLevelColor(level: string): string {
-  switch (level) {
-    case "company":
-      return "bg-purple-100 text-purple-800";
-    case "pillar":
-      return "bg-blue-100 text-blue-800";
-    case "individual":
-      return "bg-gray-100 text-gray-800";
-    default:
-      return "bg-gray-100 text-gray-800";
+function getPillarColor(pillarName: string): string {
+  const colors = [
+    "bg-blue-100 text-blue-800",
+    "bg-purple-100 text-purple-800",
+    "bg-emerald-100 text-emerald-800",
+    "bg-amber-100 text-amber-800",
+    "bg-pink-100 text-pink-800",
+    "bg-cyan-100 text-cyan-800",
+    "bg-indigo-100 text-indigo-800",
+  ];
+  // Simple hash to pick consistent color for same pillar name
+  let hash = 0;
+  for (let i = 0; i < pillarName.length; i++) {
+    hash = pillarName.charCodeAt(i) + ((hash << 5) - hash);
   }
+  return colors[Math.abs(hash) % colors.length];
 }
 
 interface RockCascadeNodeProps {
@@ -194,13 +200,25 @@ function RockCascadeNode({ rock, depth, onRockClick }: RockCascadeNodeProps) {
           {rock.status.replace("_", " ")}
         </Badge>
 
-        {/* Level badge */}
-        <Badge
-          variant="secondary"
-          className={cn("shrink-0 text-[10px]", getLevelColor(rock.rock_level))}
-        >
-          {rock.rock_level}
-        </Badge>
+        {/* Pillar badge - show for pillar rocks */}
+        {rock.team && rock.rock_level === "pillar" && (
+          <Badge
+            variant="secondary"
+            className={cn("shrink-0 text-[10px]", getPillarColor(rock.team.name))}
+          >
+            {rock.team.name}
+          </Badge>
+        )}
+
+        {/* Owner badge - show for individual rocks */}
+        {rock.owner && rock.rock_level === "individual" && (
+          <Badge
+            variant="secondary"
+            className="shrink-0 text-[10px] bg-slate-100 text-slate-800"
+          >
+            {rock.owner.full_name}
+          </Badge>
+        )}
       </div>
 
       {/* Children */}
