@@ -496,30 +496,41 @@ export class HubSpotClient {
   /**
    * Fetch all HubSpot owners (users who can be assigned to records)
    * Uses HubSpot Owners API: GET /crm/v3/owners
+   * Requires scope: crm.objects.owners.read
    */
   async fetchOwners(): Promise<HubSpotOwner[]> {
     const allOwners: HubSpotOwner[] = [];
     let after: string | undefined;
     const maxOwners = 1000; // Safety limit
 
-    do {
-      const params = new URLSearchParams({ limit: "100" });
-      if (after) {
-        params.set("after", after);
+    try {
+      do {
+        const params = new URLSearchParams({ limit: "100" });
+        if (after) {
+          params.set("after", after);
+        }
+
+        const response = await this.request<HubSpotOwnersResponse>(
+          `/crm/v3/owners?${params.toString()}`
+        );
+
+        // Filter out archived owners
+        const activeOwners = response.results.filter((o) => !o.archived);
+        allOwners.push(...activeOwners);
+
+        after = response.paging?.next?.after;
+      } while (after && allOwners.length < maxOwners);
+
+      return allOwners;
+    } catch (error) {
+      // Check for permission errors and provide helpful message
+      if (error instanceof Error && error.message.includes("403")) {
+        throw new Error(
+          "Missing HubSpot permission: crm.objects.owners.read. Please disconnect and reconnect HubSpot to grant this permission."
+        );
       }
-
-      const response = await this.request<HubSpotOwnersResponse>(
-        `/crm/v3/owners?${params.toString()}`
-      );
-
-      // Filter out archived owners
-      const activeOwners = response.results.filter((o) => !o.archived);
-      allOwners.push(...activeOwners);
-
-      after = response.paging?.next?.after;
-    } while (after && allOwners.length < maxOwners);
-
-    return allOwners;
+      throw error;
+    }
   }
 
   /**
