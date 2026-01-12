@@ -1,15 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Database, AlertCircle, Calendar, Check, MessageSquare, Tablet } from "lucide-react";
+import { Database, AlertCircle, Calendar, Check, MessageSquare, Tablet, Briefcase, BarChart3 } from "lucide-react";
 import { IntegrationCard, IntegrationCardSkeleton } from "@/components/integrations/integration-card";
+import { IntegrationConnectCard, IntegrationConnectCardSkeleton } from "@/components/integrations/integration-connect-card";
 import { SyncLogsTable } from "@/components/integrations/sync-logs-table";
 import { CalendarConnectButton } from "@/components/integrations/calendar-connect-button";
 import { SlackConnectButton } from "@/components/integrations/slack-connect-button";
 import { RemarkablePairing } from "@/components/integrations/remarkable-pairing";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  PROVIDER_METADATA,
+  PROVIDER_CATEGORIES,
+  type IntegrationProvider,
+  type IntegrationListItem,
+} from "@/lib/integrations/oauth";
 
 interface Integration {
   id: string;
@@ -78,6 +85,81 @@ export default function IntegrationsPage() {
   const [remarkableLoading, setRemarkableLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // V2 Org-scoped integrations
+  const [v2Integrations, setV2Integrations] = useState<IntegrationListItem[]>([]);
+  const [v2Loading, setV2Loading] = useState(true);
+
+  // Fetch v2 integrations
+  const fetchV2Integrations = useCallback(async () => {
+    try {
+      setV2Loading(true);
+      const response = await fetch("/api/integrations-v2");
+      if (response.ok) {
+        const data = await response.json();
+        setV2Integrations(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch v2 integrations:", err);
+    } finally {
+      setV2Loading(false);
+    }
+  }, []);
+
+  // Connect to a v2 integration (OAuth flow)
+  const handleV2Connect = async (provider: IntegrationProvider) => {
+    try {
+      const response = await fetch(`/api/integrations-v2/${provider}/oauth/connect`);
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to initiate connection");
+      }
+      const { authorization_url } = await response.json();
+      window.location.href = authorization_url;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to connect";
+      setError(message);
+    }
+  };
+
+  // Disconnect a v2 integration
+  const handleV2Disconnect = async (provider: IntegrationProvider) => {
+    try {
+      const response = await fetch(`/api/integrations-v2/${provider}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        throw new Error("Failed to disconnect");
+      }
+      await fetchV2Integrations();
+      setSuccessMessage(`${PROVIDER_METADATA[provider].name} disconnected successfully`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to disconnect";
+      setError(message);
+    }
+  };
+
+  // Refresh token for a v2 integration
+  const handleV2Refresh = async (provider: IntegrationProvider) => {
+    try {
+      const response = await fetch(`/api/integrations-v2/${provider}/oauth/refresh`, {
+        method: "POST",
+      });
+      if (!response.ok) {
+        throw new Error("Failed to refresh token");
+      }
+      await fetchV2Integrations();
+      setSuccessMessage(`${PROVIDER_METADATA[provider].name} token refreshed successfully`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to refresh";
+      setError(message);
+    }
+  };
+
+  // Helper to get v2 integration by provider
+  const getV2Integration = (provider: IntegrationProvider): IntegrationListItem | null => {
+    return v2Integrations.find((i) => i.provider === provider) || null;
+  };
 
   // Handle success/error from OAuth callback
   useEffect(() => {
@@ -257,7 +339,8 @@ export default function IntegrationsPage() {
     fetchCalendarIntegrations();
     fetchSlackWorkspace();
     fetchRemarkableStatus();
-  }, []);
+    fetchV2Integrations();
+  }, [fetchV2Integrations]);
 
   if (error) {
     return (
@@ -389,37 +472,42 @@ export default function IntegrationsPage() {
         </CardContent>
       </Card>
 
-      {/* Data Source Integrations */}
+      {/* CRM & Sales Integrations (V2) */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center text-base">
-            <Database className="h-5 w-5 mr-2" />
-            Data Sources
+            <Briefcase className="h-5 w-5 mr-2" />
+            CRM & Sales
           </CardTitle>
           <CardDescription>
-            Connect external data sources for Scorecard metrics
+            Connect your CRM to pull pipeline, deals, and customer data
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4">
-            {loading ? (
+            {v2Loading ? (
               <>
-                <IntegrationCardSkeleton />
-                <IntegrationCardSkeleton />
+                <IntegrationConnectCardSkeleton />
+                <IntegrationConnectCardSkeleton />
               </>
             ) : (
-              integrations.map((integration) => {
-                const meta = INTEGRATION_META[integration.type] || {
-                  description: "External integration",
-                  icon: <Database className="h-5 w-5" />,
-                };
+              PROVIDER_CATEGORIES.crm.providers.map((provider) => {
+                const meta = PROVIDER_METADATA[provider];
+                const integration = getV2Integration(provider);
                 return (
-                  <IntegrationCard
-                    key={integration.id}
-                    integration={integration}
+                  <IntegrationConnectCard
+                    key={provider}
+                    provider={provider}
+                    name={meta.name}
                     description={meta.description}
-                    icon={meta.icon}
-                    onSync={fetchIntegrations}
+                    integration={integration}
+                    onConnect={() => handleV2Connect(provider)}
+                    onDisconnect={() => handleV2Disconnect(provider)}
+                    onRefresh={
+                      integration?.status === "error"
+                        ? () => handleV2Refresh(provider)
+                        : undefined
+                    }
                   />
                 );
               })
@@ -427,6 +515,127 @@ export default function IntegrationsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Sales Intelligence Integrations (V2) */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center text-base">
+            <BarChart3 className="h-5 w-5 mr-2" />
+            Sales Intelligence
+          </CardTitle>
+          <CardDescription>
+            Connect call recording and sales engagement platforms
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4">
+            {v2Loading ? (
+              <>
+                <IntegrationConnectCardSkeleton />
+                <IntegrationConnectCardSkeleton />
+              </>
+            ) : (
+              PROVIDER_CATEGORIES.sales_intelligence.providers.map((provider) => {
+                const meta = PROVIDER_METADATA[provider];
+                const integration = getV2Integration(provider);
+                return (
+                  <IntegrationConnectCard
+                    key={provider}
+                    provider={provider}
+                    name={meta.name}
+                    description={meta.description}
+                    integration={integration}
+                    onConnect={() => handleV2Connect(provider)}
+                    onDisconnect={() => handleV2Disconnect(provider)}
+                    onRefresh={
+                      integration?.status === "error"
+                        ? () => handleV2Refresh(provider)
+                        : undefined
+                    }
+                  />
+                );
+              })
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Data Warehouse Integrations (V2) */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center text-base">
+            <Database className="h-5 w-5 mr-2" />
+            Data Warehouse
+          </CardTitle>
+          <CardDescription>
+            Connect your data warehouse for custom metrics
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4">
+            {v2Loading ? (
+              <IntegrationConnectCardSkeleton />
+            ) : (
+              PROVIDER_CATEGORIES.data_warehouse.providers.map((provider) => {
+                const meta = PROVIDER_METADATA[provider];
+                const integration = getV2Integration(provider);
+                return (
+                  <IntegrationConnectCard
+                    key={provider}
+                    provider={provider}
+                    name={meta.name}
+                    description={meta.description}
+                    integration={integration}
+                    onConnect={() => handleV2Connect(provider)}
+                    onDisconnect={() => handleV2Disconnect(provider)}
+                  />
+                );
+              })
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Legacy Data Source Integrations */}
+      {integrations.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center text-base">
+              <Database className="h-5 w-5 mr-2" />
+              Legacy Data Sources
+            </CardTitle>
+            <CardDescription>
+              Existing data source connections (migrating to new system)
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4">
+              {loading ? (
+                <>
+                  <IntegrationCardSkeleton />
+                  <IntegrationCardSkeleton />
+                </>
+              ) : (
+                integrations.map((integration) => {
+                  const meta = INTEGRATION_META[integration.type] || {
+                    description: "External integration",
+                    icon: <Database className="h-5 w-5" />,
+                  };
+                  return (
+                    <IntegrationCard
+                      key={integration.id}
+                      integration={integration}
+                      description={meta.description}
+                      icon={meta.icon}
+                      onSync={fetchIntegrations}
+                    />
+                  );
+                })
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Recent Sync Logs */}
       {!loading && integrations.length > 0 && (
