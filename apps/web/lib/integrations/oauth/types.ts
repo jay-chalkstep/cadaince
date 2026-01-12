@@ -136,7 +136,8 @@ export interface OAuthConfig {
   clientSecret: string;
   authorizationUrl: string;
   tokenUrl: string;
-  scopes: string[];
+  requiredScopes: string[]; // Go in `scope` param (must be authorized)
+  optionalScopes: string[]; // Go in `optional_scope` param (dropped if not available)
   supportsRefresh: boolean;
 }
 

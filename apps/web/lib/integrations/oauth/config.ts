@@ -63,8 +63,8 @@ const OAUTH_CONFIGS: Record<IntegrationProvider, () => OAuthConfig | null> = {
       clientSecret,
       authorizationUrl: "https://app.hubspot.com/oauth/authorize",
       tokenUrl: "https://api.hubapi.com/oauth/v1/token",
-      scopes: [
-        "oauth",
+      requiredScopes: ["oauth"],
+      optionalScopes: [
         "crm.objects.deals.read",
         "crm.objects.contacts.read",
         "crm.objects.companies.read",
@@ -87,7 +87,8 @@ const OAUTH_CONFIGS: Record<IntegrationProvider, () => OAuthConfig | null> = {
       clientSecret,
       authorizationUrl: "https://login.salesforce.com/services/oauth2/authorize",
       tokenUrl: "https://login.salesforce.com/services/oauth2/token",
-      scopes: ["api", "refresh_token", "offline_access"],
+      requiredScopes: ["api", "refresh_token", "offline_access"],
+      optionalScopes: [],
       supportsRefresh: true,
     };
   },
@@ -103,7 +104,7 @@ const OAUTH_CONFIGS: Record<IntegrationProvider, () => OAuthConfig | null> = {
       clientSecret,
       authorizationUrl: "https://slack.com/oauth/v2/authorize",
       tokenUrl: "https://slack.com/api/oauth.v2.access",
-      scopes: [
+      requiredScopes: [
         "chat:write",
         "commands",
         "channels:read",
@@ -111,6 +112,7 @@ const OAUTH_CONFIGS: Record<IntegrationProvider, () => OAuthConfig | null> = {
         "users:read.email",
         "team:read",
       ],
+      optionalScopes: [],
       supportsRefresh: false, // Slack tokens don't expire
     };
   },
@@ -126,11 +128,12 @@ const OAUTH_CONFIGS: Record<IntegrationProvider, () => OAuthConfig | null> = {
       clientSecret,
       authorizationUrl: "https://app.gong.io/oauth2/authorize",
       tokenUrl: "https://app.gong.io/oauth2/generate-customer-token",
-      scopes: [
+      requiredScopes: [
         "api:calls:read:basic",
         "api:calls:read:extensive",
         "api:stats:user-actions",
       ],
+      optionalScopes: [],
       supportsRefresh: true,
     };
   },
@@ -146,7 +149,8 @@ const OAUTH_CONFIGS: Record<IntegrationProvider, () => OAuthConfig | null> = {
       clientSecret,
       authorizationUrl: "https://accounts.salesloft.com/oauth/authorize",
       tokenUrl: "https://accounts.salesloft.com/oauth/token",
-      scopes: ["read"],
+      requiredScopes: ["read"],
+      optionalScopes: [],
       supportsRefresh: true,
     };
   },
@@ -260,7 +264,10 @@ export function buildAuthorizationUrl(
   const url = new URL(config.authorizationUrl);
   url.searchParams.set("client_id", config.clientId);
   url.searchParams.set("redirect_uri", redirectUri);
-  url.searchParams.set("scope", config.scopes.join(" "));
+  url.searchParams.set("scope", config.requiredScopes.join(" "));
+  if (config.optionalScopes.length > 0) {
+    url.searchParams.set("optional_scope", config.optionalScopes.join(" "));
+  }
   url.searchParams.set("state", state);
   url.searchParams.set("response_type", "code");
 
