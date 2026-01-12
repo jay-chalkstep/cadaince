@@ -21,19 +21,38 @@ export async function syncHubSpotOwners(
   organizationId: string
 ): Promise<SyncOwnersResult> {
   try {
+    console.log("[syncHubSpotOwners] Starting sync for org:", organizationId);
+
     // Get HubSpot client for this organization
     const client = await HubSpotClient.forOrganization(organizationId);
     if (!client) {
+      console.log("[syncHubSpotOwners] No HubSpot client found");
       return {
         success: false,
         error: "No HubSpot integration found for this organization",
       };
     }
 
+    console.log("[syncHubSpotOwners] Client created, fetching owners...");
+
     // Fetch all owners from HubSpot using the client method
-    const owners = await client.fetchOwners();
+    let owners;
+    try {
+      owners = await client.fetchOwners();
+      console.log("[syncHubSpotOwners] Fetched owners count:", owners.length);
+      if (owners.length > 0) {
+        console.log("[syncHubSpotOwners] Sample owner:", JSON.stringify(owners[0]));
+      }
+    } catch (fetchError) {
+      console.error("[syncHubSpotOwners] Error fetching owners from HubSpot:", fetchError);
+      return {
+        success: false,
+        error: `Failed to fetch owners from HubSpot: ${fetchError instanceof Error ? fetchError.message : "Unknown error"}`,
+      };
+    }
 
     if (owners.length === 0) {
+      console.log("[syncHubSpotOwners] No owners returned from HubSpot");
       return {
         success: true,
         count: 0,
@@ -43,13 +62,15 @@ export async function syncHubSpotOwners(
     const supabase = createAdminClient();
 
     // Find the HubSpot integration for this org
-    const { data: integration } = await supabase
+    const { data: integration, error: integrationError } = await supabase
       .from("integrations_v2")
       .select("id")
       .eq("organization_id", organizationId)
       .eq("provider", "hubspot")
       .eq("status", "active")
       .single();
+
+    console.log("[syncHubSpotOwners] Integration lookup:", { integration, error: integrationError });
 
     if (!integration) {
       return {
@@ -59,15 +80,18 @@ export async function syncHubSpotOwners(
     }
 
     // Find or create a data source for owners
-    let { data: dataSource } = await supabase
+    let { data: dataSource, error: dataSourceError } = await supabase
       .from("data_sources_v2")
       .select("id")
       .eq("integration_id", integration.id)
       .eq("source_type", "owners")
       .single();
 
+    console.log("[syncHubSpotOwners] Existing data source lookup:", { dataSource, error: dataSourceError });
+
     if (!dataSource) {
       // Create a data source for owners
+      console.log("[syncHubSpotOwners] Creating new data source...");
       const { data: newDataSource, error: createError } = await supabase
         .from("data_sources_v2")
         .insert({
@@ -83,6 +107,8 @@ export async function syncHubSpotOwners(
         })
         .select("id")
         .single();
+
+      console.log("[syncHubSpotOwners] Data source create result:", { newDataSource, error: createError });
 
       if (createError) {
         console.error("Failed to create owners data source:", createError);
@@ -117,8 +143,15 @@ export async function syncHubSpotOwners(
     const batchSize = 100;
     let upsertedCount = 0;
 
+    console.log("[syncHubSpotOwners] Prepared records for upsert:", records.length);
+    if (records.length > 0) {
+      console.log("[syncHubSpotOwners] Sample record:", JSON.stringify(records[0]));
+    }
+
     for (let i = 0; i < records.length; i += batchSize) {
       const batch = records.slice(i, i + batchSize);
+      console.log(`[syncHubSpotOwners] Upserting batch ${i / batchSize + 1}, size: ${batch.length}`);
+
       const { error } = await supabase
         .from("integration_records")
         .upsert(batch, {
@@ -127,7 +160,7 @@ export async function syncHubSpotOwners(
         });
 
       if (error) {
-        console.error("Failed to upsert owner records:", error);
+        console.error("[syncHubSpotOwners] Failed to upsert owner records:", error);
         return {
           success: false,
           error: `Failed to save owners: ${error.message}`,
@@ -135,6 +168,7 @@ export async function syncHubSpotOwners(
       }
 
       upsertedCount += batch.length;
+      console.log(`[syncHubSpotOwners] Batch upserted successfully, total: ${upsertedCount}`);
     }
 
     return {
