@@ -5,9 +5,15 @@ import { Fragment } from 'react';
 import type { BriefingInsight, ReferenceType } from '@/lib/ai/briefing';
 
 function getEntityUrl(type: ReferenceType, id: string): string {
-  const routes: Record<ReferenceType, string> = {
+  // Metrics link to scorecard with highlight param
+  if (type === 'metric') {
+    return `/scorecard?highlight=${id}`;
+  }
+  const routes: Record<Exclude<ReferenceType, 'metric'>, string> = {
     update: '/updates',
     alert: '/alerts',
+    rock: '/rocks',
+    issue: '/issues',
   };
   return `${routes[type]}/${id}`;
 }

@@ -114,7 +114,7 @@ export interface BriefingContext {
 }
 
 // Reference types for linking briefing insights to source records
-export type ReferenceType = 'update' | 'alert';
+export type ReferenceType = 'update' | 'alert' | 'rock' | 'issue' | 'metric';
 
 export interface BriefingReference {
   type: ReferenceType;
@@ -161,7 +161,7 @@ Your response must be valid JSON matching this structure:
     {
       "text": "Human-readable insight about a positive development",
       "references": [
-        { "type": "update" | "alert", "id": "exact-uuid-from-context", "title": "2-5 word link text" }
+        { "type": "update" | "alert" | "rock" | "issue" | "metric", "id": "exact-uuid-from-context", "title": "2-5 word link text" }
       ]
     }
   ],
@@ -169,7 +169,7 @@ Your response must be valid JSON matching this structure:
     {
       "text": "Item requiring attention",
       "severity": "urgent" | "warning" | "info",
-      "references": [{ "type": "update" | "alert", "id": "uuid", "title": "short link text" }]
+      "references": [{ "type": "update" | "alert" | "rock" | "issue" | "metric", "id": "uuid", "title": "short link text" }]
     }
   ],
   "opportunities": [
@@ -183,8 +183,13 @@ Your response must be valid JSON matching this structure:
 
 CRITICAL RULES FOR REFERENCES:
 - Use the EXACT id value from the [id:...] prefix in the context data
-- When an insight is based on a specific update or alert, include its reference
-- The "title" should be 2-5 words suitable for a clickable link (e.g., "Sarah's update", "Revenue alert")
+- Match the reference type to the source entity:
+  - "rock" for quarterly priorities/rocks
+  - "issue" for issues in the IDS list
+  - "metric" for scorecard metrics
+  - "update" for video/text updates from team members
+  - "alert" for system alerts
+- The "title" should be 2-5 words suitable for a clickable link (e.g., "Partner channel rock", "Revenue metric", "Sarah's update")
 - Group related items into a single insight when appropriate
 - The references array can be empty if the insight is synthesized from multiple sources or general context
 - severity for attention_needed: "urgent" for immediate action, "warning" for needs attention soon, "info" for awareness
