@@ -242,10 +242,13 @@ async function fetchFromHubSpot(
     return { success: false, error: "Failed to initialize HubSpot client" };
   }
 
+  // Use sourceType as the object type if not specified in queryConfig
+  const objectType = (queryConfig.object || sourceType) as HubSpotQueryConfig["object"];
+
   const config: HubSpotQueryConfig = {
-    object: queryConfig.object as HubSpotQueryConfig["object"],
-    property: queryConfig.property as string,
-    aggregation: queryConfig.aggregation as HubSpotQueryConfig["aggregation"],
+    object: objectType,
+    property: (queryConfig.property as string) || "id", // Default to counting by ID
+    aggregation: (queryConfig.aggregation as HubSpotQueryConfig["aggregation"]) || "count",
     filters: queryConfig.filters as HubSpotQueryConfig["filters"],
     dateField: queryConfig.dateField as string,
     dateRange: queryConfig.dateRange as HubSpotQueryConfig["dateRange"],
