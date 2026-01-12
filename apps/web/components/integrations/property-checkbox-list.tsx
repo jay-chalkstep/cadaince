@@ -11,7 +11,11 @@ import {
 } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronRight } from "lucide-react";
-import type { HubSpotProperty, HubSpotObject } from "@/lib/integrations/providers/hubspot";
+import { HUBSPOT_RECOMMENDED_PROPERTIES } from "@/lib/integrations/providers/hubspot/presets";
+import type {
+  HubSpotProperty,
+  HubSpotObject,
+} from "@/lib/integrations/providers/hubspot/client";
 
 interface PropertyCheckboxListProps {
   object: HubSpotObject;
@@ -102,6 +106,17 @@ export function PropertyCheckboxList({
     onChange([]);
   };
 
+  const recommendedFields = HUBSPOT_RECOMMENDED_PROPERTIES[object] || [];
+  const hasRecommended = recommendedFields.length > 0;
+
+  const selectRecommended = () => {
+    // Only select recommended fields that exist in the fetched properties
+    const validRecommended = recommendedFields.filter((f) =>
+      properties.some((p) => p.name === f)
+    );
+    onChange(validRecommended);
+  };
+
   const selectGroupAll = (groupName: string) => {
     const groupProps = groups[groupName]?.map((p) => p.name) || [];
     const currentNonGroup = selectedProperties.filter(
@@ -177,6 +192,17 @@ export function PropertyCheckboxList({
           {selectedProperties.length} of {properties.length} properties selected
         </span>
         <div className="flex gap-2">
+          {hasRecommended && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={selectRecommended}
+              disabled={disabled}
+            >
+              Recommended ({recommendedFields.length})
+            </Button>
+          )}
           <Button
             type="button"
             variant="ghost"

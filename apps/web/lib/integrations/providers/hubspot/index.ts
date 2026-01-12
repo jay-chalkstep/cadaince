@@ -15,3 +15,5 @@ export {
   type HubSpotSourceType,
   type HubSpotProperty,
 } from "./client";
+
+export { HUBSPOT_RECOMMENDED_PROPERTIES } from "./presets";

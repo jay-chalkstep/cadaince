@@ -234,7 +234,7 @@ export class HubSpotClient {
   ): Promise<Record<string, string>[]> {
     const allRecords: Record<string, string>[] = [];
     let after: string | undefined;
-    const maxRecords = 10000; // Safety limit
+    const maxRecords = 50000; // Safety limit
     let requestCount = 0;
 
     do {
@@ -340,7 +340,7 @@ export class HubSpotClient {
   ): Promise<HubSpotRecord[]> {
     const allRecords: HubSpotRecord[] = [];
     let after: string | undefined;
-    const maxRecords = 10000; // Safety limit
+    const maxRecords = 50000; // Safety limit
     let requestCount = 0;
 
     do {
