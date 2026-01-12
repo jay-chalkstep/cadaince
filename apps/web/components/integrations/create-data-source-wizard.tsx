@@ -31,6 +31,8 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import type { IntegrationListItem } from "@/lib/integrations/oauth/types";
+import { HubSpotPropertyPicker } from "./hubspot-property-picker";
+import type { HubSpotObject } from "@/lib/integrations/providers/hubspot";
 
 interface CreateDataSourceWizardProps {
   open: boolean;
@@ -477,13 +479,24 @@ export function CreateDataSourceWizard({
 
               <div className="space-y-2">
                 <Label>Property</Label>
-                <Input
-                  placeholder="e.g., amount, hs_object_id"
-                  value={customProperty || property}
-                  onChange={(e) => setCustomProperty(e.target.value)}
-                />
+                {selectedIntegration?.provider === "hubspot" ? (
+                  <HubSpotPropertyPicker
+                    object={object as HubSpotObject}
+                    value={property}
+                    onChange={(value) => {
+                      setProperty(value);
+                      setCustomProperty("");
+                    }}
+                  />
+                ) : (
+                  <Input
+                    placeholder="e.g., amount, hs_object_id"
+                    value={customProperty || property}
+                    onChange={(e) => setCustomProperty(e.target.value)}
+                  />
+                )}
                 <p className="text-xs text-muted-foreground">
-                  The HubSpot property to fetch
+                  The property to fetch and aggregate
                 </p>
               </div>
 

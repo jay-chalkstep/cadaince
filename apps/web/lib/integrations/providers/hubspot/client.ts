@@ -21,6 +21,21 @@ export type HubSpotObject =
 
 export type HubSpotAggregation = "sum" | "avg" | "count" | "min" | "max";
 
+/**
+ * HubSpot property definition from Properties API
+ */
+export interface HubSpotProperty {
+  name: string;
+  label: string;
+  type: string;
+  fieldType: string;
+  description?: string;
+  groupName?: string;
+  options?: Array<{ label: string; value: string }>;
+  calculated?: boolean;
+  hasUniqueValue?: boolean;
+}
+
 export interface HubSpotQueryConfig {
   object: HubSpotObject;
   property: string;
@@ -294,6 +309,30 @@ export class HubSpotClient {
       };
     } catch {
       return null;
+    }
+  }
+
+  /**
+   * Get all available properties for an object type
+   * Uses HubSpot Properties API: GET /crm/v3/properties/{objectType}
+   */
+  async getObjectProperties(object: HubSpotObject): Promise<HubSpotProperty[]> {
+    try {
+      const response = await this.request<{ results: HubSpotProperty[] }>(
+        `/crm/v3/properties/${object}`
+      );
+
+      // Sort by group then by label for better UX
+      return response.results.sort((a, b) => {
+        // First sort by group
+        const groupCompare = (a.groupName || "").localeCompare(b.groupName || "");
+        if (groupCompare !== 0) return groupCompare;
+        // Then by label
+        return a.label.localeCompare(b.label);
+      });
+    } catch (error) {
+      console.error("[HubSpot] Failed to fetch properties:", error);
+      return [];
     }
   }
 }

@@ -11,4 +11,5 @@ export {
   type HubSpotFilter,
   type HubSpotFetchResult,
   type HubSpotSourceType,
+  type HubSpotProperty,
 } from "./client";
