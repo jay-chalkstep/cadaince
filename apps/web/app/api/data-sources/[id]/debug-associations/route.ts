@@ -68,6 +68,17 @@ export async function GET(
   console.log(`[Debug] Testing associations for ${feedbackIds.length} feedback IDs:`, feedbackIds);
 
   try {
+    // First, check what association types exist between feedback_submissions and tickets
+    const associationSchema = await client.getAssociationSchema(
+      "feedback_submissions",
+      "tickets"
+    );
+
+    const reverseSchema = await client.getAssociationSchema(
+      "tickets",
+      "feedback_submissions"
+    );
+
     // Test batch API
     const batchAssociations = await client.batchFetchAssociations(
       "feedback_submissions",
@@ -109,6 +120,11 @@ export async function GET(
 
     return NextResponse.json({
       success: true,
+      association_schema: {
+        feedback_to_tickets: associationSchema,
+        tickets_to_feedback: reverseSchema,
+        note: "If empty, no association type exists between these objects"
+      },
       feedback_ids_tested: feedbackIds,
       batch_associations: Object.fromEntries(batchAssociations),
       single_associations: {

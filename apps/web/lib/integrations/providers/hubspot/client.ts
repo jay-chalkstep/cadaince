@@ -686,6 +686,32 @@ export class HubSpotClient {
   }
 
   /**
+   * Get association schema/types between two object types
+   * Uses HubSpot Associations API v4: GET /crm/v4/associations/{fromObjectType}/{toObjectType}/labels
+   * Returns the available association types between the objects
+   */
+  async getAssociationSchema(
+    fromObjectType: HubSpotObject,
+    toObjectType: HubSpotObject
+  ): Promise<{ typeId: number; label: string | null; category: string }[]> {
+    try {
+      const response = await this.request<{
+        results: Array<{
+          typeId: number;
+          label: string | null;
+          category: string;
+        }>;
+      }>(`/crm/v4/associations/${fromObjectType}/${toObjectType}/labels`);
+
+      console.log(`[HubSpot] Association schema ${fromObjectType} -> ${toObjectType}:`, response.results);
+      return response.results || [];
+    } catch (error) {
+      console.error(`[HubSpot] Failed to get association schema:`, error);
+      return [];
+    }
+  }
+
+  /**
    * Get all available properties for an object type
    * Uses HubSpot Properties API: GET /crm/v3/properties/{objectType}
    */
