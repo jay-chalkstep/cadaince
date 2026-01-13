@@ -536,6 +536,33 @@ export class HubSpotClient {
       after = response.paging?.next?.after;
     } while (after && allRecords.length < maxRecords);
 
+    // If using Search API and associations were requested, fetch them separately
+    // (Search API doesn't support inline associations like List API does)
+    if (useSearchApi && associations?.length && allRecords.length > 0) {
+      console.log(`[HubSpot] Fetching associations separately for ${allRecords.length} ${object} records`);
+
+      for (const assocType of associations) {
+        const objectIds = allRecords.map((r) => r.id);
+
+        // Batch in chunks of 100 (HubSpot batch API limit)
+        for (let i = 0; i < objectIds.length; i += 100) {
+          const batch = objectIds.slice(i, i + 100);
+          const assocMap = await this.batchFetchAssociations(object, batch, assocType);
+
+          // Merge associations into records
+          for (const record of allRecords) {
+            const assocIds = assocMap.get(record.id);
+            if (assocIds?.length) {
+              record.properties[`associated_${assocType}_id`] = assocIds[0];
+              if (assocIds.length > 1) {
+                record.properties[`associated_${assocType}_ids`] = assocIds.join(",");
+              }
+            }
+          }
+        }
+      }
+    }
+
     return allRecords;
   }
 

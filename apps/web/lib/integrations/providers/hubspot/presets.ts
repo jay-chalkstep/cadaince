@@ -7,50 +7,32 @@
 
 export const HUBSPOT_RECOMMENDED_PROPERTIES: Record<string, string[]> = {
   tickets: [
-    // Core Content
+    // Identity (REQUIRED for association matching)
+    "hs_object_id",
+
+    // Display & Search
     "subject",
     "content",
-    "detailed_description",
-    "hs_resolution",
 
     // Status & Pipeline
-    "hs_pipeline_stage",
     "hs_is_closed",
-    "hs_ticket_priority",
-    "ticket_category",
-    "issue_type",
-    "inquiry_reason",
-    "support_escalation",
-
-    // Dates
-    "createdate",
+    "hs_pipeline_stage",
     "closed_date",
-    "hs_lastmodifieddate",
-    "first_agent_reply_date",
 
-    // Owner & Assignment
-    "hubspot_owner_id",
-    "hubspot_team_id",
-    "assigned_dept",
-
-    // Source
-    "source_type",
-
-    // SLA & Response Times
+    // Metrics & SLA
+    "createdate",
     "time_to_close",
     "time_to_first_agent_reply",
 
-    // Client & Program
+    // Owner (CRITICAL for survey correlation)
+    "hubspot_owner_id",
+
+    // Categorization
+    "ticket_category",
+    "source_type",
+
+    // Client context
     "client_name",
-    "program_name",
-
-    // Recipient
-    "recipient_name",
-    "recipient_email_address",
-
-    // Feedback
-    "nps_score",
-    "nps_follow_up_answer",
   ],
 
   deals: [
@@ -156,11 +138,17 @@ export const HUBSPOT_RECOMMENDED_PROPERTIES: Record<string, string[]> = {
   ],
 
   feedback_submissions: [
-    "hs_response_value",
-    "hs_survey_type",
-    "hs_sentiment",
-    "hs_content",
-    "hs_createdate",
+    // Identity (REQUIRED for association API calls)
+    "hs_object_id",
+
+    // Survey data
     "hs_submission_timestamp",
+    "hs_survey_type",
+    "hs_response_value",
+    "hs_content",
+    "hs_sentiment",
+
+    // Timestamps
+    "hs_createdate",
   ],
 };
