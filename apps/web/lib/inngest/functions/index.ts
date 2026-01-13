@@ -15,6 +15,9 @@ import { automationFunctions } from "./automations";
 // Team sync (from Accountability Chart)
 import { teamSyncFunctions } from "./team-sync";
 
+// Growth Pulse (HubSpot deal pipeline analytics)
+import { growthPulseFunctions } from "./growth-pulse";
+
 // Export all functions for Inngest
 export const functions = [
   ...calendarFunctions,
@@ -22,4 +25,5 @@ export const functions = [
   ...remarkableFunctions,
   ...automationFunctions,
   ...teamSyncFunctions,
+  ...growthPulseFunctions,
 ];

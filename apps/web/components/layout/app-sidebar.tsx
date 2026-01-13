@@ -20,6 +20,7 @@ import {
   Settings,
   Settings2,
   Target,
+  TrendingUp,
   Users,
   Video,
 } from "lucide-react";
@@ -44,6 +45,7 @@ import {
 const myDayItems = [
   { title: "Briefing", href: "/briefing", icon: BookOpen },
   { title: "Support Pulse", href: "/support-pulse", icon: Headphones },
+  { title: "Growth Pulse", href: "/growth-pulse", icon: TrendingUp },
   { title: "Updates and Alerts", href: "/stream", icon: Radio },
   { title: "To-Dos", href: "/todos", icon: CheckSquare },
   { title: "Private Notes", href: "/notes", icon: MessageSquareLock },
