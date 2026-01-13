@@ -57,7 +57,7 @@ export function SellerStageChart({ data }: SellerStageChartProps) {
                   width={55}
                 />
                 <Tooltip
-                  formatter={(value: number) => formatCurrency(value)}
+                  formatter={(value) => formatCurrency(value as number)}
                   labelFormatter={(label) => label}
                   contentStyle={{
                     backgroundColor: "hsl(var(--card))",

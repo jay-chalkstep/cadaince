@@ -61,7 +61,7 @@ export function PipelineFunnel({ data }: PipelineFunnelProps) {
                   width={75}
                 />
                 <Tooltip
-                  formatter={(value: number) => formatCurrency(value)}
+                  formatter={(value) => formatCurrency(value as number)}
                   labelFormatter={(label) => label}
                   contentStyle={{
                     backgroundColor: "hsl(var(--card))",
