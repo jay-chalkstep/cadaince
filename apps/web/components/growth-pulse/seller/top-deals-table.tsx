@@ -58,29 +58,31 @@ export function TopDealsTable({ deals }: TopDealsTableProps) {
                       {formatCurrency(deal.arr, true)}
                     </TableCell>
                     <TableCell>
-                      <Badge
-                        variant="secondary"
-                        style={{
-                          backgroundColor: `${getStageColor(deal.dealStage)}20`,
-                          color: getStageColor(deal.dealStage),
-                        }}
-                      >
-                        {formatStageName(deal.dealStage)}
-                      </Badge>
+                      {deal.stage && (
+                        <Badge
+                          variant="secondary"
+                          style={{
+                            backgroundColor: `${getStageColor(deal.stage)}20`,
+                            color: getStageColor(deal.stage),
+                          }}
+                        >
+                          {formatStageName(deal.stage)}
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell className="max-w-[150px] truncate">
                       {deal.companyName || "—"}
                     </TableCell>
                     <TableCell className="text-right">
-                      {deal.daysInStage != null ? (
+                      {deal.daysInPipeline != null ? (
                         <span
                           className={
-                            deal.daysInStage > 30
+                            deal.daysInPipeline > 30
                               ? "text-amber-600 font-medium"
                               : ""
                           }
                         >
-                          {formatDays(deal.daysInStage)}
+                          {formatDays(deal.daysInPipeline)}
                         </span>
                       ) : (
                         "—"

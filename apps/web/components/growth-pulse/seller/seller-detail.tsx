@@ -78,25 +78,25 @@ export function SellerDetail({ ownerId }: SellerDetailProps) {
   const summaryCards = [
     {
       title: "Open Pipeline",
-      value: formatCurrency(seller.openPipelineArr, true),
-      subtitle: `${seller.openDealCount} deals`,
+      value: formatCurrency(seller.metrics.openPipelineArr, true),
+      subtitle: `${seller.metrics.openDealCount} deals`,
       icon: DollarSign,
     },
     {
       title: "Avg Deal Size",
-      value: formatCurrency(seller.avgDealSize, true),
+      value: formatCurrency(seller.metrics.avgDealSize, true),
       subtitle: "across open deals",
       icon: Target,
     },
     {
-      title: "Avg Days in Stage",
-      value: formatDays(seller.avgDaysInCurrentStage),
-      subtitle: "current stage",
+      title: "Avg Deal Age",
+      value: formatDays(seller.metrics.avgDealAgeDays),
+      subtitle: "in pipeline",
       icon: BarChart3,
     },
     {
-      title: "Activities (30d)",
-      value: seller.activityCount.toString(),
+      title: "Recent Activities",
+      value: seller.recentActivities.length.toString(),
       subtitle: "calls, emails, meetings",
       icon: TrendingUp,
     },
@@ -126,11 +126,11 @@ export function SellerDetail({ ownerId }: SellerDetailProps) {
       </div>
 
       {/* Benchmark Comparison */}
-      <SellerBenchmarkBars seller={seller} benchmarks={seller.benchmarks} />
+      <SellerBenchmarkBars benchmarks={seller.benchmarks} />
 
       {/* Charts Row */}
       <div className="grid gap-4 md:grid-cols-2">
-        <SellerStageChart data={seller.stageBreakdown} />
+        <SellerStageChart data={seller.stageDistribution} />
         <RecentActivities activities={seller.recentActivities} />
       </div>
 

@@ -2,46 +2,21 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import type { SellerDetail, OrgBenchmarks } from "@/types/growth-pulse";
+import type { BenchmarkComparison } from "@/types/growth-pulse";
 import { formatCurrency } from "@/types/growth-pulse";
 
 interface SellerBenchmarkBarsProps {
-  seller: SellerDetail;
-  benchmarks: OrgBenchmarks;
+  benchmarks: BenchmarkComparison[];
 }
 
-interface BenchmarkItem {
-  label: string;
-  value: number;
-  teamAvg: number;
-  leader: number;
-  format: (v: number) => string;
-}
-
-export function SellerBenchmarkBars({ seller, benchmarks }: SellerBenchmarkBarsProps) {
-  const items: BenchmarkItem[] = [
-    {
-      label: "Open Pipeline",
-      value: seller.openPipelineArr,
-      teamAvg: benchmarks.avgOpenPipeline,
-      leader: benchmarks.leaderOpenPipeline,
-      format: (v) => formatCurrency(v, true),
-    },
-    {
-      label: "Closed Won QTD",
-      value: seller.closedWonQtdArr,
-      teamAvg: benchmarks.avgClosedWonQtd,
-      leader: benchmarks.leaderClosedWonQtd,
-      format: (v) => formatCurrency(v, true),
-    },
-    {
-      label: "Open Deals",
-      value: seller.openDealCount,
-      teamAvg: benchmarks.avgOpenDeals,
-      leader: benchmarks.leaderOpenDeals,
-      format: (v) => v.toString(),
-    },
-  ];
+export function SellerBenchmarkBars({ benchmarks }: SellerBenchmarkBarsProps) {
+  // Format value based on metric type
+  const formatValue = (metric: string, value: number): string => {
+    if (metric === "Open Deals") {
+      return value.toString();
+    }
+    return formatCurrency(value, true);
+  };
 
   return (
     <Card>
@@ -49,24 +24,24 @@ export function SellerBenchmarkBars({ seller, benchmarks }: SellerBenchmarkBarsP
         <CardTitle className="text-base font-medium">Team Comparison</CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
-        {items.map((item) => {
+        {benchmarks.map((item) => {
           // Calculate percentage vs leader (leader = 100%)
-          const max = Math.max(item.leader, item.value);
-          const valuePercent = max > 0 ? (item.value / max) * 100 : 0;
+          const max = Math.max(item.leader, item.sellerValue);
+          const valuePercent = max > 0 ? (item.sellerValue / max) * 100 : 0;
           const avgPercent = max > 0 ? (item.teamAvg / max) * 100 : 0;
 
           // Calculate vs average percentage
           const vsAvg =
             item.teamAvg > 0
-              ? ((item.value - item.teamAvg) / item.teamAvg) * 100
+              ? ((item.sellerValue - item.teamAvg) / item.teamAvg) * 100
               : 0;
 
           return (
-            <div key={item.label} className="space-y-2">
+            <div key={item.metric} className="space-y-2">
               <div className="flex items-center justify-between text-sm">
-                <span className="font-medium">{item.label}</span>
+                <span className="font-medium">{item.metric}</span>
                 <div className="flex items-center gap-2">
-                  <span className="font-semibold">{item.format(item.value)}</span>
+                  <span className="font-semibold">{formatValue(item.metric, item.sellerValue)}</span>
                   <span
                     className={`text-xs ${
                       vsAvg >= 0 ? "text-green-600" : "text-red-600"
@@ -85,13 +60,13 @@ export function SellerBenchmarkBars({ seller, benchmarks }: SellerBenchmarkBarsP
                   <div
                     className="absolute top-0 h-3 w-0.5 bg-muted-foreground"
                     style={{ left: `${avgPercent}%` }}
-                    title={`Team Avg: ${item.format(item.teamAvg)}`}
+                    title={`Team Avg: ${formatValue(item.metric, item.teamAvg)}`}
                   />
                 )}
               </div>
               <div className="flex justify-between text-xs text-muted-foreground">
-                <span>Team Avg: {item.format(item.teamAvg)}</span>
-                <span>Leader: {item.format(item.leader)}</span>
+                <span>Team Avg: {formatValue(item.metric, item.teamAvg)}</span>
+                <span>Leader: {formatValue(item.metric, item.leader)}</span>
               </div>
             </div>
           );
