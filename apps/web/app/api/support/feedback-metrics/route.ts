@@ -1,24 +1,33 @@
 import { auth } from "@clerk/nextjs/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
-import type { FeedbackMetrics } from "@/types/support-pulse";
+import type { FeedbackMetrics, ScoreMetric } from "@/types/support-pulse";
 
-const SCORE_FIELD = "how_satisfied_are_you_with_the_resolution_of_your_issue_";
+// The three "How" question fields from HubSpot feedback surveys
+const SCORE_FIELDS = {
+  resolution: "how_satisfied_are_you_with_the_resolution_of_your_issue_",
+  responseTime: "how_satidfied_are_you_with_the_response_time_of_our_agents_", // Note: typo in HubSpot field
+  helpfulness: "how_would_you_rate_the_helpfulness_of_our_customer_service_representatives_",
+} as const;
+
 const TREND_THRESHOLD = 0.2;
 
 interface FeedbackRecord {
   properties: Record<string, unknown>;
 }
 
-function calculateAverageScore(records: FeedbackRecord[]): { score: number | null; count: number } {
+function calculateAverageForField(
+  records: FeedbackRecord[],
+  fieldName: string
+): { score: number | null; count: number } {
   let total = 0;
   let count = 0;
 
   for (const record of records) {
-    const scoreValue = record.properties[SCORE_FIELD];
+    const scoreValue = record.properties[fieldName];
     if (scoreValue !== null && scoreValue !== undefined && scoreValue !== "") {
       const score = parseFloat(String(scoreValue));
-      if (!isNaN(score) && score >= 1 && score <= 10) {
+      if (!isNaN(score) && score >= 0 && score <= 10) {
         total += score;
         count++;
       }
@@ -37,6 +46,21 @@ function determineTrend(current: number | null, previous: number | null): "up" |
   if (diff > TREND_THRESHOLD) return "up";
   if (diff < -TREND_THRESHOLD) return "down";
   return "neutral";
+}
+
+function buildScoreMetric(
+  currentRecords: FeedbackRecord[],
+  previousRecords: FeedbackRecord[],
+  fieldName: string
+): ScoreMetric {
+  const current = calculateAverageForField(currentRecords, fieldName);
+  const previous = calculateAverageForField(previousRecords, fieldName);
+
+  return {
+    current: current.score,
+    previous: previous.score,
+    trend: determineTrend(current.score, previous.score),
+  };
 }
 
 // GET /api/support/feedback-metrics
@@ -108,14 +132,22 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Failed to fetch feedback data" }, { status: 500 });
     }
 
-    const currentStats = calculateAverageScore(currentResult.data as FeedbackRecord[]);
-    const previousStats = calculateAverageScore(previousResult.data as FeedbackRecord[]);
+    const currentRecords = currentResult.data as FeedbackRecord[];
+    const previousRecords = previousResult.data as FeedbackRecord[];
+
+    // Count surveys that have at least one score field filled
+    const surveyCount = currentRecords.filter((r) =>
+      Object.values(SCORE_FIELDS).some((field) => {
+        const val = r.properties[field];
+        return val !== null && val !== undefined && val !== "";
+      })
+    ).length;
 
     const response: FeedbackMetrics = {
-      currentScore: currentStats.score,
-      previousScore: previousStats.score,
-      surveyCount: currentStats.count,
-      trend: determineTrend(currentStats.score, previousStats.score),
+      resolution: buildScoreMetric(currentRecords, previousRecords, SCORE_FIELDS.resolution),
+      responseTime: buildScoreMetric(currentRecords, previousRecords, SCORE_FIELDS.responseTime),
+      helpfulness: buildScoreMetric(currentRecords, previousRecords, SCORE_FIELDS.helpfulness),
+      surveyCount,
     };
 
     return NextResponse.json(response);

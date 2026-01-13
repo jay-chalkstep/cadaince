@@ -10,7 +10,6 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -21,7 +20,7 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDuration } from "@/types/support-pulse";
-import type { OwnerDetail, TimeFrameDays } from "@/types/support-pulse";
+import type { OwnerDetail, TimeFrameDays, OwnerFeedbackItem } from "@/types/support-pulse";
 
 interface OwnerDetailModalProps {
   ownerId: string | null;
@@ -30,26 +29,11 @@ interface OwnerDetailModalProps {
   customRange: { start: Date; end: Date } | null;
 }
 
-function getScoreColor(score: number): string {
+function getScoreColor(score: number | null): string {
+  if (score === null) return "text-muted-foreground";
   if (score >= 8) return "text-green-600";
   if (score >= 7) return "text-yellow-600";
   return "text-red-600";
-}
-
-function getSentimentBadge(sentiment: string | null) {
-  if (!sentiment) return null;
-
-  const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-    positive: "default",
-    neutral: "secondary",
-    negative: "destructive",
-  };
-
-  return (
-    <Badge variant={variants[sentiment.toLowerCase()] || "outline"} className="text-xs">
-      {sentiment}
-    </Badge>
-  );
 }
 
 function formatDate(dateStr: string): string {
@@ -60,6 +44,14 @@ function formatDate(dateStr: string): string {
     day: "numeric",
     year: "numeric",
   });
+}
+
+function ScoreCell({ score }: { score: number | null }) {
+  return (
+    <span className={`font-medium ${getScoreColor(score)}`}>
+      {score !== null ? score : "—"}
+    </span>
+  );
 }
 
 function MetricCard({
@@ -135,9 +127,9 @@ export function OwnerDetailModal({
   const isOpen = ownerId !== null;
 
   return (
-    <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
+    <Sheet open={isOpen} onOpenChange={(open: boolean) => !open && onClose()}>
       <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
-        <SheetHeader>
+        <SheetHeader className="pl-2">
           <SheetTitle className="flex items-center gap-2">
             <User className="h-5 w-5" />
             {loading ? (
@@ -153,7 +145,7 @@ export function OwnerDetailModal({
           </SheetDescription>
         </SheetHeader>
 
-        <div className="mt-6 space-y-6">
+        <div className="mt-6 space-y-6 pl-2">
           {/* Metrics Row */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             <MetricCard
@@ -215,27 +207,25 @@ export function OwnerDetailModal({
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-[100px]">Date</TableHead>
-                      <TableHead className="w-[60px]">Score</TableHead>
-                      <TableHead>Ticket</TableHead>
-                      <TableHead className="w-[80px]">Sentiment</TableHead>
+                      <TableHead className="text-center">Resolution</TableHead>
+                      <TableHead className="text-center">Response</TableHead>
+                      <TableHead className="text-center">Helpful</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {data.feedback.map((item, index) => (
+                    {data.feedback.map((item: OwnerFeedbackItem, index: number) => (
                       <TableRow key={index}>
                         <TableCell className="text-xs text-muted-foreground">
                           {formatDate(item.submittedAt)}
                         </TableCell>
-                        <TableCell>
-                          <span className={`font-medium ${getScoreColor(item.score)}`}>
-                            {item.score}
-                          </span>
+                        <TableCell className="text-center">
+                          <ScoreCell score={item.resolution} />
                         </TableCell>
-                        <TableCell className="text-sm truncate max-w-[150px]" title={item.ticketSubject}>
-                          {item.ticketSubject}
+                        <TableCell className="text-center">
+                          <ScoreCell score={item.responseTime} />
                         </TableCell>
-                        <TableCell>
-                          {getSentimentBadge(item.sentiment)}
+                        <TableCell className="text-center">
+                          <ScoreCell score={item.helpfulness} />
                         </TableCell>
                       </TableRow>
                     ))}

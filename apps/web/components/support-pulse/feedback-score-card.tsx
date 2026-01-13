@@ -3,7 +3,7 @@
 import { ThumbsUp, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { FeedbackMetrics } from "@/types/support-pulse";
+import type { FeedbackMetrics, ScoreMetric } from "@/types/support-pulse";
 
 interface FeedbackScoreCardProps {
   data: FeedbackMetrics | null;
@@ -17,50 +17,72 @@ function getScoreColor(score: number | null): string {
   return "text-red-600";
 }
 
-function TrendArrow({ trend }: { trend: "up" | "down" | "neutral" }) {
+function TrendArrow({ trend, size = "sm" }: { trend: "up" | "down" | "neutral"; size?: "sm" | "md" }) {
+  const sizeClass = size === "sm" ? "h-4 w-4" : "h-5 w-5";
   if (trend === "up") {
-    return <TrendingUp className="h-5 w-5 text-green-600" />;
+    return <TrendingUp className={`${sizeClass} text-green-600`} />;
   }
   if (trend === "down") {
-    return <TrendingDown className="h-5 w-5 text-red-600" />;
+    return <TrendingDown className={`${sizeClass} text-red-600`} />;
   }
-  return <Minus className="h-5 w-5 text-muted-foreground" />;
+  return <Minus className={`${sizeClass} text-muted-foreground`} />;
 }
 
-export function FeedbackScoreCard({ data, loading }: FeedbackScoreCardProps) {
+function ScoreColumn({
+  label,
+  metric,
+  loading,
+}: {
+  label: string;
+  metric: ScoreMetric | undefined;
+  loading?: boolean;
+}) {
   if (loading) {
     return (
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base font-medium">Feedback Score</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center h-[250px]">
-            <div className="text-center space-y-4">
-              <Skeleton className="h-16 w-24 mx-auto" />
-              <Skeleton className="h-4 w-32 mx-auto" />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex flex-col items-center">
+        <span className="text-xs text-muted-foreground mb-1">{label}</span>
+        <Skeleton className="h-10 w-14" />
+      </div>
     );
   }
 
-  const score = data?.currentScore;
+  const score = metric?.current;
+  const trend = metric?.trend ?? "neutral";
+
+  return (
+    <div className="flex flex-col items-center">
+      <span className="text-xs text-muted-foreground mb-1">{label}</span>
+      <div className="flex items-center gap-1">
+        <span className={`text-3xl font-bold ${getScoreColor(score ?? null)}`}>
+          {score != null ? score.toFixed(1) : "—"}
+        </span>
+        <TrendArrow trend={trend} size="sm" />
+      </div>
+    </div>
+  );
+}
+
+export function FeedbackScoreCard({ data, loading }: FeedbackScoreCardProps) {
   const surveyCount = data?.surveyCount ?? 0;
-  const trend = data?.trend ?? "neutral";
+  const hasData = !loading && surveyCount > 0;
 
   return (
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="text-base font-medium flex items-center gap-2">
           <ThumbsUp className="h-4 w-4 text-muted-foreground" />
-          Feedback Score
+          Feedback Scores
         </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="flex flex-col items-center justify-center h-[250px]">
-          {surveyCount === 0 ? (
+          {loading ? (
+            <div className="flex items-center justify-around w-full">
+              <ScoreColumn label="Resolution" metric={undefined} loading />
+              <ScoreColumn label="Response Time" metric={undefined} loading />
+              <ScoreColumn label="Helpfulness" metric={undefined} loading />
+            </div>
+          ) : !hasData ? (
             <div className="text-center text-muted-foreground">
               <ThumbsUp className="h-12 w-12 mx-auto mb-2 opacity-20" />
               <p>No feedback data</p>
@@ -68,29 +90,20 @@ export function FeedbackScoreCard({ data, loading }: FeedbackScoreCardProps) {
             </div>
           ) : (
             <>
-              <div className="flex items-center gap-2">
-                <span className={`text-6xl font-bold ${getScoreColor(score ?? null)}`}>
-                  {score != null ? score.toFixed(1) : "—"}
-                </span>
-                <div className="flex flex-col items-start">
-                  <TrendArrow trend={trend} />
-                  <span className="text-sm text-muted-foreground">/10</span>
-                </div>
+              <div className="flex items-start justify-around w-full">
+                <ScoreColumn label="Resolution" metric={data?.resolution} />
+                <ScoreColumn label="Response Time" metric={data?.responseTime} />
+                <ScoreColumn label="Helpfulness" metric={data?.helpfulness} />
               </div>
-              <p className="mt-4 text-sm text-muted-foreground">
+              <p className="mt-6 text-sm text-muted-foreground">
                 from {surveyCount.toLocaleString()} survey{surveyCount !== 1 ? "s" : ""}
               </p>
-              {data?.previousScore != null && (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Previous: {data.previousScore.toFixed(1)}
-                </p>
-              )}
-              <div className="mt-4 flex items-center gap-1">
-                <div className="w-3 h-3 rounded-full bg-red-500" />
+              <div className="mt-3 flex items-center gap-1">
+                <div className="w-2 h-2 rounded-full bg-red-500" />
                 <span className="text-xs text-muted-foreground mr-2">&lt;7</span>
-                <div className="w-3 h-3 rounded-full bg-yellow-500" />
+                <div className="w-2 h-2 rounded-full bg-yellow-500" />
                 <span className="text-xs text-muted-foreground mr-2">7-8</span>
-                <div className="w-3 h-3 rounded-full bg-green-500" />
+                <div className="w-2 h-2 rounded-full bg-green-500" />
                 <span className="text-xs text-muted-foreground">&gt;8</span>
               </div>
             </>

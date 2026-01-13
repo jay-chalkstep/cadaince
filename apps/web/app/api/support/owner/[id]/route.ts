@@ -3,7 +3,12 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 import type { OwnerDetail, OwnerFeedbackItem } from "@/types/support-pulse";
 
-const SCORE_FIELD = "how_satisfied_are_you_with_the_resolution_of_your_issue_";
+// The three "How" question fields from HubSpot feedback surveys
+const SCORE_FIELDS = {
+  resolution: "how_satisfied_are_you_with_the_resolution_of_your_issue_",
+  responseTime: "how_satidfied_are_you_with_the_response_time_of_our_agents_", // Note: typo in HubSpot field
+  helpfulness: "how_would_you_rate_the_helpfulness_of_our_customer_service_representatives_",
+} as const;
 
 interface TicketRecord {
   external_id: string;
@@ -17,6 +22,13 @@ interface FeedbackRecord {
 interface OwnerRecord {
   external_id: string;
   properties: Record<string, unknown>;
+}
+
+function parseScore(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const score = parseFloat(String(value));
+  if (isNaN(score) || score < 0 || score > 10) return null;
+  return score;
 }
 
 // GET /api/support/owner/[id]
@@ -145,49 +157,37 @@ export async function GET(
 
       const feedbackRecords = (feedbackResult.data || []) as FeedbackRecord[];
 
-      // Build a map of contact_id to ticket subject for joining
-      const contactToTicket = new Map<string, string>();
-      for (const ticket of tickets) {
-        const contactId = ticket.properties.associated_contacts_id as string;
-        if (contactId) {
-          const subject = (ticket.properties.subject as string) || "No subject";
-          contactToTicket.set(contactId, subject);
-        }
-      }
-
-      // Process feedback records
+      // Process feedback records - calculate avg and build list
       let totalScore = 0;
       let scoreCount = 0;
 
       for (const record of feedbackRecords) {
         const props = record.properties;
-        const scoreValue = props[SCORE_FIELD];
 
-        // Only include records with valid scores
-        if (scoreValue === null || scoreValue === undefined || scoreValue === "") {
+        const resolution = parseScore(props[SCORE_FIELDS.resolution]);
+        const responseTime = parseScore(props[SCORE_FIELDS.responseTime]);
+        const helpfulness = parseScore(props[SCORE_FIELDS.helpfulness]);
+
+        // Only include records with at least one valid score
+        if (resolution === null && responseTime === null && helpfulness === null) {
           continue;
         }
 
-        const score = parseFloat(String(scoreValue));
-        if (isNaN(score) || score < 1 || score > 10) {
-          continue;
+        // Use resolution score for avg calculation (primary metric)
+        if (resolution !== null) {
+          totalScore += resolution;
+          scoreCount++;
         }
-
-        totalScore += score;
-        scoreCount++;
-
-        const contactId = props.hs_contact_id as string;
-        const ticketSubject = contactToTicket.get(contactId) || "Unknown ticket";
 
         feedbackItems.push({
           submittedAt: (props.hs_submission_timestamp as string) || "",
-          score,
-          ticketSubject: ticketSubject.substring(0, 50),
-          sentiment: (props.hs_sentiment as string) || null,
+          resolution,
+          responseTime,
+          helpfulness,
         });
       }
 
-      surveyCount = scoreCount;
+      surveyCount = feedbackItems.length;
       avgFeedbackScore = scoreCount > 0 ? Math.round((totalScore / scoreCount) * 10) / 10 : null;
 
       // Sort feedback by date descending

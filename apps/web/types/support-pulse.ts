@@ -160,12 +160,19 @@ export function formatPercentChange(value: number): string {
   return `${sign}${value.toFixed(1)}%`;
 }
 
-// Feedback metrics for score card
-export interface FeedbackMetrics {
-  currentScore: number | null;
-  previousScore: number | null;
-  surveyCount: number;
+// Single score metric with trend
+export interface ScoreMetric {
+  current: number | null;
+  previous: number | null;
   trend: "up" | "down" | "neutral";
+}
+
+// Feedback metrics for score card (all three "How" questions)
+export interface FeedbackMetrics {
+  resolution: ScoreMetric;
+  responseTime: ScoreMetric;
+  helpfulness: ScoreMetric;
+  surveyCount: number;
 }
 
 // Owner detail data for modal
@@ -186,7 +193,7 @@ export interface OwnerDetail {
 
 export interface OwnerFeedbackItem {
   submittedAt: string;
-  score: number;
-  ticketSubject: string;
-  sentiment: string | null;
+  resolution: number | null;
+  responseTime: number | null;
+  helpfulness: number | null;
 }
