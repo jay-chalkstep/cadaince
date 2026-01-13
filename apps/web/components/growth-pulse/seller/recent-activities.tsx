@@ -2,10 +2,10 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Mail, Phone, Calendar, FileText, CheckSquare } from "lucide-react";
-import type { ActivitySummary } from "@/types/growth-pulse";
+import type { ActivityItem } from "@/types/growth-pulse";
 
 interface RecentActivitiesProps {
-  activities: ActivitySummary[];
+  activities: ActivityItem[];
 }
 
 const activityIcons: Record<string, typeof Mail> = {
@@ -43,7 +43,7 @@ export function RecentActivities({ activities }: RecentActivitiesProps) {
 
               return (
                 <div
-                  key={activity.hubspotActivityId}
+                  key={activity.id}
                   className="flex items-start gap-3"
                 >
                   <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
@@ -54,18 +54,15 @@ export function RecentActivities({ activities }: RecentActivitiesProps) {
                       <span className="text-xs font-medium text-muted-foreground">
                         {label}
                       </span>
-                      <span className="text-xs text-muted-foreground">
-                        {formatRelativeTime(activity.activityDate)}
-                      </span>
+                      {activity.activityDate && (
+                        <span className="text-xs text-muted-foreground">
+                          {formatRelativeTime(activity.activityDate)}
+                        </span>
+                      )}
                     </div>
                     <p className="text-sm font-medium truncate">
                       {activity.subject || "No subject"}
                     </p>
-                    {activity.dealName && (
-                      <p className="text-xs text-muted-foreground truncate">
-                        {activity.dealName}
-                      </p>
-                    )}
                   </div>
                 </div>
               );
