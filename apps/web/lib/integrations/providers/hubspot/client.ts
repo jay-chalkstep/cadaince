@@ -442,18 +442,19 @@ export class HubSpotClient {
 
       if (useSearchApi) {
         // Search API - requires filters (uses effectiveFilterGroups which has "match all" fallback)
-        // Note: Search API supports associations via request body
+        // Note: Search API does NOT support associations parameter - they must be fetched separately
         const searchUrl = `/crm/v3/objects/${object}/search`;
         const searchBody = {
           filterGroups: effectiveFilterGroups,
           properties,
           limit: 100,
           after,
-          ...(associations?.length && { associations }),
         };
+        if (associations?.length) {
+          console.log(`[HubSpot] Search API doesn't support associations - will skip inline associations for ${object}`);
+        }
         console.log(`[HubSpot] Search API request: ${searchUrl}`, {
           filterCount: effectiveFilterGroups.length,
-          associations,
           urlWouldBeTooLong
         });
         response = await this.request<HubSpotSearchResponseWithAssociations>(
