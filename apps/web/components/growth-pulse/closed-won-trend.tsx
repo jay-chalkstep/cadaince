@@ -65,8 +65,8 @@ export function ClosedWonTrend({ data }: ClosedWonTrendProps) {
                   axisLine={false}
                 />
                 <Tooltip
-                  formatter={(value: number, name: string) => [
-                    formatCurrency(value),
+                  formatter={(value, name) => [
+                    formatCurrency(value as number),
                     name === "cumulativeArr" ? "Cumulative ARR" : "Daily ARR",
                   ]}
                   labelFormatter={(label) => label}
