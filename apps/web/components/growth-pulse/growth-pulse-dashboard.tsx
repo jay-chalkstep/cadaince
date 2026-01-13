@@ -114,7 +114,14 @@ export function GrowthPulseDashboard() {
     );
   }
 
-  if (!data) {
+  // Check if we have actual data (not just zeros from empty views)
+  const hasNoData = !data || (
+    data.metrics.openDeals === 0 &&
+    data.metrics.closedWonQtdCount === 0 &&
+    data.stageBreakdown.length === 0
+  );
+
+  if (hasNoData) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <p className="text-muted-foreground mb-4">
