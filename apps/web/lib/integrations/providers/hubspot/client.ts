@@ -426,6 +426,15 @@ export class HubSpotClient {
     const urlWouldBeTooLong = propertiesUrlLength > 1500;
     const useSearchApi = filterGroups.length > 0 || urlWouldBeTooLong;
 
+    // HubSpot Search API has a limit of ~100 properties - truncate if needed
+    // This is a limitation we document to users - reduce property selection for large lists
+    const SEARCH_API_PROPERTY_LIMIT = 100;
+    let effectiveProperties = properties;
+    if (useSearchApi && properties.length > SEARCH_API_PROPERTY_LIMIT) {
+      console.warn(`[HubSpot] Truncating properties from ${properties.length} to ${SEARCH_API_PROPERTY_LIMIT} for Search API limit`);
+      effectiveProperties = properties.slice(0, SEARCH_API_PROPERTY_LIMIT);
+    }
+
     // If using Search API but no filters, add a "match all" filter
     const effectiveFilterGroups = filterGroups.length > 0
       ? filterGroups
@@ -446,7 +455,7 @@ export class HubSpotClient {
         const searchUrl = `/crm/v3/objects/${object}/search`;
         const searchBody = {
           filterGroups: effectiveFilterGroups,
-          properties,
+          properties: effectiveProperties,
           limit: 100,
           after,
         };
