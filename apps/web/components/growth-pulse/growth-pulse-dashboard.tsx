@@ -55,8 +55,8 @@ export function GrowthPulseDashboard() {
       const sellersData = await sellersRes.json();
 
       setData({
-        metrics: metricsData.metrics,
-        stageBreakdown: metricsData.stageBreakdown,
+        metrics: metricsData.summary,
+        stageBreakdown: metricsData.pipelineByStage,
         closedWonTrend: metricsData.closedWonTrend,
         sellers: sellersData.sellers,
         benchmarks: sellersData.benchmarks,
