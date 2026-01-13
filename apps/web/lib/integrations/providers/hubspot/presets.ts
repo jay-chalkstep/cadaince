@@ -141,6 +141,9 @@ export const HUBSPOT_RECOMMENDED_PROPERTIES: Record<string, string[]> = {
     // Identity (REQUIRED for association API calls)
     "hs_object_id",
 
+    // Contact link (CRITICAL for ticket correlation via contact bridge)
+    "hs_contact_id",
+
     // Survey data
     "hs_submission_timestamp",
     "hs_survey_type",

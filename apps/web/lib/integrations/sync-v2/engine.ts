@@ -290,12 +290,11 @@ async function fetchRawFromHubSpot(
   const filters = queryConfig.filters as HubSpotQueryConfig["filters"];
 
   // Auto-include associations based on object type
-  // - feedback_submissions: fetch ticket associations (for direct linking)
   // - tickets: fetch contact associations (for matching feedback via contact)
+  // NOTE: feedback_submissions → tickets association doesn't exist in HubSpot
+  //       Correlation works via hs_contact_id property instead (feedback.hs_contact_id = ticket.associated_contacts_id)
   let associations: HubSpotObject[] | undefined;
-  if (objectType === "feedback_submissions") {
-    associations = ["tickets"];
-  } else if (objectType === "tickets") {
+  if (objectType === "tickets") {
     associations = ["contacts"];
   }
 
