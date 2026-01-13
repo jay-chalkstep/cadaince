@@ -9,11 +9,12 @@ import { cn } from "@/lib/utils";
 import { SummaryCards } from "./summary-cards";
 import { VolumeChart } from "./volume-chart";
 import { CategoryChart } from "./category-chart";
-import { SourceChart } from "./source-chart";
+import { FeedbackScoreCard } from "./feedback-score-card";
 import { ResolutionChart } from "./resolution-chart";
 import { OwnerTable } from "./owner-table";
 import { ClientTable } from "./client-table";
 import { TicketList } from "./ticket-list";
+import { OwnerDetailModal } from "./owner-detail-modal";
 import { FilterChip } from "./filter-chip";
 import { TimeFrameSelector } from "./time-frame-selector";
 import { DashboardSkeleton } from "./dashboard-skeleton";
@@ -21,12 +22,15 @@ import type {
   SupportMetricsResponse,
   SupportPulseFilters,
   TimeFrameDays,
+  FeedbackMetrics,
 } from "@/types/support-pulse";
 
 export function SupportPulseDashboard() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [data, setData] = useState<SupportMetricsResponse | null>(null);
+  const [feedbackData, setFeedbackData] = useState<FeedbackMetrics | null>(null);
+  const [feedbackLoading, setFeedbackLoading] = useState(true);
 
   // Time frame state
   const [days, setDays] = useState<TimeFrameDays>(10);
@@ -38,8 +42,12 @@ export function SupportPulseDashboard() {
   // Drill-down state
   const [showTicketList, setShowTicketList] = useState(false);
 
+  // Owner detail modal state
+  const [selectedOwnerId, setSelectedOwnerId] = useState<string | null>(null);
+
   const fetchData = useCallback(async () => {
     if (!refreshing) setLoading(true);
+    setFeedbackLoading(true);
 
     try {
       const params = new URLSearchParams();
@@ -59,16 +67,27 @@ export function SupportPulseDashboard() {
         }
       });
 
-      const res = await fetch(`/api/support/metrics?${params}`);
-      if (res.ok) {
-        const json = await res.json();
+      // Fetch main metrics and feedback metrics in parallel
+      const [metricsRes, feedbackRes] = await Promise.all([
+        fetch(`/api/support/metrics?${params}`),
+        fetch(`/api/support/feedback-metrics?${params}`),
+      ]);
+
+      if (metricsRes.ok) {
+        const json = await metricsRes.json();
         setData(json);
+      }
+
+      if (feedbackRes.ok) {
+        const json = await feedbackRes.json();
+        setFeedbackData(json);
       }
     } catch (error) {
       console.error("Failed to fetch support metrics:", error);
     } finally {
       setLoading(false);
       setRefreshing(false);
+      setFeedbackLoading(false);
     }
   }, [days, customRange, filters, refreshing]);
 
@@ -134,18 +153,6 @@ export function SupportPulseDashboard() {
                   onClear={() => clearFilter("category")}
                 />
               )}
-              {filters.source && (
-                <FilterChip
-                  label={`Source: ${filters.source}`}
-                  onClear={() => clearFilter("source")}
-                />
-              )}
-              {filters.ownerId && (
-                <FilterChip
-                  label={`Owner: ${filters.ownerId}`}
-                  onClear={() => clearFilter("ownerId")}
-                />
-              )}
               {filters.clientName && (
                 <FilterChip
                   label={`Client: ${filters.clientName}`}
@@ -194,13 +201,7 @@ export function SupportPulseDashboard() {
 
       {/* Charts Row 2 */}
       <div className="grid gap-4 md:grid-cols-2">
-        <SourceChart
-          data={data.sourceMix}
-          onSourceClick={(source) => {
-            handleFilterChange({ source });
-            setShowTicketList(true);
-          }}
-        />
+        <FeedbackScoreCard data={feedbackData} loading={feedbackLoading} />
         <ResolutionChart data={data.resolutionDistribution} />
       </div>
 
@@ -209,8 +210,7 @@ export function SupportPulseDashboard() {
         <OwnerTable
           data={data.ownerWorkload}
           onOwnerClick={(ownerId) => {
-            handleFilterChange({ ownerId });
-            setShowTicketList(true);
+            setSelectedOwnerId(ownerId);
           }}
         />
         <ClientTable
@@ -231,6 +231,14 @@ export function SupportPulseDashboard() {
           onClose={() => setShowTicketList(false)}
         />
       )}
+
+      {/* Owner Detail Modal */}
+      <OwnerDetailModal
+        ownerId={selectedOwnerId}
+        onClose={() => setSelectedOwnerId(null)}
+        days={days}
+        customRange={customRange}
+      />
     </div>
   );
 }

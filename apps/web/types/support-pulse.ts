@@ -159,3 +159,34 @@ export function formatPercentChange(value: number): string {
   const sign = value >= 0 ? "+" : "";
   return `${sign}${value.toFixed(1)}%`;
 }
+
+// Feedback metrics for score card
+export interface FeedbackMetrics {
+  currentScore: number | null;
+  previousScore: number | null;
+  surveyCount: number;
+  trend: "up" | "down" | "neutral";
+}
+
+// Owner detail data for modal
+export interface OwnerDetail {
+  owner: {
+    id: string;
+    name: string | null;
+  };
+  metrics: {
+    totalTickets: number;
+    openTickets: number;
+    avgResolutionMs: number | null;
+    avgFeedbackScore: number | null;
+    surveyCount: number;
+  };
+  feedback: OwnerFeedbackItem[];
+}
+
+export interface OwnerFeedbackItem {
+  submittedAt: string;
+  score: number;
+  ticketSubject: string;
+  sentiment: string | null;
+}
