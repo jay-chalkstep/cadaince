@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { SummaryCards } from "./summary-cards";
 import { PipelineFunnel } from "./pipeline-funnel";
 import { ClosedWonTrend } from "./closed-won-trend";
@@ -14,8 +14,9 @@ import type {
   OrgBenchmarks,
 } from "@/types/growth-pulse";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, RefreshCw } from "lucide-react";
+import { AlertCircle, RefreshCw, CheckCircle2, XCircle, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { formatDistanceToNow } from "date-fns";
 
 interface DashboardData {
   metrics: GrowthPulseMetrics;
@@ -25,13 +26,73 @@ interface DashboardData {
   benchmarks: OrgBenchmarks;
 }
 
+interface SyncStatus {
+  lastSyncAt: string | null;
+  lastSyncStatus: "success" | "error" | "running" | null;
+  lastSyncError: string | null;
+  entityStatuses: Record<
+    string,
+    {
+      lastSyncAt: string | null;
+      lastSyncStatus: string | null;
+      recordsFetched: number | null;
+    }
+  >;
+}
+
 export function GrowthPulseDashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null);
 
-  const fetchData = async () => {
+  const fetchSyncStatus = useCallback(async () => {
+    try {
+      const res = await fetch("/api/growth-pulse/sync");
+      if (res.ok) {
+        const data = await res.json();
+        const entityStatuses: SyncStatus["entityStatuses"] = {};
+
+        // Build entity statuses from lastSyncByType
+        if (data.lastSyncByType) {
+          for (const [entityType, status] of Object.entries(data.lastSyncByType)) {
+            const s = status as {
+              lastSyncAt?: string;
+              lastSyncStatus?: string;
+              recordsFetched?: number;
+            };
+            entityStatuses[entityType] = {
+              lastSyncAt: s.lastSyncAt || null,
+              lastSyncStatus: s.lastSyncStatus || null,
+              recordsFetched: s.recordsFetched ?? null,
+            };
+          }
+        }
+
+        // Find the most recent sync across all entity types
+        const allSyncs = Object.values(entityStatuses).filter((s) => s.lastSyncAt);
+        const mostRecent = allSyncs.sort((a, b) =>
+          new Date(b.lastSyncAt!).getTime() - new Date(a.lastSyncAt!).getTime()
+        )[0];
+
+        const hasError = Object.values(entityStatuses).some(
+          (s) => s.lastSyncStatus === "error"
+        );
+
+        setSyncStatus({
+          lastSyncAt: mostRecent?.lastSyncAt || null,
+          lastSyncStatus: hasError ? "error" : mostRecent?.lastSyncStatus as SyncStatus["lastSyncStatus"] || null,
+          lastSyncError: hasError ? "One or more syncs failed" : null,
+          entityStatuses,
+        });
+      }
+    } catch {
+      // Ignore sync status errors
+    }
+  }, []);
+
+  const fetchData = useCallback(async () => {
     try {
       setError(null);
 
@@ -66,7 +127,7 @@ export function GrowthPulseDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const triggerSync = async () => {
     setSyncing(true);
@@ -82,9 +143,9 @@ export function GrowthPulseDashboard() {
         throw new Error(err.error || "Failed to trigger sync");
       }
 
-      // Wait a moment then refresh data
+      // Wait a moment then refresh data and sync status
       await new Promise((resolve) => setTimeout(resolve, 2000));
-      await fetchData();
+      await Promise.all([fetchData(), fetchSyncStatus()]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sync failed");
     } finally {
@@ -94,7 +155,8 @@ export function GrowthPulseDashboard() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+    fetchSyncStatus();
+  }, [fetchData, fetchSyncStatus]);
 
   if (loading) {
     return <DashboardSkeleton />;
@@ -146,6 +208,59 @@ export function GrowthPulseDashboard() {
 
   return (
     <div className="space-y-6">
+      {/* Sync Status Bar */}
+      <div className="flex items-center justify-between rounded-lg border bg-muted/50 px-4 py-2">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          {syncStatus?.lastSyncAt ? (
+            <>
+              {syncStatus.lastSyncStatus === "success" ? (
+                <CheckCircle2 className="h-4 w-4 text-green-500" />
+              ) : syncStatus.lastSyncStatus === "error" ? (
+                <XCircle className="h-4 w-4 text-destructive" />
+              ) : syncStatus.lastSyncStatus === "running" ? (
+                <RefreshCw className="h-4 w-4 animate-spin" />
+              ) : (
+                <Clock className="h-4 w-4" />
+              )}
+              <span>
+                Last synced{" "}
+                {formatDistanceToNow(new Date(syncStatus.lastSyncAt), {
+                  addSuffix: true,
+                })}
+              </span>
+              {syncStatus.lastSyncStatus === "error" && (
+                <span className="text-destructive">
+                  ({syncStatus.lastSyncError})
+                </span>
+              )}
+            </>
+          ) : (
+            <>
+              <Clock className="h-4 w-4" />
+              <span>No sync history</span>
+            </>
+          )}
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={triggerSync}
+          disabled={syncing}
+        >
+          {syncing ? (
+            <>
+              <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+              Syncing...
+            </>
+          ) : (
+            <>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Sync Now
+            </>
+          )}
+        </Button>
+      </div>
+
       {/* Summary Cards */}
       <SummaryCards metrics={data.metrics} />
 

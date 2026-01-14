@@ -16,7 +16,11 @@ import { automationFunctions } from "./automations";
 import { teamSyncFunctions } from "./team-sync";
 
 // Growth Pulse (HubSpot deal pipeline analytics)
+// DEPRECATED: These functions will be removed once data_sources_v2 migration is complete
 import { growthPulseFunctions } from "./growth-pulse";
+
+// Generic data source scheduler (handles all data_sources_v2 syncs)
+import { dataSourceSchedulerFunctions } from "./data-source-scheduler";
 
 // Export all functions for Inngest
 export const functions = [
@@ -25,5 +29,6 @@ export const functions = [
   ...remarkableFunctions,
   ...automationFunctions,
   ...teamSyncFunctions,
-  ...growthPulseFunctions,
+  ...growthPulseFunctions, // DEPRECATED: Will be removed after migration
+  ...dataSourceSchedulerFunctions,
 ];

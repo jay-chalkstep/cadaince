@@ -18,6 +18,7 @@ import type {
   SyncTrigger,
   DestinationType,
 } from "../oauth/types";
+import { processToGrowthPulse } from "./handlers/growth-pulse";
 
 export interface SyncResult {
   success: boolean;
@@ -90,6 +91,17 @@ export async function syncDataSource(
       signals_created: 0,
       error: "Integration not active",
     };
+  }
+
+  // Handle Growth Pulse destination type specially
+  // Growth Pulse handlers do their own fetching since they have
+  // specialized sync logic (stage history tracking, etc.)
+  if (dataSource.destination_type === "growth_pulse") {
+    return syncGrowthPulseDataSource(
+      dataSource as DataSource,
+      integration.organization_id,
+      trigger
+    );
   }
 
   // Create sync record
@@ -665,4 +677,127 @@ export async function syncAllDataSources(
     failed,
     results,
   };
+}
+
+/**
+ * Sync a Growth Pulse data source
+ *
+ * Growth Pulse destinations have specialized sync logic that handles
+ * fetching and processing together (e.g., stage history tracking).
+ * This function wraps the handler and manages sync records.
+ */
+async function syncGrowthPulseDataSource(
+  dataSource: DataSource,
+  organizationId: string,
+  trigger: SyncTrigger
+): Promise<SyncResult> {
+  const supabase = createAdminClient();
+  const startTime = Date.now();
+
+  // Create sync record
+  const { data: syncRecord, error: syncCreateError } = await supabase
+    .from("data_source_syncs")
+    .insert({
+      data_source_id: dataSource.id,
+      organization_id: organizationId,
+      status: "running",
+      triggered_by: trigger,
+      records_fetched: 0,
+      records_processed: 0,
+      signals_created: 0,
+    })
+    .select()
+    .single();
+
+  if (syncCreateError) {
+    console.error("[Sync] Failed to create sync record:", syncCreateError);
+  }
+
+  const syncId = syncRecord?.id;
+
+  // Update data source status
+  await supabase
+    .from("data_sources_v2")
+    .update({ last_sync_status: "running" })
+    .eq("id", dataSource.id);
+
+  try {
+    // Call the Growth Pulse handler
+    const result = await processToGrowthPulse(dataSource, organizationId);
+    const duration = Date.now() - startTime;
+
+    // Update sync record
+    if (syncId) {
+      await supabase
+        .from("data_source_syncs")
+        .update({
+          status: result.success ? "success" : "error",
+          completed_at: new Date().toISOString(),
+          duration_ms: duration,
+          records_fetched: result.details?.records_fetched || 0,
+          records_processed: result.records_processed,
+          signals_created: result.signals_created,
+          error_message: result.error || null,
+        })
+        .eq("id", syncId);
+    }
+
+    // Update data source
+    await supabase
+      .from("data_sources_v2")
+      .update({
+        last_sync_at: new Date().toISOString(),
+        last_sync_status: result.success ? "success" : "error",
+        last_sync_error: result.error || null,
+        last_sync_records_count: result.details?.records_fetched || 0,
+      })
+      .eq("id", dataSource.id);
+
+    return {
+      success: result.success,
+      records_fetched: result.details?.records_fetched || 0,
+      records_processed: result.records_processed,
+      signals_created: result.signals_created,
+      error: result.error,
+      details: {
+        duration_ms: duration,
+        ...result.details,
+      },
+    };
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+    const duration = Date.now() - startTime;
+
+    // Update sync record with error
+    if (syncId) {
+      await supabase
+        .from("data_source_syncs")
+        .update({
+          status: "error",
+          completed_at: new Date().toISOString(),
+          duration_ms: duration,
+          error_message: errorMessage,
+        })
+        .eq("id", syncId);
+    }
+
+    // Update data source with error
+    await supabase
+      .from("data_sources_v2")
+      .update({
+        last_sync_at: new Date().toISOString(),
+        last_sync_status: "error",
+        last_sync_error: errorMessage,
+      })
+      .eq("id", dataSource.id);
+
+    return {
+      success: false,
+      records_fetched: 0,
+      records_processed: 0,
+      signals_created: 0,
+      error: errorMessage,
+    };
+  }
 }

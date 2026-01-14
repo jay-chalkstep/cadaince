@@ -1,6 +1,19 @@
 /**
  * Growth Pulse Inngest Functions
  *
+ * @deprecated These functions are being replaced by the generic data source scheduler.
+ * The new system uses data_sources_v2 records and the scheduler in data-source-scheduler.ts.
+ *
+ * MIGRATION STATUS:
+ * - New scheduler: apps/web/lib/inngest/functions/data-source-scheduler.ts
+ * - New handler: apps/web/lib/integrations/sync-v2/handlers/growth-pulse.ts
+ * - Migration: supabase/migrations/048_growth_pulse_to_v2.sql
+ *
+ * These functions will be removed after the migration is verified (30 days).
+ * Until then, both systems may run in parallel - this is safe because:
+ * - The sync functions are idempotent (upserts)
+ * - Duplicate syncs just refresh the same data
+ *
  * Background jobs for syncing HubSpot deal pipeline data:
  * - Owners: Daily at 2am
  * - Deals: Every 15 minutes
@@ -36,6 +49,8 @@ async function getOrgsWithHubSpot(): Promise<string[]> {
 /**
  * Sync HubSpot owners for all organizations
  * Runs daily at 2:00 AM UTC
+ *
+ * @deprecated Use data_sources_v2 with sync_frequency: 'daily' instead.
  */
 export const syncGrowthPulseOwnersJob = inngest.createFunction(
   {
@@ -85,6 +100,8 @@ export const syncGrowthPulseOwnersJob = inngest.createFunction(
 /**
  * Sync HubSpot deals for all organizations
  * Runs every 15 minutes
+ *
+ * @deprecated Use data_sources_v2 with sync_frequency: '15min' instead.
  */
 export const syncGrowthPulseDealsJob = inngest.createFunction(
   {
@@ -141,6 +158,8 @@ export const syncGrowthPulseDealsJob = inngest.createFunction(
 /**
  * Sync HubSpot activities for all organizations
  * Runs every 30 minutes
+ *
+ * @deprecated Use data_sources_v2 with sync_frequency: 'hourly' instead.
  */
 export const syncGrowthPulseActivitiesJob = inngest.createFunction(
   {
@@ -195,6 +214,9 @@ export const syncGrowthPulseActivitiesJob = inngest.createFunction(
 /**
  * Manual sync trigger for a single organization
  * Triggered by event (from API route)
+ *
+ * @deprecated Use syncDataSource() from sync-v2/engine.ts instead.
+ * The /api/growth-pulse/sync API now calls syncDataSource() directly.
  */
 export const manualGrowthPulseSync = inngest.createFunction(
   {
@@ -287,7 +309,11 @@ export const manualGrowthPulseSync = inngest.createFunction(
   }
 );
 
-// Export all Growth Pulse functions
+/**
+ * @deprecated All Growth Pulse functions are deprecated.
+ * They will be removed after the data_sources_v2 migration is verified.
+ * See data-source-scheduler.ts for the replacement.
+ */
 export const growthPulseFunctions = [
   syncGrowthPulseOwnersJob,
   syncGrowthPulseDealsJob,
