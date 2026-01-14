@@ -14,26 +14,49 @@ const DEAL_PROPERTIES = [
   "hs_object_id",
   "dealname",
 
-  // Financial
-  "amount",
-  "hs_arr",
-
-  // Pipeline
+  // Pipeline & Stage
   "dealstage",
   "pipeline",
   "hs_deal_stage_probability",
   "hs_forecast_amount",
   "hs_forecast_category",
 
-  // Classification
+  // Financial - Standard
+  "amount",
+  "hs_arr",
+
+  // Financial - Custom (Fees & Revenue)
+  "platform_fee",
+  "setup_fee",
+  "product_fee",
+  "gpv_in_current_year",
+  "gpv_full_year",
+  "gp_in_current_year",
+  "gp_full_year",
+
+  // Classification - Standard
   "dealtype",
-  "offering_type", // Custom property - adjust to your HubSpot instance
+  "offering_type",
   "offering",
+
+  // Classification - Custom
+  "opportunity_type",
+  "opportunity_description",
+  "opportunity_sub_category",
+  "channel_type",
+  "solution",
+  "sku",
+  "integration_type",
+  "buyer_type",
+  "compelling_event",
+  "pain_type",
 
   // Dates
   "closedate",
   "createdate",
   "hs_lastmodifieddate",
+  "decision_date",
+  "launch_date",
 
   // Owner
   "hubspot_owner_id",
