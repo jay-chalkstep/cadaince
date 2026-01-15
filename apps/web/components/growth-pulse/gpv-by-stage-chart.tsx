@@ -2,58 +2,52 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  AreaChart,
-  Area,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   Tooltip,
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
-import type { ClosedWonTrendItem } from "@/types/growth-pulse";
+import type { GpvStageBreakdown } from "@/types/growth-pulse";
 import { formatCurrency } from "@/types/growth-pulse";
 
-interface ClosedWonTrendProps {
-  data: ClosedWonTrendItem[];
+interface GpvByStageChartProps {
+  data: GpvStageBreakdown[];
+  title: string;
+  dataKey: "gpvFullYear" | "gpvInCurrentYear";
 }
 
-export function ClosedWonTrend({ data }: ClosedWonTrendProps) {
-  // Format dates for display
-  const formattedData = data.map((d) => ({
+export function GpvByStageChart({ data, title, dataKey }: GpvByStageChartProps) {
+  // Data is already sorted by order from the API
+  const chartData = data.map((d) => ({
     ...d,
-    displayDate: formatDate(d.date),
+    value: d[dataKey],
   }));
 
-  // Calculate cumulative total
-  let cumulative = 0;
-  const cumulativeData = formattedData.map((d) => {
-    cumulative += d.totalArr;
-    return {
-      ...d,
-      cumulativeArr: cumulative,
-    };
-  });
+  const hasData = chartData.some((d) => d.value > 0);
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base font-medium">Closed Won Trend</CardTitle>
+        <CardTitle className="text-base font-medium">{title}</CardTitle>
       </CardHeader>
       <CardContent>
-        {data.length === 0 ? (
+        {!hasData ? (
           <div className="flex items-center justify-center h-[250px] text-muted-foreground">
-            No closed won deals in this period
+            No GPV data available
           </div>
         ) : (
           <div className="h-[250px]">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart
-                data={cumulativeData}
+              <LineChart
+                data={chartData}
                 margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
               >
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                 <XAxis
-                  dataKey="displayDate"
+                  dataKey="shortLabel"
                   tick={{ fontSize: 11 }}
                   tickLine={false}
                   axisLine={false}
@@ -65,40 +59,41 @@ export function ClosedWonTrend({ data }: ClosedWonTrendProps) {
                   axisLine={false}
                 />
                 <Tooltip
-                  formatter={(value, name) => [
-                    formatCurrency(value as number),
-                    name === "cumulativeArr" ? "Cumulative ARR" : "Daily ARR",
-                  ]}
-                  labelFormatter={(label) => label}
+                  formatter={(value: number) => [formatCurrency(value), "GPV"]}
+                  labelFormatter={(label, payload) => {
+                    if (payload && payload[0]) {
+                      const item = payload[0].payload as GpvStageBreakdown;
+                      return `${item.stageLabel} (${item.dealCount} deals)`;
+                    }
+                    return label;
+                  }}
                   contentStyle={{
                     backgroundColor: "hsl(var(--card))",
                     border: "1px solid hsl(var(--border))",
                     borderRadius: "8px",
                   }}
                 />
-                <Area
+                <Line
                   type="monotone"
-                  dataKey="cumulativeArr"
-                  name="cumulativeArr"
+                  dataKey="value"
                   stroke="hsl(var(--primary))"
-                  fill="hsl(var(--primary))"
-                  fillOpacity={0.2}
                   strokeWidth={2}
+                  dot={{
+                    fill: "hsl(var(--primary))",
+                    strokeWidth: 2,
+                    r: 4,
+                  }}
+                  activeDot={{
+                    fill: "hsl(var(--primary))",
+                    strokeWidth: 2,
+                    r: 6,
+                  }}
                 />
-              </AreaChart>
+              </LineChart>
             </ResponsiveContainer>
           </div>
         )}
       </CardContent>
     </Card>
   );
-}
-
-// Format date for display
-function formatDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-  });
 }

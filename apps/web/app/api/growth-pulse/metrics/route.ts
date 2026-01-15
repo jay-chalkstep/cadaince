@@ -3,10 +3,14 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 import type {
   GrowthPulseMetricsResponse,
-  StageBreakdown,
-  ClosedWonTrendItem,
+  GpvStageBreakdown,
   OrgBenchmarks,
   GrowthPulseMetrics,
+} from "@/types/growth-pulse";
+import {
+  SALES_PIPELINE_ID,
+  SALES_PIPELINE_STAGES,
+  SALES_PIPELINE_STAGE_ORDER,
 } from "@/types/growth-pulse";
 
 // GET /api/growth-pulse/metrics
@@ -31,46 +35,23 @@ export async function GET(req: Request) {
 
   const organizationId = profile.organization_id;
 
-  const { searchParams } = new URL(req.url);
-  const days = parseInt(searchParams.get("days") || "90");
-  const pipeline = searchParams.get("pipeline");
-
   try {
-    // Fetch from views in parallel
-    const [summaryResult, stagesResult, benchmarksResult, trendResult] = await Promise.all([
-      // Summary metrics from view (aggregates all sellers)
+    // Fetch summary benchmarks and GPV by stage in parallel
+    const [benchmarksResult, gpvDealsResult] = await Promise.all([
+      // Org benchmarks for summary metrics
       supabase
         .from("vw_org_benchmarks")
         .select("*")
         .eq("organization_id", organizationId)
         .single(),
 
-      // Pipeline by stage
-      pipeline
-        ? supabase
-            .from("vw_pipeline_by_stage")
-            .select("*")
-            .eq("organization_id", organizationId)
-            .eq("pipeline", pipeline)
-        : supabase
-            .from("vw_pipeline_by_stage")
-            .select("*")
-            .eq("organization_id", organizationId),
-
-      // Org benchmarks for context
+      // GPV by stage - fetch deals from Sales Pipeline for the 5 target stages
       supabase
-        .from("vw_org_benchmarks")
-        .select("*")
+        .from("hubspot_deals")
+        .select("deal_stage, properties")
         .eq("organization_id", organizationId)
-        .single(),
-
-      // Closed won trend (last N days)
-      supabase
-        .from("vw_closed_won_trend")
-        .select("*")
-        .eq("organization_id", organizationId)
-        .gte("close_day", new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split("T")[0])
-        .order("close_day", { ascending: true }),
+        .eq("pipeline", SALES_PIPELINE_ID)
+        .in("deal_stage", SALES_PIPELINE_STAGE_ORDER),
     ]);
 
     // Calculate summary metrics from org benchmarks
@@ -91,37 +72,53 @@ export async function GET(req: Request) {
       .from("hubspot_deals")
       .select("*", { count: "exact", head: true })
       .eq("organization_id", organizationId)
-      .eq("deal_stage", "closedwon")
+      .eq("deal_stage", "2137288414") // Closed Won stage ID
       .gte("close_date", getQuarterStart().toISOString());
 
     summary.closedWonQtdCount = closedWonCount || 0;
 
-    // Get actual open deals count
+    // Get actual open deals count (exclude closed stages)
     const { count: openCount } = await supabase
       .from("hubspot_deals")
       .select("*", { count: "exact", head: true })
       .eq("organization_id", organizationId)
-      .not("deal_stage", "in", "(closedwon,closedlost)");
+      .not("deal_stage", "in", "(2137288414,2137288415,2138003184)"); // Closed Won, Lost, Non-Lost
 
     summary.openDeals = openCount || 0;
 
-    // Format stage breakdown
-    const pipelineByStage: StageBreakdown[] = (stagesResult.data || []).map((row) => ({
-      stage: row.deal_stage || "Unknown",
-      dealCount: row.deal_count || 0,
-      totalArr: row.total_arr || 0,
-      totalAmount: row.total_amount || 0,
-      avgDealSize: row.avg_deal_size || 0,
-      avgDaysInPipeline: row.avg_days_in_pipeline || null,
-    }));
+    // Aggregate GPV by stage
+    const gpvByStageMap: Record<string, { dealCount: number; gpvFullYear: number; gpvInCurrentYear: number }> = {};
 
-    // Format closed won trend
-    const closedWonTrend: ClosedWonTrendItem[] = (trendResult.data || []).map((row) => ({
-      date: row.close_day,
-      dealCount: row.deal_count || 0,
-      totalArr: row.total_arr || 0,
-      totalAmount: row.total_amount || 0,
-    }));
+    // Initialize all stages with zero values
+    for (const stageId of SALES_PIPELINE_STAGE_ORDER) {
+      gpvByStageMap[stageId] = { dealCount: 0, gpvFullYear: 0, gpvInCurrentYear: 0 };
+    }
+
+    // Sum up GPV values from deals
+    for (const deal of gpvDealsResult.data || []) {
+      const stageId = deal.deal_stage;
+      if (stageId && gpvByStageMap[stageId]) {
+        const props = deal.properties as Record<string, string | null> | null;
+        gpvByStageMap[stageId].dealCount += 1;
+        gpvByStageMap[stageId].gpvFullYear += parseFloat(props?.gpv_full_year || "0") || 0;
+        gpvByStageMap[stageId].gpvInCurrentYear += parseFloat(props?.gpv_in_current_year || "0") || 0;
+      }
+    }
+
+    // Convert to ordered array with stage metadata
+    const gpvByStage: GpvStageBreakdown[] = SALES_PIPELINE_STAGE_ORDER.map((stageId) => {
+      const stageInfo = SALES_PIPELINE_STAGES[stageId];
+      const aggregated = gpvByStageMap[stageId];
+      return {
+        stageId,
+        stageLabel: stageInfo.label,
+        shortLabel: stageInfo.shortLabel,
+        order: stageInfo.order,
+        dealCount: aggregated.dealCount,
+        gpvFullYear: aggregated.gpvFullYear,
+        gpvInCurrentYear: aggregated.gpvInCurrentYear,
+      };
+    });
 
     // Format org benchmarks
     const orgBenchmarks: OrgBenchmarks = {
@@ -140,8 +137,7 @@ export async function GET(req: Request) {
 
     const response: GrowthPulseMetricsResponse = {
       summary,
-      pipelineByStage,
-      closedWonTrend,
+      gpvByStage,
       benchmarks: orgBenchmarks,
     };
 

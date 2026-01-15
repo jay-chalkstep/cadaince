@@ -2,14 +2,12 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { SummaryCards } from "./summary-cards";
-import { PipelineFunnel } from "./pipeline-funnel";
-import { ClosedWonTrend } from "./closed-won-trend";
+import { GpvByStageChart } from "./gpv-by-stage-chart";
 import { SellerTable } from "./seller-table";
 import { DashboardSkeleton } from "./dashboard-skeleton";
 import type {
   GrowthPulseMetrics,
-  StageBreakdown,
-  ClosedWonTrendItem,
+  GpvStageBreakdown,
   SellerSummary,
   OrgBenchmarks,
 } from "@/types/growth-pulse";
@@ -20,8 +18,7 @@ import { formatDistanceToNow } from "date-fns";
 
 interface DashboardData {
   metrics: GrowthPulseMetrics;
-  stageBreakdown: StageBreakdown[];
-  closedWonTrend: ClosedWonTrendItem[];
+  gpvByStage: GpvStageBreakdown[];
   sellers: SellerSummary[];
   benchmarks: OrgBenchmarks;
 }
@@ -117,8 +114,7 @@ export function GrowthPulseDashboard() {
 
       setData({
         metrics: metricsData.summary,
-        stageBreakdown: metricsData.pipelineByStage,
-        closedWonTrend: metricsData.closedWonTrend,
+        gpvByStage: metricsData.gpvByStage,
         sellers: sellersData.sellers,
         benchmarks: sellersData.benchmarks,
       });
@@ -180,7 +176,7 @@ export function GrowthPulseDashboard() {
   const hasNoData = !data || (
     data.metrics.openDeals === 0 &&
     data.metrics.closedWonQtdCount === 0 &&
-    data.stageBreakdown.length === 0
+    data.gpvByStage.length === 0
   );
 
   if (hasNoData) {
@@ -264,10 +260,18 @@ export function GrowthPulseDashboard() {
       {/* Summary Cards */}
       <SummaryCards metrics={data.metrics} />
 
-      {/* Charts Row */}
+      {/* GPV by Stage Charts */}
       <div className="grid gap-4 md:grid-cols-2">
-        <PipelineFunnel data={data.stageBreakdown} />
-        <ClosedWonTrend data={data.closedWonTrend} />
+        <GpvByStageChart
+          data={data.gpvByStage}
+          title="Run Rate GPV by Stage"
+          dataKey="gpvFullYear"
+        />
+        <GpvByStageChart
+          data={data.gpvByStage}
+          title="In Year GPV by Stage"
+          dataKey="gpvInCurrentYear"
+        />
       </div>
 
       {/* Sellers Table */}

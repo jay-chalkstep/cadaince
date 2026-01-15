@@ -187,8 +187,7 @@ export interface GrowthPulseFilters {
 // Full metrics response (for dashboard)
 export interface GrowthPulseMetricsResponse {
   summary: GrowthPulseMetrics;
-  pipelineByStage: StageBreakdown[];
-  closedWonTrend: ClosedWonTrendItem[];
+  gpvByStage: GpvStageBreakdown[];
   benchmarks: OrgBenchmarks;
 }
 
@@ -268,6 +267,37 @@ export function calculatePercentile(
   const rank = sorted.filter((v) => v < value).length;
 
   return Math.round((rank / sorted.length) * 100);
+}
+
+// Sales Pipeline stage mapping (HubSpot ID -> display info)
+export const SALES_PIPELINE_ID = "1313294015";
+
+export const SALES_PIPELINE_STAGES: Record<string, { label: string; shortLabel: string; order: number }> = {
+  "2137288409": { label: "Qualified Opportunity", shortLabel: "Qualified", order: 1 },
+  "2137288410": { label: "Solution Development / Presentation", shortLabel: "Solution Dev", order: 2 },
+  "2137288411": { label: "Proposal Development", shortLabel: "Proposal Dev", order: 3 },
+  "2137288412": { label: "Proposal Negotiation", shortLabel: "Negotiation", order: 4 },
+  "2137288413": { label: "Verbal / Contracting", shortLabel: "Verbal", order: 5 },
+};
+
+// Ordered list of stage IDs for the GPV chart
+export const SALES_PIPELINE_STAGE_ORDER = [
+  "2137288409",
+  "2137288410",
+  "2137288411",
+  "2137288412",
+  "2137288413",
+];
+
+// GPV by stage breakdown for line charts
+export interface GpvStageBreakdown {
+  stageId: string;
+  stageLabel: string;
+  shortLabel: string;
+  order: number;
+  dealCount: number;
+  gpvFullYear: number;
+  gpvInCurrentYear: number;
 }
 
 // Stage colors for consistent visualization
