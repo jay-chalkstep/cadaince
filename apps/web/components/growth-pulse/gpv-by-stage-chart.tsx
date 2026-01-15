@@ -15,10 +15,11 @@ import { formatCurrency } from "@/types/growth-pulse";
 interface GpvByStageChartProps {
   data: GpvStageBreakdown[];
   title: string;
-  dataKey: "gpvFullYear" | "gpvInCurrentYear";
+  dataKey: "gpvFullYear" | "gpvInCurrentYear" | "dealCount" | "gpByStage";
+  valueType?: "currency" | "number";
 }
 
-export function GpvByStageChart({ data, title, dataKey }: GpvByStageChartProps) {
+export function GpvByStageChart({ data, title, dataKey, valueType = "currency" }: GpvByStageChartProps) {
   // Data is already sorted by order from the API
   const chartData = data.map((d) => ({
     ...d,
@@ -29,6 +30,26 @@ export function GpvByStageChart({ data, title, dataKey }: GpvByStageChartProps) 
 
   // Generate unique gradient ID based on dataKey to avoid conflicts
   const gradientId = `colorGpv-${dataKey}`;
+
+  // Format value based on valueType
+  const formatValue = (value: number, compact = false) => {
+    if (valueType === "number") {
+      return value.toLocaleString();
+    }
+    return formatCurrency(value, compact);
+  };
+
+  // Get tooltip label based on dataKey
+  const getTooltipLabel = () => {
+    switch (dataKey) {
+      case "dealCount":
+        return "Deals";
+      case "gpByStage":
+        return "Gross Profit";
+      default:
+        return "GPV";
+    }
+  };
 
   return (
     <Card>
@@ -60,13 +81,13 @@ export function GpvByStageChart({ data, title, dataKey }: GpvByStageChartProps) 
                   axisLine={false}
                 />
                 <YAxis
-                  tickFormatter={(value) => formatCurrency(value, true)}
+                  tickFormatter={(value) => formatValue(value, true)}
                   tick={{ fontSize: 11 }}
                   tickLine={false}
                   axisLine={false}
                 />
                 <Tooltip
-                  formatter={(value) => [formatCurrency(value as number), "GPV"]}
+                  formatter={(value) => [formatValue(value as number), getTooltipLabel()]}
                   labelFormatter={(label, payload) => {
                     if (payload && payload[0]) {
                       const item = payload[0].payload as GpvStageBreakdown;

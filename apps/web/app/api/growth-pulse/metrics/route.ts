@@ -87,11 +87,11 @@ export async function GET(req: Request) {
     summary.openDeals = openCount || 0;
 
     // Aggregate GPV by stage
-    const gpvByStageMap: Record<string, { dealCount: number; gpvFullYear: number; gpvInCurrentYear: number }> = {};
+    const gpvByStageMap: Record<string, { dealCount: number; gpvFullYear: number; gpvInCurrentYear: number; gpByStage: number }> = {};
 
     // Initialize all stages with zero values
     for (const stageId of SALES_PIPELINE_STAGE_ORDER) {
-      gpvByStageMap[stageId] = { dealCount: 0, gpvFullYear: 0, gpvInCurrentYear: 0 };
+      gpvByStageMap[stageId] = { dealCount: 0, gpvFullYear: 0, gpvInCurrentYear: 0, gpByStage: 0 };
     }
 
     // Sum up GPV values from deals
@@ -102,6 +102,7 @@ export async function GET(req: Request) {
         gpvByStageMap[stageId].dealCount += 1;
         gpvByStageMap[stageId].gpvFullYear += parseFloat(props?.gross_payment_volume || "0") || 0;
         gpvByStageMap[stageId].gpvInCurrentYear += parseFloat(props?.annual_gross_payment_volume || "0") || 0;
+        gpvByStageMap[stageId].gpByStage += parseFloat(props?.calculated_gross_profit || "0") || 0;
       }
     }
 
@@ -117,6 +118,7 @@ export async function GET(req: Request) {
         dealCount: aggregated.dealCount,
         gpvFullYear: aggregated.gpvFullYear,
         gpvInCurrentYear: aggregated.gpvInCurrentYear,
+        gpByStage: aggregated.gpByStage,
       };
     });
 

@@ -260,7 +260,7 @@ export function GrowthPulseDashboard() {
       {/* Summary Cards */}
       <SummaryCards metrics={data.metrics} />
 
-      {/* GPV by Stage Charts */}
+      {/* GPV and Deal Count Charts */}
       <div className="grid gap-4 md:grid-cols-2">
         <GpvByStageChart
           data={data.gpvByStage}
@@ -269,8 +269,18 @@ export function GrowthPulseDashboard() {
         />
         <GpvByStageChart
           data={data.gpvByStage}
-          title="In Year GPV by Stage"
-          dataKey="gpvInCurrentYear"
+          title="Deal Count by Stage"
+          dataKey="dealCount"
+          valueType="number"
+        />
+      </div>
+
+      {/* Gross Profit Chart */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <GpvByStageChart
+          data={data.gpvByStage}
+          title="Gross Profit by Stage"
+          dataKey="gpByStage"
         />
       </div>
 

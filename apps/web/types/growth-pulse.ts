@@ -298,6 +298,7 @@ export interface GpvStageBreakdown {
   dealCount: number;
   gpvFullYear: number;
   gpvInCurrentYear: number;
+  gpByStage: number;
 }
 
 // Stage colors for consistent visualization
