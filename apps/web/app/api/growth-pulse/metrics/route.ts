@@ -40,9 +40,42 @@ export async function GET(req: Request) {
   const velocityDays = parseInt(searchParams.get("velocity_days") || "7");
 
   try {
+    // Fetch org settings to get excluded owners
+    const { data: org } = await supabase
+      .from("organizations")
+      .select("settings")
+      .eq("id", organizationId)
+      .single();
+
+    const orgSettings = org?.settings as Record<string, unknown> | null;
+    const pulseSettings = orgSettings?.pulse_settings as { growth_pulse_excluded_owners?: string[] } | undefined;
+    const excludedOwners = pulseSettings?.growth_pulse_excluded_owners || [];
+
     // Calculate the date threshold for velocity
     const velocityThreshold = new Date();
     velocityThreshold.setDate(velocityThreshold.getDate() - velocityDays);
+
+    // Build base deal query with owner exclusion
+    let gpvDealsQuery = supabase
+      .from("hubspot_deals")
+      .select("deal_stage, properties, owner_id")
+      .eq("organization_id", organizationId)
+      .eq("pipeline", SALES_PIPELINE_ID)
+      .in("deal_stage", SALES_PIPELINE_STAGE_ORDER);
+
+    let openCountQuery = supabase
+      .from("hubspot_deals")
+      .select("*", { count: "exact", head: true })
+      .eq("organization_id", organizationId)
+      .eq("pipeline", SALES_PIPELINE_ID)
+      .in("deal_stage", SALES_PIPELINE_STAGE_ORDER);
+
+    // Apply owner exclusion filter if there are excluded owners
+    if (excludedOwners.length > 0) {
+      const excludeFilter = `(${excludedOwners.join(",")})`;
+      gpvDealsQuery = gpvDealsQuery.not("owner_id", "in", excludeFilter);
+      openCountQuery = openCountQuery.not("owner_id", "in", excludeFilter);
+    }
 
     // Fetch summary benchmarks, GPV by stage, and stage changes in parallel
     const [benchmarksResult, gpvDealsResult, stageChangesResult, openCountResult] = await Promise.all([
@@ -54,12 +87,7 @@ export async function GET(req: Request) {
         .single(),
 
       // GPV by stage - fetch deals from Sales Pipeline for the 5 target stages
-      supabase
-        .from("hubspot_deals")
-        .select("deal_stage, properties")
-        .eq("organization_id", organizationId)
-        .eq("pipeline", SALES_PIPELINE_ID)
-        .in("deal_stage", SALES_PIPELINE_STAGE_ORDER),
+      gpvDealsQuery,
 
       // Stage changes count within velocity window (only tracked stages)
       supabase
@@ -70,35 +98,19 @@ export async function GET(req: Request) {
         .or(`from_stage.in.(${SALES_PIPELINE_STAGE_ORDER.join(",")}),to_stage.in.(${SALES_PIPELINE_STAGE_ORDER.join(",")})`),
 
       // Get open deals count for Sales Pipeline (5 tracked stages only)
-      supabase
-        .from("hubspot_deals")
-        .select("*", { count: "exact", head: true })
-        .eq("organization_id", organizationId)
-        .eq("pipeline", SALES_PIPELINE_ID)
-        .in("deal_stage", SALES_PIPELINE_STAGE_ORDER),
+      openCountQuery,
     ]);
 
-    // Calculate summary metrics from org benchmarks
-    const benchmarks = benchmarksResult.data;
-    const summary: GrowthPulseMetrics = {
-      totalPipelineArr: benchmarks?.total_open_pipeline || 0,
-      totalPipelineAmount: benchmarks?.total_open_pipeline || 0,
-      openDeals: openCountResult.count || 0,
-      stageChanges: stageChangesResult.count || 0,
-      avgDealSize: benchmarks?.avg_deal_size || 0,
-      avgDealAgeDays: benchmarks?.avg_deal_age || null,
-      sellerCount: benchmarks?.seller_count || 0,
-    };
-
-    // Aggregate GPV by stage
+    // Aggregate GPV by stage and count unique sellers
     const gpvByStageMap: Record<string, { dealCount: number; gpvFullYear: number; gpvInCurrentYear: number; gpByStage: number }> = {};
+    const uniqueOwners = new Set<string>();
 
     // Initialize all stages with zero values
     for (const stageId of SALES_PIPELINE_STAGE_ORDER) {
       gpvByStageMap[stageId] = { dealCount: 0, gpvFullYear: 0, gpvInCurrentYear: 0, gpByStage: 0 };
     }
 
-    // Sum up GPV values from deals
+    // Sum up GPV values from deals and collect unique owners
     for (const deal of gpvDealsResult.data || []) {
       const stageId = deal.deal_stage;
       if (stageId && gpvByStageMap[stageId]) {
@@ -107,8 +119,23 @@ export async function GET(req: Request) {
         gpvByStageMap[stageId].gpvFullYear += parseFloat(props?.gross_payment_volume || "0") || 0;
         gpvByStageMap[stageId].gpvInCurrentYear += parseFloat(props?.annual_gross_payment_volume || "0") || 0;
         gpvByStageMap[stageId].gpByStage += parseFloat(props?.gp_in_current_year || "0") || 0;
+        if (deal.owner_id) {
+          uniqueOwners.add(deal.owner_id);
+        }
       }
     }
+
+    // Calculate summary metrics
+    const benchmarks = benchmarksResult.data;
+    const summary: GrowthPulseMetrics = {
+      totalPipelineArr: 0, // Will be set below
+      totalPipelineAmount: 0, // Will be set below
+      openDeals: openCountResult.count || 0,
+      stageChanges: stageChangesResult.count || 0,
+      avgDealSize: benchmarks?.avg_deal_size || 0,
+      avgDealAgeDays: benchmarks?.avg_deal_age || null,
+      sellerCount: uniqueOwners.size,
+    };
 
     // Calculate total pipeline GPV from the aggregated Sales Pipeline data
     const totalPipelineGpv = Object.values(gpvByStageMap).reduce(

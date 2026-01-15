@@ -30,13 +30,32 @@ export async function GET(req: Request) {
   const sortOrder = searchParams.get("sort_order") || "desc";
 
   try {
+    // Fetch org settings to get excluded owners
+    const { data: org } = await supabase
+      .from("organizations")
+      .select("settings")
+      .eq("id", organizationId)
+      .single();
+
+    const orgSettings = org?.settings as Record<string, unknown> | null;
+    const pulseSettings = orgSettings?.pulse_settings as { growth_pulse_excluded_owners?: string[] } | undefined;
+    const excludedOwners = pulseSettings?.growth_pulse_excluded_owners || [];
+
+    // Build seller query with optional exclusion filter
+    let sellersQuery = supabase
+      .from("vw_seller_pipeline_summary")
+      .select("*")
+      .eq("organization_id", organizationId);
+
+    if (excludedOwners.length > 0) {
+      sellersQuery = sellersQuery.not("owner_id", "in", `(${excludedOwners.join(",")})`);
+    }
+
+    sellersQuery = sellersQuery.order(sortBy, { ascending: sortOrder === "asc" });
+
     // Fetch seller summaries and benchmarks in parallel
     const [sellersResult, benchmarksResult] = await Promise.all([
-      supabase
-        .from("vw_seller_pipeline_summary")
-        .select("*")
-        .eq("organization_id", organizationId)
-        .order(sortBy, { ascending: sortOrder === "asc" }),
+      sellersQuery,
 
       supabase
         .from("vw_org_benchmarks")

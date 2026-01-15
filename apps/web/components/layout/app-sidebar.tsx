@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import {
+  Activity,
   BarChart3,
   BookOpen,
   Calendar,
@@ -70,6 +71,7 @@ const adminItems = [
   { title: "V/TO", href: "/settings/vto", icon: Settings2 },
   { title: "Integrations", href: "/settings/integrations", icon: Link2 },
   { title: "Data Sources", href: "/settings/data-sources", icon: Database },
+  { title: "Pulse", href: "/settings/pulse", icon: Activity },
   { title: "Settings", href: "/settings", icon: Settings },
 ];
 
