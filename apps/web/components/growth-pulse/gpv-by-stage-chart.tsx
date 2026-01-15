@@ -17,9 +17,10 @@ interface GpvByStageChartProps {
   title: string;
   dataKey: "gpvFullYear" | "gpvInCurrentYear" | "dealCount" | "gpByStage";
   valueType?: "currency" | "number";
+  onStageClick?: (stage: GpvStageBreakdown) => void;
 }
 
-export function GpvByStageChart({ data, title, dataKey, valueType = "currency" }: GpvByStageChartProps) {
+export function GpvByStageChart({ data, title, dataKey, valueType = "currency", onStageClick }: GpvByStageChartProps) {
   // Data is already sorted by order from the API
   const chartData = data.map((d) => ({
     ...d,
@@ -67,6 +68,13 @@ export function GpvByStageChart({ data, title, dataKey, valueType = "currency" }
               <AreaChart
                 data={chartData}
                 margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                onClick={(data) => {
+                  const chartData = data as { activePayload?: Array<{ payload: GpvStageBreakdown }> } | null;
+                  if (chartData?.activePayload?.[0] && onStageClick) {
+                    onStageClick(chartData.activePayload[0].payload);
+                  }
+                }}
+                style={{ cursor: onStageClick ? "pointer" : undefined }}
               >
                 <defs>
                   <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">

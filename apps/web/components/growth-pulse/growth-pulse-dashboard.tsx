@@ -5,6 +5,7 @@ import { SummaryCards } from "./summary-cards";
 import { GpvByStageChart } from "./gpv-by-stage-chart";
 import { SellerTable } from "./seller-table";
 import { DashboardSkeleton } from "./dashboard-skeleton";
+import { StageDealsSheet } from "./stage-deals-sheet";
 import type {
   GrowthPulseMetrics,
   GpvStageBreakdown,
@@ -43,6 +44,13 @@ export function GrowthPulseDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null);
+  const [selectedStage, setSelectedStage] = useState<GpvStageBreakdown | null>(null);
+  const [dealsSheetOpen, setDealsSheetOpen] = useState(false);
+
+  const handleStageClick = useCallback((stage: GpvStageBreakdown) => {
+    setSelectedStage(stage);
+    setDealsSheetOpen(true);
+  }, []);
 
   const fetchSyncStatus = useCallback(async () => {
     try {
@@ -266,12 +274,14 @@ export function GrowthPulseDashboard() {
           data={data.gpvByStage}
           title="Run Rate GPV by Stage"
           dataKey="gpvFullYear"
+          onStageClick={handleStageClick}
         />
         <GpvByStageChart
           data={data.gpvByStage}
           title="Deal Count by Stage"
           dataKey="dealCount"
           valueType="number"
+          onStageClick={handleStageClick}
         />
       </div>
 
@@ -281,11 +291,21 @@ export function GrowthPulseDashboard() {
           data={data.gpvByStage}
           title="Gross Profit by Stage"
           dataKey="gpByStage"
+          onStageClick={handleStageClick}
         />
       </div>
 
       {/* Sellers Table */}
       <SellerTable sellers={data.sellers} benchmarks={data.benchmarks} />
+
+      {/* Stage Deals Sheet */}
+      <StageDealsSheet
+        stageId={selectedStage?.stageId || null}
+        stageLabel={selectedStage?.stageLabel || ""}
+        dealCount={selectedStage?.dealCount || 0}
+        open={dealsSheetOpen}
+        onOpenChange={setDealsSheetOpen}
+      />
     </div>
   );
 }
