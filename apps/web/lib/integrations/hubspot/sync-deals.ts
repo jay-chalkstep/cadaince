@@ -29,8 +29,8 @@ const DEAL_PROPERTIES = [
   "platform_fee",
   "setup_fee",
   "product_fee",
-  "gpv_in_current_year",
-  "gpv_full_year",
+  "gross_payment_volume",        // GPV Full Year (Run Rate)
+  "annual_gross_payment_volume", // GPV In Current Year
   "gp_in_current_year",
   "gp_full_year",
 

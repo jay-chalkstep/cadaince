@@ -100,8 +100,8 @@ export async function GET(req: Request) {
       if (stageId && gpvByStageMap[stageId]) {
         const props = deal.properties as Record<string, string | null> | null;
         gpvByStageMap[stageId].dealCount += 1;
-        gpvByStageMap[stageId].gpvFullYear += parseFloat(props?.gpv_full_year || "0") || 0;
-        gpvByStageMap[stageId].gpvInCurrentYear += parseFloat(props?.gpv_in_current_year || "0") || 0;
+        gpvByStageMap[stageId].gpvFullYear += parseFloat(props?.gross_payment_volume || "0") || 0;
+        gpvByStageMap[stageId].gpvInCurrentYear += parseFloat(props?.annual_gross_payment_volume || "0") || 0;
       }
     }
 
