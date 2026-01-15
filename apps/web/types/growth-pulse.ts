@@ -25,8 +25,7 @@ export interface GrowthPulseMetrics {
   totalPipelineArr: number;
   totalPipelineAmount: number;
   openDeals: number;
-  closedWonQtdArr: number;
-  closedWonQtdCount: number;
+  stageChanges: number;
   avgDealSize: number;
   avgDealAgeDays: number | null;
   sellerCount: number;

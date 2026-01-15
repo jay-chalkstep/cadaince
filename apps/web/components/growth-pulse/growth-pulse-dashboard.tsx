@@ -1,16 +1,13 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { SummaryCards } from "./summary-cards";
+import { SummaryCards, type VelocityDays } from "./summary-cards";
 import { GpvByStageChart } from "./gpv-by-stage-chart";
-import { SellerTable } from "./seller-table";
 import { DashboardSkeleton } from "./dashboard-skeleton";
 import { StageDealsSheet } from "./stage-deals-sheet";
 import type {
   GrowthPulseMetrics,
   GpvStageBreakdown,
-  SellerSummary,
-  OrgBenchmarks,
 } from "@/types/growth-pulse";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, RefreshCw, CheckCircle2, XCircle, Clock } from "lucide-react";
@@ -20,8 +17,6 @@ import { formatDistanceToNow } from "date-fns";
 interface DashboardData {
   metrics: GrowthPulseMetrics;
   gpvByStage: GpvStageBreakdown[];
-  sellers: SellerSummary[];
-  benchmarks: OrgBenchmarks;
 }
 
 interface SyncStatus {
@@ -46,6 +41,7 @@ export function GrowthPulseDashboard() {
   const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null);
   const [selectedStage, setSelectedStage] = useState<GpvStageBreakdown | null>(null);
   const [dealsSheetOpen, setDealsSheetOpen] = useState(false);
+  const [velocityDays, setVelocityDays] = useState<VelocityDays>(7);
 
   const handleStageClick = useCallback((stage: GpvStageBreakdown) => {
     setSelectedStage(stage);
@@ -97,34 +93,22 @@ export function GrowthPulseDashboard() {
     }
   }, []);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (days: VelocityDays) => {
     try {
       setError(null);
 
-      // Fetch metrics and sellers in parallel
-      const [metricsRes, sellersRes] = await Promise.all([
-        fetch("/api/growth-pulse/metrics"),
-        fetch("/api/growth-pulse/sellers"),
-      ]);
+      const metricsRes = await fetch(`/api/growth-pulse/metrics?velocity_days=${days}`);
 
       if (!metricsRes.ok) {
         const err = await metricsRes.json();
         throw new Error(err.error || "Failed to fetch metrics");
       }
 
-      if (!sellersRes.ok) {
-        const err = await sellersRes.json();
-        throw new Error(err.error || "Failed to fetch sellers");
-      }
-
       const metricsData = await metricsRes.json();
-      const sellersData = await sellersRes.json();
 
       setData({
         metrics: metricsData.summary,
         gpvByStage: metricsData.gpvByStage,
-        sellers: sellersData.sellers,
-        benchmarks: sellersData.benchmarks,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
@@ -149,7 +133,7 @@ export function GrowthPulseDashboard() {
 
       // Wait a moment then refresh data and sync status
       await new Promise((resolve) => setTimeout(resolve, 2000));
-      await Promise.all([fetchData(), fetchSyncStatus()]);
+      await Promise.all([fetchData(velocityDays), fetchSyncStatus()]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sync failed");
     } finally {
@@ -157,10 +141,15 @@ export function GrowthPulseDashboard() {
     }
   };
 
+  const handleVelocityDaysChange = useCallback((days: VelocityDays) => {
+    setVelocityDays(days);
+    fetchData(days);
+  }, [fetchData]);
+
   useEffect(() => {
-    fetchData();
+    fetchData(velocityDays);
     fetchSyncStatus();
-  }, [fetchData, fetchSyncStatus]);
+  }, [fetchSyncStatus]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loading) {
     return <DashboardSkeleton />;
@@ -172,7 +161,7 @@ export function GrowthPulseDashboard() {
         <AlertCircle className="h-4 w-4" />
         <AlertDescription className="flex items-center justify-between">
           <span>{error}</span>
-          <Button variant="outline" size="sm" onClick={fetchData}>
+          <Button variant="outline" size="sm" onClick={() => fetchData(velocityDays)}>
             Retry
           </Button>
         </AlertDescription>
@@ -183,7 +172,6 @@ export function GrowthPulseDashboard() {
   // Check if we have actual data (not just zeros from empty views)
   const hasNoData = !data || (
     data.metrics.openDeals === 0 &&
-    data.metrics.closedWonQtdCount === 0 &&
     data.gpvByStage.length === 0
   );
 
@@ -266,7 +254,11 @@ export function GrowthPulseDashboard() {
       </div>
 
       {/* Summary Cards */}
-      <SummaryCards metrics={data.metrics} />
+      <SummaryCards
+        metrics={data.metrics}
+        velocityDays={velocityDays}
+        onVelocityDaysChange={handleVelocityDaysChange}
+      />
 
       {/* GPV and Deal Count Charts */}
       <div className="grid gap-4 md:grid-cols-2">
@@ -294,9 +286,6 @@ export function GrowthPulseDashboard() {
           onStageClick={handleStageClick}
         />
       </div>
-
-      {/* Sellers Table */}
-      <SellerTable sellers={data.sellers} benchmarks={data.benchmarks} />
 
       {/* Stage Deals Sheet */}
       <StageDealsSheet

@@ -35,9 +35,17 @@ export async function GET(req: Request) {
 
   const organizationId = profile.organization_id;
 
+  // Get velocity_days from query params (default 7)
+  const { searchParams } = new URL(req.url);
+  const velocityDays = parseInt(searchParams.get("velocity_days") || "7");
+
   try {
-    // Fetch summary benchmarks and GPV by stage in parallel
-    const [benchmarksResult, gpvDealsResult] = await Promise.all([
+    // Calculate the date threshold for velocity
+    const velocityThreshold = new Date();
+    velocityThreshold.setDate(velocityThreshold.getDate() - velocityDays);
+
+    // Fetch summary benchmarks, GPV by stage, and stage changes in parallel
+    const [benchmarksResult, gpvDealsResult, stageChangesResult, openCountResult] = await Promise.all([
       // Org benchmarks for summary metrics
       supabase
         .from("vw_org_benchmarks")
@@ -52,6 +60,21 @@ export async function GET(req: Request) {
         .eq("organization_id", organizationId)
         .eq("pipeline", SALES_PIPELINE_ID)
         .in("deal_stage", SALES_PIPELINE_STAGE_ORDER),
+
+      // Stage changes count within velocity window
+      supabase
+        .from("hubspot_deal_stage_history")
+        .select("*", { count: "exact", head: true })
+        .eq("organization_id", organizationId)
+        .gte("entered_at", velocityThreshold.toISOString()),
+
+      // Get open deals count for Sales Pipeline (5 tracked stages only)
+      supabase
+        .from("hubspot_deals")
+        .select("*", { count: "exact", head: true })
+        .eq("organization_id", organizationId)
+        .eq("pipeline", SALES_PIPELINE_ID)
+        .in("deal_stage", SALES_PIPELINE_STAGE_ORDER),
     ]);
 
     // Calculate summary metrics from org benchmarks
@@ -59,33 +82,12 @@ export async function GET(req: Request) {
     const summary: GrowthPulseMetrics = {
       totalPipelineArr: benchmarks?.total_open_pipeline || 0,
       totalPipelineAmount: benchmarks?.total_open_pipeline || 0,
-      openDeals: Math.round(benchmarks?.avg_open_deals || 0) * (benchmarks?.seller_count || 0),
-      closedWonQtdArr: benchmarks?.total_closed_won_qtd || 0,
-      closedWonQtdCount: 0, // Will calculate below
+      openDeals: openCountResult.count || 0,
+      stageChanges: stageChangesResult.count || 0,
       avgDealSize: benchmarks?.avg_deal_size || 0,
       avgDealAgeDays: benchmarks?.avg_deal_age || null,
       sellerCount: benchmarks?.seller_count || 0,
     };
-
-    // Get actual closed won count for QTD
-    const { count: closedWonCount } = await supabase
-      .from("hubspot_deals")
-      .select("*", { count: "exact", head: true })
-      .eq("organization_id", organizationId)
-      .eq("deal_stage", "2137288414") // Closed Won stage ID
-      .gte("close_date", getQuarterStart().toISOString());
-
-    summary.closedWonQtdCount = closedWonCount || 0;
-
-    // Get open deals count for Sales Pipeline (5 tracked stages only)
-    const { count: openCount } = await supabase
-      .from("hubspot_deals")
-      .select("*", { count: "exact", head: true })
-      .eq("organization_id", organizationId)
-      .eq("pipeline", SALES_PIPELINE_ID)
-      .in("deal_stage", SALES_PIPELINE_STAGE_ORDER);
-
-    summary.openDeals = openCount || 0;
 
     // Aggregate GPV by stage
     const gpvByStageMap: Record<string, { dealCount: number; gpvFullYear: number; gpvInCurrentYear: number; gpByStage: number }> = {};
@@ -156,11 +158,4 @@ export async function GET(req: Request) {
     console.error("Error fetching growth pulse metrics:", error);
     return NextResponse.json({ error: "Failed to fetch metrics" }, { status: 500 });
   }
-}
-
-// Helper to get the start of the current quarter
-function getQuarterStart(): Date {
-  const now = new Date();
-  const quarter = Math.floor(now.getMonth() / 3);
-  return new Date(now.getFullYear(), quarter * 3, 1);
 }
