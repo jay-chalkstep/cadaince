@@ -20,6 +20,31 @@ interface GpvByStageChartProps {
   onStageClick?: (stage: GpvStageBreakdown) => void;
 }
 
+// Custom clickable dot component
+interface CustomDotProps {
+  cx?: number;
+  cy?: number;
+  payload?: GpvStageBreakdown;
+  onStageClick?: (stage: GpvStageBreakdown) => void;
+}
+
+function ClickableDot({ cx, cy, payload, onStageClick }: CustomDotProps) {
+  if (!cx || !cy || !payload) return null;
+
+  return (
+    <circle
+      cx={cx}
+      cy={cy}
+      r={8}
+      fill="hsl(var(--primary))"
+      stroke="white"
+      strokeWidth={2}
+      style={{ cursor: onStageClick ? "pointer" : "default" }}
+      onClick={() => onStageClick?.(payload)}
+    />
+  );
+}
+
 export function GpvByStageChart({ data, title, dataKey, valueType = "currency", onStageClick }: GpvByStageChartProps) {
   // Data is already sorted by order from the API
   const chartData = data.map((d) => ({
@@ -68,15 +93,6 @@ export function GpvByStageChart({ data, title, dataKey, valueType = "currency", 
               <AreaChart
                 data={chartData}
                 margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                onClick={(state) => {
-                  if (state && typeof state.activeTooltipIndex === 'number' && onStageClick) {
-                    const clickedStage = chartData[state.activeTooltipIndex];
-                    if (clickedStage) {
-                      onStageClick(clickedStage);
-                    }
-                  }
-                }}
-                style={{ cursor: onStageClick ? "pointer" : undefined }}
               >
                 <defs>
                   <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
@@ -117,6 +133,8 @@ export function GpvByStageChart({ data, title, dataKey, valueType = "currency", 
                   stroke="hsl(var(--primary))"
                   strokeWidth={2}
                   fill={`url(#${gradientId})`}
+                  dot={onStageClick ? (props) => <ClickableDot {...props} onStageClick={onStageClick} /> : false}
+                  activeDot={onStageClick ? (props) => <ClickableDot {...props} onStageClick={onStageClick} /> : { r: 6 }}
                 />
               </AreaChart>
             </ResponsiveContainer>
