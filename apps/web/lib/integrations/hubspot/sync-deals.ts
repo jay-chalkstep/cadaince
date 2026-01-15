@@ -33,6 +33,9 @@ const DEAL_PROPERTIES = [
   "annual_gross_payment_volume", // GPV In Current Year
   "gp_in_current_year",
   "gp_full_year",
+  "gp__full_year_",              // Alternate GP Full Year field name
+  "gpv__full_year_",             // Alternate GPV Full Year field name
+  "gpv__current_year",           // Alternate GPV Current Year field name
 
   // Classification - Standard
   "dealtype",
