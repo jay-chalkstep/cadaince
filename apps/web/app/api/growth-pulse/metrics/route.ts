@@ -77,12 +77,13 @@ export async function GET(req: Request) {
 
     summary.closedWonQtdCount = closedWonCount || 0;
 
-    // Get actual open deals count (exclude closed stages)
+    // Get open deals count for Sales Pipeline (5 tracked stages only)
     const { count: openCount } = await supabase
       .from("hubspot_deals")
       .select("*", { count: "exact", head: true })
       .eq("organization_id", organizationId)
-      .not("deal_stage", "in", "(2137288414,2137288415,2138003184)"); // Closed Won, Lost, Non-Lost
+      .eq("pipeline", SALES_PIPELINE_ID)
+      .in("deal_stage", SALES_PIPELINE_STAGE_ORDER);
 
     summary.openDeals = openCount || 0;
 
@@ -105,6 +106,13 @@ export async function GET(req: Request) {
         gpvByStageMap[stageId].gpByStage += parseFloat(props?.gp_in_current_year || "0") || 0;
       }
     }
+
+    // Calculate total pipeline GPV from the aggregated Sales Pipeline data
+    const totalPipelineGpv = Object.values(gpvByStageMap).reduce(
+      (sum, stage) => sum + stage.gpvFullYear, 0
+    );
+    summary.totalPipelineAmount = totalPipelineGpv;
+    summary.totalPipelineArr = totalPipelineGpv;
 
     // Convert to ordered array with stage metadata
     const gpvByStage: GpvStageBreakdown[] = SALES_PIPELINE_STAGE_ORDER.map((stageId) => {
