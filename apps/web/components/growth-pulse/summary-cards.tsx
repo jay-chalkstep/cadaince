@@ -1,26 +1,15 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { DollarSign, Target, Activity, Users } from "lucide-react";
+import { DollarSign, Calendar, Rocket, MessageSquare } from "lucide-react";
 import type { GrowthPulseMetrics } from "@/types/growth-pulse";
-import { formatCurrency, formatDays } from "@/types/growth-pulse";
-
-export type VelocityDays = 7 | 10 | 30 | 90;
+import { formatCurrency } from "@/types/growth-pulse";
 
 interface SummaryCardsProps {
   metrics: GrowthPulseMetrics;
-  velocityDays: VelocityDays;
-  onVelocityDaysChange: (days: VelocityDays) => void;
 }
 
-export function SummaryCards({ metrics, velocityDays, onVelocityDaysChange }: SummaryCardsProps) {
+export function SummaryCards({ metrics }: SummaryCardsProps) {
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
       {/* Open Pipeline */}
@@ -33,65 +22,55 @@ export function SummaryCards({ metrics, velocityDays, onVelocityDaysChange }: Su
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{formatCurrency(metrics.totalPipelineArr, true)}</div>
-          <p className="text-xs text-muted-foreground">{metrics.openDeals} open deals</p>
+          <p className="text-xs text-muted-foreground">
+            {formatCurrency(metrics.totalPipelineGp, true)} GP · {metrics.openDeals} deals
+          </p>
         </CardContent>
       </Card>
 
-      {/* Pipeline Velocity */}
+      {/* Closing in 30 Days */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium text-muted-foreground">
-            Pipeline Velocity
+            Closing in 30 Days
           </CardTitle>
-          <Activity className="h-4 w-4 text-muted-foreground" />
+          <Calendar className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{metrics.stageChanges}</div>
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-            <span>stage changes in</span>
-            <Select
-              value={velocityDays.toString()}
-              onValueChange={(value) => onVelocityDaysChange(parseInt(value) as VelocityDays)}
-            >
-              <SelectTrigger className="h-5 w-[70px] text-xs border-0 p-0 pl-1 focus:ring-0">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="7">7 days</SelectItem>
-                <SelectItem value="10">10 days</SelectItem>
-                <SelectItem value="30">30 days</SelectItem>
-                <SelectItem value="90">90 days</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <div className="text-2xl font-bold">{formatCurrency(metrics.closingNext30DaysGpv, true)}</div>
+          <p className="text-xs text-muted-foreground">
+            {formatCurrency(metrics.closingNext30DaysGp, true)} GP · {metrics.closingNext30DaysCount} deals
+          </p>
         </CardContent>
       </Card>
 
-      {/* Avg Deal Size */}
+      {/* Launching in 30 Days */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium text-muted-foreground">
-            Avg Deal Size
+            Launching in 30 Days
           </CardTitle>
-          <Target className="h-4 w-4 text-muted-foreground" />
+          <Rocket className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{formatCurrency(metrics.avgDealSize, true)}</div>
-          <p className="text-xs text-muted-foreground">{formatDays(metrics.avgDealAgeDays)} avg age</p>
+          <div className="text-2xl font-bold">{formatCurrency(metrics.launchingNext30DaysGpv, true)}</div>
+          <p className="text-xs text-muted-foreground">
+            {formatCurrency(metrics.launchingNext30DaysGp, true)} GP · {metrics.launchingNext30DaysCount} deals
+          </p>
         </CardContent>
       </Card>
 
-      {/* Active Sellers */}
+      {/* Total Activity */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium text-muted-foreground">
-            Active Sellers
+            Total Activity
           </CardTitle>
-          <Users className="h-4 w-4 text-muted-foreground" />
+          <MessageSquare className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{metrics.sellerCount}</div>
-          <p className="text-xs text-muted-foreground">with open pipeline</p>
+          <div className="text-2xl font-bold">{metrics.totalNumNotes.toLocaleString()}</div>
+          <p className="text-xs text-muted-foreground">notes across pipeline</p>
         </CardContent>
       </Card>
     </div>

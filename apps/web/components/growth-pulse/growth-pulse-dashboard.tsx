@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { SummaryCards, type VelocityDays } from "./summary-cards";
+import { SummaryCards } from "./summary-cards";
 import { GpvByStageChart } from "./gpv-by-stage-chart";
+import { ActivityBySellerChart } from "./activity-by-seller-chart";
 import { DashboardSkeleton } from "./dashboard-skeleton";
 import { StageDealsSheet } from "./stage-deals-sheet";
 import type {
   GrowthPulseMetrics,
   GpvStageBreakdown,
+  ActivityBySeller,
 } from "@/types/growth-pulse";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, RefreshCw, CheckCircle2, XCircle, Clock } from "lucide-react";
@@ -17,6 +19,7 @@ import { formatDistanceToNow } from "date-fns";
 interface DashboardData {
   metrics: GrowthPulseMetrics;
   gpvByStage: GpvStageBreakdown[];
+  activityBySeller: ActivityBySeller[];
 }
 
 interface SyncStatus {
@@ -41,7 +44,6 @@ export function GrowthPulseDashboard() {
   const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null);
   const [selectedStage, setSelectedStage] = useState<GpvStageBreakdown | null>(null);
   const [dealsSheetOpen, setDealsSheetOpen] = useState(false);
-  const [velocityDays, setVelocityDays] = useState<VelocityDays>(7);
 
   const handleStageClick = useCallback((stage: GpvStageBreakdown) => {
     setSelectedStage(stage);
@@ -93,11 +95,11 @@ export function GrowthPulseDashboard() {
     }
   }, []);
 
-  const fetchData = useCallback(async (days: VelocityDays) => {
+  const fetchData = useCallback(async () => {
     try {
       setError(null);
 
-      const metricsRes = await fetch(`/api/growth-pulse/metrics?velocity_days=${days}`);
+      const metricsRes = await fetch("/api/growth-pulse/metrics");
 
       if (!metricsRes.ok) {
         const err = await metricsRes.json();
@@ -109,6 +111,7 @@ export function GrowthPulseDashboard() {
       setData({
         metrics: metricsData.summary,
         gpvByStage: metricsData.gpvByStage,
+        activityBySeller: metricsData.activityBySeller,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
@@ -133,7 +136,7 @@ export function GrowthPulseDashboard() {
 
       // Wait a moment then refresh data and sync status
       await new Promise((resolve) => setTimeout(resolve, 2000));
-      await Promise.all([fetchData(velocityDays), fetchSyncStatus()]);
+      await Promise.all([fetchData(), fetchSyncStatus()]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sync failed");
     } finally {
@@ -141,15 +144,10 @@ export function GrowthPulseDashboard() {
     }
   };
 
-  const handleVelocityDaysChange = useCallback((days: VelocityDays) => {
-    setVelocityDays(days);
-    fetchData(days);
-  }, [fetchData]);
-
   useEffect(() => {
-    fetchData(velocityDays);
+    fetchData();
     fetchSyncStatus();
-  }, [fetchSyncStatus]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fetchData, fetchSyncStatus]);
 
   if (loading) {
     return <DashboardSkeleton />;
@@ -161,7 +159,7 @@ export function GrowthPulseDashboard() {
         <AlertCircle className="h-4 w-4" />
         <AlertDescription className="flex items-center justify-between">
           <span>{error}</span>
-          <Button variant="outline" size="sm" onClick={() => fetchData(velocityDays)}>
+          <Button variant="outline" size="sm" onClick={() => fetchData()}>
             Retry
           </Button>
         </AlertDescription>
@@ -254,13 +252,9 @@ export function GrowthPulseDashboard() {
       </div>
 
       {/* Summary Cards */}
-      <SummaryCards
-        metrics={data.metrics}
-        velocityDays={velocityDays}
-        onVelocityDaysChange={handleVelocityDaysChange}
-      />
+      <SummaryCards metrics={data.metrics} />
 
-      {/* GPV and Deal Count Charts */}
+      {/* Row 1: GPV Charts */}
       <div className="grid gap-4 md:grid-cols-2">
         <GpvByStageChart
           data={data.gpvByStage}
@@ -270,20 +264,40 @@ export function GrowthPulseDashboard() {
         />
         <GpvByStageChart
           data={data.gpvByStage}
-          title="Deal Count by Stage"
-          dataKey="dealCount"
-          valueType="number"
+          title="Current Year GPV by Stage"
+          dataKey="gpvInCurrentYear"
           onStageClick={handleStageClick}
         />
       </div>
 
-      {/* Gross Profit Chart */}
+      {/* Row 2: GP Charts */}
       <div className="grid gap-4 md:grid-cols-2">
         <GpvByStageChart
           data={data.gpvByStage}
-          title="Gross Profit by Stage"
+          title="Run Rate GP by Stage"
+          dataKey="gpFullYear"
+          onStageClick={handleStageClick}
+        />
+        <GpvByStageChart
+          data={data.gpvByStage}
+          title="Current Year GP by Stage"
           dataKey="gpByStage"
           onStageClick={handleStageClick}
+        />
+      </div>
+
+      {/* Row 3: Activity Charts */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <GpvByStageChart
+          data={data.gpvByStage}
+          title="Activity (Notes) by Stage"
+          dataKey="numNotes"
+          valueType="number"
+          onStageClick={handleStageClick}
+        />
+        <ActivityBySellerChart
+          data={data.activityBySeller}
+          title="Activity (Notes) by Seller"
         />
       </div>
 

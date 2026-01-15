@@ -6,6 +6,7 @@ import type {
   GpvStageBreakdown,
   OrgBenchmarks,
   GrowthPulseMetrics,
+  ActivityBySeller,
 } from "@/types/growth-pulse";
 import {
   SALES_PIPELINE_ID,
@@ -102,47 +103,103 @@ export async function GET(req: Request) {
     ]);
 
     // Aggregate GPV by stage and count unique sellers
-    const gpvByStageMap: Record<string, { dealCount: number; gpvFullYear: number; gpvInCurrentYear: number; gpByStage: number }> = {};
+    const gpvByStageMap: Record<string, { dealCount: number; gpvFullYear: number; gpvInCurrentYear: number; gpByStage: number; gpFullYear: number; numNotes: number }> = {};
     const uniqueOwners = new Set<string>();
+    const activityBySellerMap = new Map<string, { numNotes: number; dealCount: number }>();
+
+    // 30-day metrics
+    const now = new Date();
+    const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    let closingNext30DaysGpv = 0;
+    let closingNext30DaysGp = 0;
+    let closingNext30DaysCount = 0;
+    let launchingNext30DaysGpv = 0;
+    let launchingNext30DaysGp = 0;
+    let launchingNext30DaysCount = 0;
+    let totalNumNotes = 0;
+    let totalPipelineGp = 0;
 
     // Initialize all stages with zero values
     for (const stageId of SALES_PIPELINE_STAGE_ORDER) {
-      gpvByStageMap[stageId] = { dealCount: 0, gpvFullYear: 0, gpvInCurrentYear: 0, gpByStage: 0 };
+      gpvByStageMap[stageId] = { dealCount: 0, gpvFullYear: 0, gpvInCurrentYear: 0, gpByStage: 0, gpFullYear: 0, numNotes: 0 };
     }
 
     // Sum up GPV values from deals and collect unique owners
     for (const deal of gpvDealsResult.data || []) {
       const stageId = deal.deal_stage;
+      const props = deal.properties as Record<string, string | null> | null;
+
+      // Parse values with fallbacks for both property name variants
+      const gpvFullYearVal = parseFloat(props?.gross_payment_volume || props?.gpv__full_year_ || "0") || 0;
+      const gpvCurrentYearVal = parseFloat(props?.annual_gross_payment_volume || props?.gpv__current_year || "0") || 0;
+      const gpCurrentYearVal = parseFloat(props?.gp_in_current_year || "0") || 0;
+      const gpFullYearVal = parseFloat(props?.gp_full_year || props?.gp__full_year_ || "0") || 0;
+      const numNotesVal = parseInt(props?.num_notes || "0", 10) || 0;
+
       if (stageId && gpvByStageMap[stageId]) {
-        const props = deal.properties as Record<string, string | null> | null;
         gpvByStageMap[stageId].dealCount += 1;
-        gpvByStageMap[stageId].gpvFullYear += parseFloat(props?.gross_payment_volume || "0") || 0;
-        gpvByStageMap[stageId].gpvInCurrentYear += parseFloat(props?.annual_gross_payment_volume || "0") || 0;
-        gpvByStageMap[stageId].gpByStage += parseFloat(props?.gp_in_current_year || "0") || 0;
+        gpvByStageMap[stageId].gpvFullYear += gpvFullYearVal;
+        gpvByStageMap[stageId].gpvInCurrentYear += gpvCurrentYearVal;
+        gpvByStageMap[stageId].gpByStage += gpCurrentYearVal;
+        gpvByStageMap[stageId].gpFullYear += gpFullYearVal;
+        gpvByStageMap[stageId].numNotes += numNotesVal;
+
         if (deal.owner_id) {
           uniqueOwners.add(deal.owner_id);
+
+          // Track activity by seller
+          const sellerActivity = activityBySellerMap.get(deal.owner_id) || { numNotes: 0, dealCount: 0 };
+          sellerActivity.numNotes += numNotesVal;
+          sellerActivity.dealCount += 1;
+          activityBySellerMap.set(deal.owner_id, sellerActivity);
+        }
+
+        // Total metrics
+        totalNumNotes += numNotesVal;
+        totalPipelineGp += gpFullYearVal;
+
+        // 30-day closing metrics
+        const closeDate = props?.closedate ? new Date(props.closedate) : null;
+        if (closeDate && closeDate >= now && closeDate <= thirtyDaysFromNow) {
+          closingNext30DaysGpv += gpvFullYearVal;
+          closingNext30DaysGp += gpFullYearVal;
+          closingNext30DaysCount++;
+        }
+
+        // 30-day launching metrics
+        const launchDate = props?.onboarding__desired_launch_date ? new Date(props.onboarding__desired_launch_date) : null;
+        if (launchDate && launchDate >= now && launchDate <= thirtyDaysFromNow) {
+          launchingNext30DaysGpv += gpvFullYearVal;
+          launchingNext30DaysGp += gpFullYearVal;
+          launchingNext30DaysCount++;
         }
       }
     }
-
-    // Calculate summary metrics
-    const benchmarks = benchmarksResult.data;
-    const summary: GrowthPulseMetrics = {
-      totalPipelineArr: 0, // Will be set below
-      totalPipelineAmount: 0, // Will be set below
-      openDeals: openCountResult.count || 0,
-      stageChanges: stageChangesResult.count || 0,
-      avgDealSize: benchmarks?.avg_deal_size || 0,
-      avgDealAgeDays: benchmarks?.avg_deal_age || null,
-      sellerCount: uniqueOwners.size,
-    };
 
     // Calculate total pipeline GPV from the aggregated Sales Pipeline data
     const totalPipelineGpv = Object.values(gpvByStageMap).reduce(
       (sum, stage) => sum + stage.gpvFullYear, 0
     );
-    summary.totalPipelineAmount = totalPipelineGpv;
-    summary.totalPipelineArr = totalPipelineGpv;
+
+    // Calculate summary metrics
+    const benchmarks = benchmarksResult.data;
+    const summary: GrowthPulseMetrics = {
+      totalPipelineArr: totalPipelineGpv,
+      totalPipelineAmount: totalPipelineGpv,
+      totalPipelineGp,
+      openDeals: openCountResult.count || 0,
+      stageChanges: stageChangesResult.count || 0,
+      avgDealSize: benchmarks?.avg_deal_size || 0,
+      avgDealAgeDays: benchmarks?.avg_deal_age || null,
+      sellerCount: uniqueOwners.size,
+      closingNext30DaysGpv,
+      closingNext30DaysGp,
+      closingNext30DaysCount,
+      launchingNext30DaysGpv,
+      launchingNext30DaysGp,
+      launchingNext30DaysCount,
+      totalNumNotes,
+    };
 
     // Convert to ordered array with stage metadata
     const gpvByStage: GpvStageBreakdown[] = SALES_PIPELINE_STAGE_ORDER.map((stageId) => {
@@ -157,8 +214,38 @@ export async function GET(req: Request) {
         gpvFullYear: aggregated.gpvFullYear,
         gpvInCurrentYear: aggregated.gpvInCurrentYear,
         gpByStage: aggregated.gpByStage,
+        gpFullYear: aggregated.gpFullYear,
+        numNotes: aggregated.numNotes,
       };
     });
+
+    // Fetch owner names for activity by seller chart
+    const ownerIds = Array.from(activityBySellerMap.keys());
+    let activityBySeller: ActivityBySeller[] = [];
+
+    if (ownerIds.length > 0) {
+      const { data: owners } = await supabase
+        .from("hubspot_owners")
+        .select("hubspot_owner_id, first_name, last_name")
+        .eq("organization_id", organizationId)
+        .in("hubspot_owner_id", ownerIds);
+
+      const ownerNameMap = new Map(
+        (owners || []).map(o => [
+          o.hubspot_owner_id,
+          `${o.first_name || ""} ${o.last_name || ""}`.trim() || "Unknown"
+        ])
+      );
+
+      activityBySeller = Array.from(activityBySellerMap.entries())
+        .map(([ownerId, data]) => ({
+          ownerId,
+          ownerName: ownerNameMap.get(ownerId) || "Unknown",
+          numNotes: data.numNotes,
+          dealCount: data.dealCount,
+        }))
+        .sort((a, b) => b.numNotes - a.numNotes);
+    }
 
     // Format org benchmarks
     const orgBenchmarks: OrgBenchmarks = {
@@ -178,6 +265,7 @@ export async function GET(req: Request) {
     const response: GrowthPulseMetricsResponse = {
       summary,
       gpvByStage,
+      activityBySeller,
       benchmarks: orgBenchmarks,
     };
 

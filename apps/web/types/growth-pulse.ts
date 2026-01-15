@@ -24,11 +24,20 @@ export const TIME_FRAME_OPTIONS: TimeFrameOption[] = [
 export interface GrowthPulseMetrics {
   totalPipelineArr: number;
   totalPipelineAmount: number;
+  totalPipelineGp: number;
   openDeals: number;
   stageChanges: number;
   avgDealSize: number;
   avgDealAgeDays: number | null;
   sellerCount: number;
+  // 30-day metrics
+  closingNext30DaysGpv: number;
+  closingNext30DaysGp: number;
+  closingNext30DaysCount: number;
+  launchingNext30DaysGpv: number;
+  launchingNext30DaysGp: number;
+  launchingNext30DaysCount: number;
+  totalNumNotes: number;
 }
 
 // Pipeline stage breakdown
@@ -188,6 +197,7 @@ export interface GrowthPulseFilters {
 export interface GrowthPulseMetricsResponse {
   summary: GrowthPulseMetrics;
   gpvByStage: GpvStageBreakdown[];
+  activityBySeller: ActivityBySeller[];
   benchmarks: OrgBenchmarks;
 }
 
@@ -299,6 +309,16 @@ export interface GpvStageBreakdown {
   gpvFullYear: number;
   gpvInCurrentYear: number;
   gpByStage: number;
+  gpFullYear: number;
+  numNotes: number;
+}
+
+// Activity by seller for bar chart
+export interface ActivityBySeller {
+  ownerId: string;
+  ownerName: string;
+  numNotes: number;
+  dealCount: number;
 }
 
 // Stage colors for consistent visualization

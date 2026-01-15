@@ -15,7 +15,7 @@ import { formatCurrency } from "@/types/growth-pulse";
 interface GpvByStageChartProps {
   data: GpvStageBreakdown[];
   title: string;
-  dataKey: "gpvFullYear" | "gpvInCurrentYear" | "dealCount" | "gpByStage";
+  dataKey: "gpvFullYear" | "gpvInCurrentYear" | "dealCount" | "gpByStage" | "gpFullYear" | "numNotes";
   valueType?: "currency" | "number";
   onStageClick?: (stage: GpvStageBreakdown) => void;
 }
@@ -71,9 +71,15 @@ export function GpvByStageChart({ data, title, dataKey, valueType = "currency", 
       case "dealCount":
         return "Deals";
       case "gpByStage":
-        return "Gross Profit";
+        return "Current Year GP";
+      case "gpFullYear":
+        return "Run Rate GP";
+      case "numNotes":
+        return "Notes";
+      case "gpvInCurrentYear":
+        return "Current Year GPV";
       default:
-        return "GPV";
+        return "Run Rate GPV";
     }
   };
 

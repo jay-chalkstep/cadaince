@@ -57,9 +57,13 @@ const DEAL_PROPERTIES = [
   "hs_lastmodifieddate",
   "decision_date",
   "launch_date",
+  "onboarding__desired_launch_date",
 
   // Owner
   "hubspot_owner_id",
+
+  // Activity
+  "num_notes",
 ];
 
 export interface SyncDealsResult {
