@@ -59,7 +59,7 @@ export function GpvByStageChart({ data, title, dataKey }: GpvByStageChartProps) 
                   axisLine={false}
                 />
                 <Tooltip
-                  formatter={(value: number) => [formatCurrency(value), "GPV"]}
+                  formatter={(value) => [formatCurrency(value as number), "GPV"]}
                   labelFormatter={(label, payload) => {
                     if (payload && payload[0]) {
                       const item = payload[0].payload as GpvStageBreakdown;
