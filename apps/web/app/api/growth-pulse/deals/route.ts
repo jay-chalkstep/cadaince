@@ -45,7 +45,7 @@ export async function GET(req: Request) {
     // Build query
     let query = supabase
       .from("hubspot_deals")
-      .select("*, hubspot_owners!hubspot_deals_owner_id_fkey(first_name, last_name)", { count: "exact" })
+      .select("*", { count: "exact" })
       .eq("organization_id", organizationId);
 
     // Apply filters
