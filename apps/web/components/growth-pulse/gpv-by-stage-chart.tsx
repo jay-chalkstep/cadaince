@@ -91,7 +91,7 @@ export function GpvByStageChart({ data, title, dataKey, valueType = "currency", 
       <CardContent>
         {!hasData ? (
           <div className="flex items-center justify-center h-[250px] text-muted-foreground">
-            No GPV data available
+            No data available
           </div>
         ) : (
           <div className="h-[250px]">

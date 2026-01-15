@@ -156,13 +156,13 @@ export async function GET(req: Request) {
 
         // Total metrics
         totalNumNotes += numNotesVal;
-        totalPipelineGp += gpFullYearVal;
+        totalPipelineGp += gpCurrentYearVal; // Use current year GP since that's what has data
 
         // 30-day closing metrics
         const closeDate = props?.closedate ? new Date(props.closedate) : null;
         if (closeDate && closeDate >= now && closeDate <= thirtyDaysFromNow) {
           closingNext30DaysGpv += gpvFullYearVal;
-          closingNext30DaysGp += gpFullYearVal;
+          closingNext30DaysGp += gpCurrentYearVal; // Use current year GP
           closingNext30DaysCount++;
         }
 
@@ -170,7 +170,7 @@ export async function GET(req: Request) {
         const launchDate = props?.onboarding__desired_launch_date ? new Date(props.onboarding__desired_launch_date) : null;
         if (launchDate && launchDate >= now && launchDate <= thirtyDaysFromNow) {
           launchingNext30DaysGpv += gpvFullYearVal;
-          launchingNext30DaysGp += gpFullYearVal;
+          launchingNext30DaysGp += gpCurrentYearVal; // Use current year GP
           launchingNext30DaysCount++;
         }
       }
