@@ -68,10 +68,12 @@ export function GpvByStageChart({ data, title, dataKey, valueType = "currency", 
               <AreaChart
                 data={chartData}
                 margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                onClick={(data) => {
-                  const chartData = data as { activePayload?: Array<{ payload: GpvStageBreakdown }> } | null;
-                  if (chartData?.activePayload?.[0] && onStageClick) {
-                    onStageClick(chartData.activePayload[0].payload);
+                onClick={(state) => {
+                  if (state && typeof state.activeTooltipIndex === 'number' && onStageClick) {
+                    const clickedStage = chartData[state.activeTooltipIndex];
+                    if (clickedStage) {
+                      onStageClick(clickedStage);
+                    }
                   }
                 }}
                 style={{ cursor: onStageClick ? "pointer" : undefined }}
