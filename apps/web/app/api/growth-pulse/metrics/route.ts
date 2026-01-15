@@ -102,7 +102,7 @@ export async function GET(req: Request) {
         gpvByStageMap[stageId].dealCount += 1;
         gpvByStageMap[stageId].gpvFullYear += parseFloat(props?.gross_payment_volume || "0") || 0;
         gpvByStageMap[stageId].gpvInCurrentYear += parseFloat(props?.annual_gross_payment_volume || "0") || 0;
-        gpvByStageMap[stageId].gpByStage += parseFloat(props?.calculated_gross_profit || "0") || 0;
+        gpvByStageMap[stageId].gpByStage += parseFloat(props?.gp_in_current_year || "0") || 0;
       }
     }
 
