@@ -158,25 +158,30 @@ export async function GET(
     const topDeals: DealSummary[] = deals
       .filter((d) => d.deal_stage !== "closedwon" && d.deal_stage !== "closedlost")
       .slice(0, 10)
-      .map((deal) => ({
-        id: deal.id,
-        hubspotDealId: deal.hubspot_deal_id,
-        dealName: deal.deal_name,
-        amount: deal.amount,
-        arr: deal.hs_arr,
-        stage: deal.deal_stage,
-        pipeline: deal.pipeline,
-        dealType: deal.deal_type,
-        offering: deal.offering,
-        closeDate: deal.close_date,
-        createDate: deal.create_date,
-        companyName: deal.company_name,
-        daysInPipeline: deal.create_date
-          ? Math.floor((Date.now() - new Date(deal.create_date).getTime()) / (1000 * 60 * 60 * 24))
-          : null,
-        ownerId: deal.owner_id,
-        ownerName: `${owner.first_name || ""} ${owner.last_name || ""}`.trim() || null,
-      }));
+      .map((deal) => {
+        const props = deal.properties as Record<string, string | null> | null;
+        const gpv = parseFloat(props?.gross_payment_volume || "0") || null;
+        return {
+          id: deal.id,
+          hubspotDealId: deal.hubspot_deal_id,
+          dealName: deal.deal_name,
+          amount: deal.amount,
+          arr: deal.hs_arr,
+          gpv,
+          stage: deal.deal_stage,
+          pipeline: deal.pipeline,
+          dealType: deal.deal_type,
+          offering: deal.offering,
+          closeDate: deal.close_date,
+          createDate: deal.create_date,
+          companyName: deal.company_name,
+          daysInPipeline: deal.create_date
+            ? Math.floor((Date.now() - new Date(deal.create_date).getTime()) / (1000 * 60 * 60 * 24))
+            : null,
+          ownerId: deal.owner_id,
+          ownerName: `${owner.first_name || ""} ${owner.last_name || ""}`.trim() || null,
+        };
+      });
 
     // Calculate top accounts by activity
     const accountActivityMap = new Map<string, { companyName: string; dealCount: number; totalArr: number; activityCount: number; lastActivityDate: string | null }>();

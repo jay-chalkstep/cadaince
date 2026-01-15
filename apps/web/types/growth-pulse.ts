@@ -100,6 +100,7 @@ export interface DealSummary {
   dealName: string | null;
   amount: number | null;
   arr: number | null;
+  gpv: number | null;
   stage: string | null;
   pipeline: string | null;
   dealType: string | null;

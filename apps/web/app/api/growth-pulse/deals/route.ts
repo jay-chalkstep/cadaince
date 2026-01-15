@@ -97,25 +97,30 @@ export async function GET(req: Request) {
     }
 
     // Format deals
-    const formattedDeals: DealSummary[] = (deals || []).map((deal) => ({
-      id: deal.id,
-      hubspotDealId: deal.hubspot_deal_id,
-      dealName: deal.deal_name,
-      amount: deal.amount,
-      arr: deal.hs_arr,
-      stage: deal.deal_stage,
-      pipeline: deal.pipeline,
-      dealType: deal.deal_type,
-      offering: deal.offering,
-      closeDate: deal.close_date,
-      createDate: deal.create_date,
-      companyName: deal.company_name,
-      daysInPipeline: deal.create_date
-        ? Math.floor((Date.now() - new Date(deal.create_date).getTime()) / (1000 * 60 * 60 * 24))
-        : null,
-      ownerId: deal.owner_id,
-      ownerName: deal.owner_id ? ownerMap.get(deal.owner_id) || null : null,
-    }));
+    const formattedDeals: DealSummary[] = (deals || []).map((deal) => {
+      const props = deal.properties as Record<string, string | null> | null;
+      const gpv = parseFloat(props?.gross_payment_volume || "0") || null;
+      return {
+        id: deal.id,
+        hubspotDealId: deal.hubspot_deal_id,
+        dealName: deal.deal_name,
+        amount: deal.amount,
+        arr: deal.hs_arr,
+        gpv,
+        stage: deal.deal_stage,
+        pipeline: deal.pipeline,
+        dealType: deal.deal_type,
+        offering: deal.offering,
+        closeDate: deal.close_date,
+        createDate: deal.create_date,
+        companyName: deal.company_name,
+        daysInPipeline: deal.create_date
+          ? Math.floor((Date.now() - new Date(deal.create_date).getTime()) / (1000 * 60 * 60 * 24))
+          : null,
+        ownerId: deal.owner_id,
+        ownerName: deal.owner_id ? ownerMap.get(deal.owner_id) || null : null,
+      };
+    });
 
     const response: DealsListResponse = {
       deals: formattedDeals,
