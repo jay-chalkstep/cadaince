@@ -61,12 +61,13 @@ export async function GET(req: Request) {
         .eq("pipeline", SALES_PIPELINE_ID)
         .in("deal_stage", SALES_PIPELINE_STAGE_ORDER),
 
-      // Stage changes count within velocity window
+      // Stage changes count within velocity window (only tracked stages)
       supabase
         .from("hubspot_deal_stage_history")
         .select("*", { count: "exact", head: true })
         .eq("organization_id", organizationId)
-        .gte("entered_at", velocityThreshold.toISOString()),
+        .gte("entered_at", velocityThreshold.toISOString())
+        .or(`from_stage.in.(${SALES_PIPELINE_STAGE_ORDER.join(",")}),to_stage.in.(${SALES_PIPELINE_STAGE_ORDER.join(",")})`),
 
       // Get open deals count for Sales Pipeline (5 tracked stages only)
       supabase
