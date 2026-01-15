@@ -2,13 +2,12 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  LineChart,
-  Line,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   Tooltip,
   ResponsiveContainer,
-  CartesianGrid,
 } from "recharts";
 import type { GpvStageBreakdown } from "@/types/growth-pulse";
 import { formatCurrency } from "@/types/growth-pulse";
@@ -28,6 +27,9 @@ export function GpvByStageChart({ data, title, dataKey }: GpvByStageChartProps) 
 
   const hasData = chartData.some((d) => d.value > 0);
 
+  // Generate unique gradient ID based on dataKey to avoid conflicts
+  const gradientId = `colorGpv-${dataKey}`;
+
   return (
     <Card>
       <CardHeader>
@@ -41,11 +43,16 @@ export function GpvByStageChart({ data, title, dataKey }: GpvByStageChartProps) 
         ) : (
           <div className="h-[250px]">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart
+              <AreaChart
                 data={chartData}
                 margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
               >
-                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                <defs>
+                  <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0.05} />
+                  </linearGradient>
+                </defs>
                 <XAxis
                   dataKey="shortLabel"
                   tick={{ fontSize: 11 }}
@@ -73,23 +80,14 @@ export function GpvByStageChart({ data, title, dataKey }: GpvByStageChartProps) 
                     borderRadius: "8px",
                   }}
                 />
-                <Line
+                <Area
                   type="monotone"
                   dataKey="value"
                   stroke="hsl(var(--primary))"
                   strokeWidth={2}
-                  dot={{
-                    fill: "hsl(var(--primary))",
-                    strokeWidth: 2,
-                    r: 4,
-                  }}
-                  activeDot={{
-                    fill: "hsl(var(--primary))",
-                    strokeWidth: 2,
-                    r: 6,
-                  }}
+                  fill={`url(#${gradientId})`}
                 />
-              </LineChart>
+              </AreaChart>
             </ResponsiveContainer>
           </div>
         )}
