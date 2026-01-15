@@ -42,11 +42,27 @@ export async function GET(req: Request) {
   const sortOrder = searchParams.get("sort_order") || "desc";
 
   try {
+    // Fetch org settings to get excluded owners
+    const { data: org } = await supabase
+      .from("organizations")
+      .select("settings")
+      .eq("id", organizationId)
+      .single();
+
+    const orgSettings = org?.settings as Record<string, unknown> | null;
+    const pulseSettings = orgSettings?.pulse_settings as { growth_pulse_excluded_owners?: string[] } | undefined;
+    const excludedOwners = pulseSettings?.growth_pulse_excluded_owners || [];
+
     // Build query
     let query = supabase
       .from("hubspot_deals")
       .select("*", { count: "exact" })
       .eq("organization_id", organizationId);
+
+    // Apply owner exclusion filter
+    if (excludedOwners.length > 0) {
+      query = query.not("owner_id", "in", `(${excludedOwners.join(",")})`);
+    }
 
     // Apply filters
     if (ownerId) {

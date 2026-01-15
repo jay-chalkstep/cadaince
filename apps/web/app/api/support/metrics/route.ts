@@ -56,6 +56,17 @@ export async function GET(req: Request) {
   const ownerId = searchParams.get("owner_id");
   const clientName = searchParams.get("client_name");
 
+  // Fetch org settings to get excluded owners
+  const { data: org } = await supabase
+    .from("organizations")
+    .select("settings")
+    .eq("id", profile.organization_id)
+    .single();
+
+  const orgSettings = org?.settings as Record<string, unknown> | null;
+  const pulseSettings = orgSettings?.pulse_settings as { customer_pulse_excluded_owners?: string[] } | undefined;
+  const excludedOwners = pulseSettings?.customer_pulse_excluded_owners || [];
+
   // Calculate date ranges
   const now = new Date();
   let endDate = now;
@@ -101,6 +112,12 @@ export async function GET(req: Request) {
       if (clientName) {
         query = query.eq("properties->>client_name", clientName);
       }
+      // Apply owner exclusion filter
+      if (excludedOwners.length > 0) {
+        for (const excludedId of excludedOwners) {
+          query = query.neq("properties->>hubspot_owner_id", excludedId);
+        }
+      }
 
       const { data, error } = await query;
 
@@ -122,17 +139,26 @@ export async function GET(req: Request) {
   };
 
   try {
+    // Build open tickets query with optional owner exclusion
+    let openTicketsQuery = supabase
+      .from("integration_records")
+      .select("id", { count: "exact", head: true })
+      .eq("organization_id", profile.organization_id)
+      .eq("object_type", "tickets")
+      .eq("properties->>hs_is_closed", "false");
+
+    if (excludedOwners.length > 0) {
+      for (const excludedId of excludedOwners) {
+        openTicketsQuery = openTicketsQuery.neq("properties->>hubspot_owner_id", excludedId);
+      }
+    }
+
     // Fetch current period, previous period, and all open tickets in parallel
     const [currentTickets, previousTickets, openTicketsResult] = await Promise.all([
       fetchAllTickets(startDate, endDate),
       fetchAllTickets(previousStart, previousEnd),
       // Open tickets query - NO date filter, just currently open tickets
-      supabase
-        .from("integration_records")
-        .select("id", { count: "exact", head: true })
-        .eq("organization_id", profile.organization_id)
-        .eq("object_type", "tickets")
-        .eq("properties->>hs_is_closed", "false"),
+      openTicketsQuery,
     ]);
 
     const totalOpenTickets = openTicketsResult.count || 0;

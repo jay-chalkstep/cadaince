@@ -38,6 +38,17 @@ export async function GET(req: Request) {
   const ownerId = searchParams.get("owner_id");
   const clientName = searchParams.get("client_name");
 
+  // Fetch org settings to get excluded owners
+  const { data: org } = await supabase
+    .from("organizations")
+    .select("settings")
+    .eq("id", profile.organization_id)
+    .single();
+
+  const orgSettings = org?.settings as Record<string, unknown> | null;
+  const pulseSettings = orgSettings?.pulse_settings as { customer_pulse_excluded_owners?: string[] } | undefined;
+  const excludedOwners = pulseSettings?.customer_pulse_excluded_owners || [];
+
   // Calculate date range
   const now = new Date();
   let endDate = now;
@@ -74,6 +85,12 @@ export async function GET(req: Request) {
     }
     if (search) {
       query = query.or(`properties->>subject.ilike.%${search}%,properties->>content.ilike.%${search}%`);
+    }
+    // Apply owner exclusion filter
+    if (excludedOwners.length > 0) {
+      for (const excludedId of excludedOwners) {
+        query = query.neq("properties->>hubspot_owner_id", excludedId);
+      }
     }
 
     // Apply pagination
